@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, TextInput } from 'react-native';
 import { Vehicle } from '@/types/maintenance';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface VehicleProfileCardProps {
   vehicle: Vehicle;
   onOdometerUpdate: (newValue: number) => void;
+  onEditVehicle?: () => void;
 }
 
-export default function VehicleProfileCard({ vehicle, onOdometerUpdate }: VehicleProfileCardProps) {
+export default function VehicleProfileCard({ vehicle, onOdometerUpdate, onEditVehicle }: VehicleProfileCardProps) {
+  const { t } = useLanguage();
   const [editing, setEditing] = useState(false);
   const [inputValue, setInputValue] = useState('');
 
@@ -69,30 +72,52 @@ export default function VehicleProfileCard({ vehicle, onOdometerUpdate }: Vehicl
             opacity: 0.15,
           }}
         />
-        {/* Plate badge */}
+        {/* Plate badge + Edit button */}
         <View
           style={{
             position: 'absolute',
             top: 12,
             right: 12,
-            backgroundColor: 'rgba(13,27,42,0.85)',
-            borderRadius: 8,
-            paddingVertical: 4,
-            paddingHorizontal: 10,
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.15)',
+            flexDirection: 'row',
+            gap: 8,
+            alignItems: 'center',
           }}
         >
-          <Text
+          <View
             style={{
-              color: '#FFFFFF',
-              fontSize: 11,
-              fontFamily: 'SpaceMono',
-              letterSpacing: 1,
+              backgroundColor: 'rgba(13,27,42,0.85)',
+              borderRadius: 8,
+              paddingVertical: 4,
+              paddingHorizontal: 10,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.15)',
             }}
           >
-            {vehicle.plateNumber}
-          </Text>
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontSize: 11,
+                fontFamily: 'SpaceMono',
+                letterSpacing: 1,
+              }}
+            >
+              {vehicle.plateNumber}
+            </Text>
+          </View>
+          {onEditVehicle && (
+            <TouchableOpacity
+              onPress={onEditVehicle}
+              activeOpacity={0.8}
+              style={{
+                backgroundColor: 'rgba(245,166,35,0.85)',
+                borderRadius: 8,
+                paddingVertical: 4,
+                paddingHorizontal: 10,
+              }}
+            >
+              <Text style={{ color: '#0D1B2A', fontSize: 11, fontWeight: '700' }}>✏️ {t('editVehicle')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -171,24 +196,23 @@ export default function VehicleProfileCard({ vehicle, onOdometerUpdate }: Vehicl
                   paddingBottom: 4,
                 }}
               />
-              <TouchableOpacity
-                onPress={handleConfirm}
-                style={{
-                  backgroundColor: vehicle.color,
-                  borderRadius: 10,
-                  paddingVertical: 10,
-                  paddingHorizontal: 18,
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={{ color: '#0D1B2A', fontWeight: '700', fontSize: 13 }}>UPDATE</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => { setEditing(false); setInputValue(''); }}
-                activeOpacity={0.7}
-              >
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Cancel</Text>
-              </TouchableOpacity>
+                <TouchableOpacity onPress={handleConfirm}
+                  style={{
+                    backgroundColor: vehicle.color,
+                    borderRadius: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 18,
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: '#0D1B2A', fontWeight: '700', fontSize: 13 }}>{t('update')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { setEditing(false); setInputValue(''); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>{t('cancel')}</Text>
+                </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity onPress={() => setEditing(true)} activeOpacity={0.9}>
@@ -216,11 +240,11 @@ export default function VehicleProfileCard({ vehicle, onOdometerUpdate }: Vehicl
                     borderColor: 'rgba(245,166,35,0.3)',
                   }}
                 >
-                  <Text style={{ color: '#F5A623', fontSize: 10, fontWeight: '600' }}>TAP TO UPDATE</Text>
+                  <Text style={{ color: '#F5A623', fontSize: 10, fontWeight: '600' }}>{t('tapToUpdate')}</Text>
                 </View>
               </View>
               <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 4 }}>
-                Last updated {daysSinceUpdate === 0 ? 'today' : `${daysSinceUpdate} day${daysSinceUpdate > 1 ? 's' : ''} ago`}
+                {t('lastUpdated')} {daysSinceUpdate === 0 ? t('today') : `${daysSinceUpdate} ${daysSinceUpdate > 1 ? t('daysAgo') : t('dayAgo')}`}
               </Text>
             </TouchableOpacity>
           )}

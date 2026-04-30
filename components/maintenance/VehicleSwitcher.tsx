@@ -6,9 +6,10 @@ interface VehicleSwitcherProps {
   vehicles: Vehicle[];
   selectedId: string;
   onSelect: (id: string) => void;
+  onAddVehicle?: () => void;
 }
 
-export default function VehicleSwitcher({ vehicles, selectedId, onSelect }: VehicleSwitcherProps) {
+export default function VehicleSwitcher({ vehicles, selectedId, onSelect, onAddVehicle }: VehicleSwitcherProps) {
   return (
     <ScrollView
       horizontal
@@ -89,6 +90,7 @@ export default function VehicleSwitcher({ vehicles, selectedId, onSelect }: Vehi
           gap: 4,
         }}
         activeOpacity={0.7}
+        onPress={onAddVehicle}
       >
         <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16, lineHeight: 20 }}>+</Text>
         <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Add</Text>

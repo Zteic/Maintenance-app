@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { RepairEntry } from '@/types/maintenance';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface RepairHistoryProps {
   repairs: RepairEntry[];
@@ -14,7 +15,19 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+function extractReceipts(notes: string): { cleanNotes: string; receipts: string[] } {
+  const match = notes.match(/\[receipts:(.*?)\]/);
+  if (match) {
+    return {
+      cleanNotes: notes.replace(/\n?\[receipts:.*?\]/, '').trim(),
+      receipts: match[1].split(',').filter(Boolean),
+    };
+  }
+  return { cleanNotes: notes, receipts: [] };
+}
+
 export default function RepairHistory({ repairs }: RepairHistoryProps) {
+  const { t, lang } = useLanguage();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const sorted = [...repairs].sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -29,18 +42,27 @@ export default function RepairHistory({ repairs }: RepairHistoryProps) {
           paddingHorizontal: 20,
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>Repair History</Text>
-        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>{repairs.length} records</Text>
+        <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>{t('repairHistory')}</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>{repairs.length} {t('records')}</Text>
       </View>
+
+      {sorted.length === 0 && (
+        <View style={{ alignItems: 'center', paddingVertical: 40, gap: 8 }}>
+          <Text style={{ fontSize: 32 }}>🔧</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>{t('noRepairs')}</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>{t('tapPlusToAdd')}</Text>
+        </View>
+      )}
 
       <View style={{ gap: 8, paddingHorizontal: 20 }}>
         {sorted.map((repair) => {
           const isExpanded = expandedId === repair.id;
-          const dateStr = repair.date.toLocaleDateString('en-US', {
+          const dateStr = repair.date.toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
           });
+          const { cleanNotes, receipts } = extractReceipts(repair.notes || '');
 
           return (
             <TouchableOpacity
@@ -86,7 +108,7 @@ export default function RepairHistory({ repairs }: RepairHistoryProps) {
                     {repair.serviceType}
                   </Text>
                   <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>
-                    {dateStr} · {repair.odometer.toLocaleString()} km
+                    {dateStr} · {repair.odometer.toLocaleString()} {t('km')}
                   </Text>
                 </View>
 
@@ -104,7 +126,7 @@ export default function RepairHistory({ repairs }: RepairHistoryProps) {
                     }}
                   >
                     <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>
-                      {isExpanded ? '▲ less' : '▼ more'}
+                      {isExpanded ? '▲' : '▼'}
                     </Text>
                   </View>
                 </View>
@@ -131,7 +153,7 @@ export default function RepairHistory({ repairs }: RepairHistoryProps) {
                       }}
                     >
                       <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: 1 }}>
-                        WORKSHOP
+                        {t('workshop').toUpperCase()}
                       </Text>
                       <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
                         {repair.workshop}
@@ -151,13 +173,13 @@ export default function RepairHistory({ repairs }: RepairHistoryProps) {
                           NEXT INTERVAL
                         </Text>
                         <Text style={{ color: '#4ECDC4', fontSize: 13, fontWeight: '600', fontFamily: 'SpaceMono' }}>
-                          +{repair.nextIntervalKm.toLocaleString()} km
+                          +{repair.nextIntervalKm.toLocaleString()} {t('km')}
                         </Text>
                       </View>
                     )}
                   </View>
 
-                  {repair.notes && (
+                  {cleanNotes ? (
                     <View
                       style={{
                         backgroundColor: 'rgba(13,27,42,0.6)',
@@ -167,11 +189,37 @@ export default function RepairHistory({ repairs }: RepairHistoryProps) {
                       }}
                     >
                       <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: 1 }}>
-                        NOTES
+                        {t('notes')}
                       </Text>
                       <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 20 }}>
-                        {repair.notes}
+                        {cleanNotes}
                       </Text>
+                    </View>
+                  ) : null}
+
+                  {/* Receipt images */}
+                  {receipts.length > 0 && (
+                    <View
+                      style={{
+                        backgroundColor: 'rgba(13,27,42,0.6)',
+                        borderRadius: 10,
+                        padding: 12,
+                        gap: 8,
+                      }}
+                    >
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: 1 }}>
+                        {t('uploadReceipt').toUpperCase()}
+                      </Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        {receipts.map((uri, idx) => (
+                          <Image
+                            key={idx}
+                            source={{ uri }}
+                            style={{ width: 80, height: 80, borderRadius: 8 }}
+                            resizeMode="cover"
+                          />
+                        ))}
+                      </View>
                     </View>
                   )}
                 </View>

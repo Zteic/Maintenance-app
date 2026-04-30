@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Reminder } from '@/types/maintenance';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface UpcomingRemindersProps {
   reminders: Reminder[];
@@ -8,17 +9,19 @@ interface UpcomingRemindersProps {
   onAddReminder?: (serviceType: string) => void;
 }
 
-const STATUS_CONFIG = {
-  safe: { color: '#4ECDC4', bg: 'rgba(78,205,196,0.1)', label: 'ON TRACK', border: 'rgba(78,205,196,0.2)' },
-  approaching: { color: '#F5A623', bg: 'rgba(245,166,35,0.1)', label: 'APPROACHING', border: 'rgba(245,166,35,0.2)' },
-  overdue: { color: '#FF6B6B', bg: 'rgba(255,107,107,0.1)', label: 'OVERDUE', border: 'rgba(255,107,107,0.2)' },
-};
-
 export default function UpcomingReminders({
   reminders,
   currentOdometer,
   onAddReminder,
 }: UpcomingRemindersProps) {
+  const { t, lang } = useLanguage();
+
+  const STATUS_CONFIG = {
+    safe: { color: '#4ECDC4', bg: 'rgba(78,205,196,0.1)', label: t('onTrack'), border: 'rgba(78,205,196,0.2)' },
+    approaching: { color: '#F5A623', bg: 'rgba(245,166,35,0.1)', label: t('approaching'), border: 'rgba(245,166,35,0.2)' },
+    overdue: { color: '#FF6B6B', bg: 'rgba(255,107,107,0.1)', label: t('overdue'), border: 'rgba(255,107,107,0.2)' },
+  };
+
   const sorted = [...reminders].sort((a, b) => {
     const order = { overdue: 0, approaching: 1, safe: 2 };
     return order[a.status] - order[b.status];
@@ -34,15 +37,15 @@ export default function UpcomingReminders({
           paddingHorizontal: 20,
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>Upcoming Reminders</Text>
-        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>{reminders.length} items</Text>
+        <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>{t('upcomingReminders')}</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>{reminders.length} {t('items')}</Text>
       </View>
 
       <View style={{ gap: 8, paddingHorizontal: 20 }}>
         {sorted.map((reminder) => {
           const cfg = STATUS_CONFIG[reminder.status];
           const kmRemaining = reminder.dueOdometer - currentOdometer;
-          const formattedDate = reminder.dueDate.toLocaleDateString('en-US', {
+          const formattedDate = reminder.dueDate.toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
@@ -97,7 +100,7 @@ export default function UpcomingReminders({
                   {reminder.serviceType}
                 </Text>
                 <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                  Due {formattedDate} · {reminder.dueOdometer.toLocaleString()} km
+                  {t('due')} {formattedDate} · {reminder.dueOdometer.toLocaleString()} {t('km')}
                 </Text>
               </View>
 

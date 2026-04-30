@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
+  Image,
+  Alert,
 } from 'react-native';
 import { RepairEntry, ServiceType } from '@/types/maintenance';
+import { useLanguage } from '@/context/LanguageContext';
 
 const SERVICE_TYPES: ServiceType[] = [
   'Oil Change',
@@ -25,6 +28,20 @@ const SERVICE_TYPES: ServiceType[] = [
   'General Inspection',
   'Other',
 ];
+
+const SERVICE_LABELS: Record<ServiceType, { en: string; id: string }> = {
+  'Oil Change': { en: 'Oil Change', id: 'Ganti Oli' },
+  'Tire Rotation': { en: 'Tire Rotation', id: 'Rotasi Ban' },
+  'Brake Inspection': { en: 'Brake Inspection', id: 'Pemeriksaan Rem' },
+  'Air Filter': { en: 'Air Filter', id: 'Filter Udara' },
+  'Spark Plugs': { en: 'Spark Plugs', id: 'Busi' },
+  'Transmission Service': { en: 'Transmission Service', id: 'Servis Transmisi' },
+  'Coolant Flush': { en: 'Coolant Flush', id: 'Ganti Coolant' },
+  'Battery Check': { en: 'Battery Check', id: 'Cek Aki' },
+  'AC Service': { en: 'AC Service', id: 'Servis AC' },
+  'General Inspection': { en: 'General Inspection', id: 'Inspeksi Umum' },
+  'Other': { en: 'Other', id: 'Lainnya' },
+};
 
 interface AddRepairSheetProps {
   visible: boolean;
@@ -43,6 +60,7 @@ export default function AddRepairSheet({
   onClose,
   onSave,
 }: AddRepairSheetProps) {
+  const { t, lang } = useLanguage();
   const [serviceType, setServiceType] = useState<ServiceType>(
     (prefillServiceType as ServiceType) || 'Oil Change'
   );
@@ -53,6 +71,41 @@ export default function AddRepairSheet({
   const [notes, setNotes] = useState('');
   const [nextInterval, setNextInterval] = useState('5000');
   const [showServicePicker, setShowServicePicker] = useState(false);
+  const [receiptImages, setReceiptImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (prefillServiceType) {
+      setServiceType(prefillServiceType as ServiceType);
+    }
+  }, [prefillServiceType, visible]);
+
+  const getServiceLabel = (st: ServiceType) =>
+    lang === 'id' ? SERVICE_LABELS[st].id : SERVICE_LABELS[st].en;
+
+  const handleUploadReceipt = () => {
+    Alert.alert(
+      lang === 'id' ? 'Upload Struk' : 'Upload Receipt',
+      lang === 'id'
+        ? 'Fitur ini memerlukan expo-image-picker. Demo: menambahkan gambar placeholder.'
+        : 'This feature requires expo-image-picker. Demo: adding placeholder image.',
+      [
+        {
+          text: lang === 'id' ? 'Tambah Demo' : 'Add Demo',
+          onPress: () => {
+            setReceiptImages((prev) => [
+              ...prev,
+              'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&q=80',
+            ]);
+          },
+        },
+        { text: lang === 'id' ? 'Batal' : 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const removeReceipt = (idx: number) => {
+    setReceiptImages((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const handleSave = () => {
     const entry: Omit<RepairEntry, 'id'> = {
@@ -62,7 +115,7 @@ export default function AddRepairSheet({
       odometer: parseInt(odometer, 10) || currentOdometer,
       cost: parseInt(cost.replace(/\D/g, ''), 10) || 0,
       workshop: workshop || 'Unknown Workshop',
-      notes,
+      notes: receiptImages.length > 0 ? `${notes}\n[receipts:${receiptImages.join(',')}]` : notes,
       nextIntervalKm: parseInt(nextInterval, 10) || 5000,
     };
     onSave(entry);
@@ -78,13 +131,14 @@ export default function AddRepairSheet({
     setWorkshop('');
     setNotes('');
     setNextInterval('5000');
+    setReceiptImages([]);
   };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
-          <TouchableWithoutFeedback onPress={() => {}}>
+          <TouchableWithoutFeedback onPress={() => {/* keep open */}}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
               <View
                 style={{
@@ -122,7 +176,7 @@ export default function AddRepairSheet({
                   }}
                 >
                   <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800' }}>
-                    Log Repair
+                    {t('logRepair')}
                   </Text>
                   <TouchableOpacity
                     onPress={onClose}
@@ -146,7 +200,7 @@ export default function AddRepairSheet({
                   {/* Service Type */}
                   <View style={{ gap: 8 }}>
                     <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1 }}>
-                      SERVICE TYPE
+                      {t('serviceType')}
                     </Text>
                     <TouchableOpacity
                       onPress={() => setShowServicePicker(!showServicePicker)}
@@ -163,7 +217,7 @@ export default function AddRepairSheet({
                       activeOpacity={0.8}
                     >
                       <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '500' }}>
-                        {serviceType}
+                        {getServiceLabel(serviceType)}
                       </Text>
                       <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>
                         {showServicePicker ? '▲' : '▼'}
@@ -204,7 +258,7 @@ export default function AddRepairSheet({
                                 fontWeight: type === serviceType ? '600' : '400',
                               }}
                             >
-                              {type}
+                              {getServiceLabel(type)}
                             </Text>
                             {type === serviceType && (
                               <Text style={{ color: '#F5A623', fontSize: 14 }}>✓</Text>
@@ -219,7 +273,7 @@ export default function AddRepairSheet({
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <View style={{ flex: 1, gap: 8 }}>
                       <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1 }}>
-                        DATE
+                        {t('date')}
                       </Text>
                       <TextInput
                         value={date}
@@ -240,7 +294,7 @@ export default function AddRepairSheet({
                     </View>
                     <View style={{ flex: 1, gap: 8 }}>
                       <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1 }}>
-                        ODOMETER (KM)
+                        {t('odometer')}
                       </Text>
                       <TextInput
                         value={odometer}
@@ -265,7 +319,7 @@ export default function AddRepairSheet({
                   {/* Cost */}
                   <View style={{ gap: 8 }}>
                     <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1 }}>
-                      COST (IDR)
+                      {t('cost')}
                     </Text>
                     <TextInput
                       value={cost}
@@ -290,12 +344,12 @@ export default function AddRepairSheet({
                   {/* Workshop */}
                   <View style={{ gap: 8 }}>
                     <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1 }}>
-                      WORKSHOP
+                      {t('workshop')}
                     </Text>
                     <TextInput
                       value={workshop}
                       onChangeText={setWorkshop}
-                      placeholder="Workshop name"
+                      placeholder={t('workshopPlaceholder')}
                       placeholderTextColor="rgba(255,255,255,0.3)"
                       style={{
                         backgroundColor: '#0D1B2A',
@@ -312,7 +366,7 @@ export default function AddRepairSheet({
                   {/* Next Interval */}
                   <View style={{ gap: 8 }}>
                     <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1 }}>
-                      NEXT SERVICE INTERVAL (KM)
+                      {t('nextInterval')}
                     </Text>
                     <TextInput
                       value={nextInterval}
@@ -337,12 +391,12 @@ export default function AddRepairSheet({
                   {/* Notes */}
                   <View style={{ gap: 8 }}>
                     <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 1 }}>
-                      NOTES
+                      {t('notes')}
                     </Text>
                     <TextInput
                       value={notes}
                       onChangeText={setNotes}
-                      placeholder="Add notes or observations..."
+                      placeholder={t('notesPlaceholder')}
                       placeholderTextColor="rgba(255,255,255,0.3)"
                       multiline
                       numberOfLines={3}
@@ -359,6 +413,69 @@ export default function AddRepairSheet({
                         lineHeight: 22,
                       }}
                     />
+
+                    {/* Receipt Upload Area */}
+                    <View
+                      style={{
+                        backgroundColor: '#0D1B2A',
+                        borderRadius: 12,
+                        padding: 12,
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.06)',
+                        gap: 10,
+                      }}
+                    >
+                      <TouchableOpacity
+                        onPress={handleUploadReceipt}
+                        activeOpacity={0.8}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: 'rgba(245,166,35,0.1)',
+                          borderRadius: 10,
+                          padding: 12,
+                          borderWidth: 1,
+                          borderColor: 'rgba(245,166,35,0.25)',
+                          gap: 8,
+                        }}
+                      >
+                        <Text style={{ fontSize: 18 }}>📎</Text>
+                        <Text style={{ color: '#F5A623', fontSize: 13, fontWeight: '600' }}>
+                          {t('uploadReceipt')}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {receiptImages.length > 0 && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {receiptImages.map((uri, idx) => (
+                            <View key={idx} style={{ position: 'relative' }}>
+                              <Image
+                                source={{ uri }}
+                                style={{ width: 72, height: 72, borderRadius: 8 }}
+                                resizeMode="cover"
+                              />
+                              <TouchableOpacity
+                                onPress={() => removeReceipt(idx)}
+                                style={{
+                                  position: 'absolute',
+                                  top: -6,
+                                  right: -6,
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: 10,
+                                  backgroundColor: '#FF6B6B',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '700' }}>✕</Text>
+                              </TouchableOpacity>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
                   </View>
 
                   {/* Save Button */}
@@ -378,7 +495,7 @@ export default function AddRepairSheet({
                     }}
                   >
                     <Text style={{ color: '#0D1B2A', fontSize: 16, fontWeight: '800', letterSpacing: 0.5 }}>
-                      SAVE REPAIR LOG
+                      {t('saveRepairLog')}
                     </Text>
                   </TouchableOpacity>
                 </ScrollView>
