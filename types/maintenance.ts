@@ -9,6 +9,21 @@ export interface Vehicle {
   currentOdometer: number;
   lastOdometerUpdate: Date;
   color: string;
+  vehicleType?: 'car' | 'motorcycle';
+  taxDueDate?: string; // YYYY-MM-DD pajak tahunan
+  stnkDueDate?: string; // YYYY-MM-DD STNK 5 tahunan
+}
+
+export interface TireLog {
+  id: string;
+  vehicleId: string;
+  position: 'front' | 'rear' | 'front_left' | 'front_right' | 'rear_left' | 'rear_right';
+  brand: string;
+  size: string;
+  productionCode: string; // 4-digit e.g. "2423"
+  installedDate: string;
+  installedOdometer: number;
+  notes?: string;
 }
 
 export interface RepairEntry {
@@ -46,4 +61,16 @@ export type ServiceType =
   | 'Battery Check'
   | 'AC Service'
   | 'General Inspection'
+  | 'Tire Replacement Front'
+  | 'Tire Replacement Rear'
+  | 'Chain Lubrication'
+  | 'Valve Adjustment'
+  | 'Carburetor/Injector Service'
+  | 'Drive Belt'
   | 'Other';
+
+export interface UserProfile {
+  name: string;
+  email: string;
+  photoUri?: string;
+}

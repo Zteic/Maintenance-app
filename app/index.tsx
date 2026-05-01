@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,10 +8,24 @@ import {
   SafeAreaView,
   Modal,
   TouchableWithoutFeedback,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Vehicle, RepairEntry, Reminder } from "@/types/maintenance";
+import * as Notifications from "expo-notifications";
+import { Vehicle, RepairEntry, Reminder, TireLog } from "@/types/maintenance";
 import { MOCK_VEHICLES, MOCK_REPAIRS, MOCK_REMINDERS } from "@/data/mockData";
+import {
+  loadVehicles,
+  saveVehicles,
+  loadRepairs,
+  saveRepairs,
+  loadReminders,
+  saveReminders,
+  loadTireLogs,
+  saveTireLogs,
+  loadSelectedVehicleId,
+  saveSelectedVehicleId,
+} from "@/utils/storage";
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
 import VehicleSwitcher from "@/components/maintenance/VehicleSwitcher";
 import VehicleProfileCard from "@/components/maintenance/VehicleProfileCard";
@@ -21,8 +35,26 @@ import RepairHistory from "@/components/maintenance/RepairHistory";
 import AddRepairSheet from "@/components/maintenance/AddRepairSheet";
 import RecommendationBanner from "@/components/maintenance/RecommendationBanner";
 import VehicleEditModal from "@/components/maintenance/VehicleEditModal";
+import DocumentHealthCard from "@/components/maintenance/DocumentHealthCard";
+import TireLogSheet from "@/components/maintenance/TireLogSheet";
 
-type TabType = "home" | "history";
+type TabType = "home" | "history" | "tires";
+
+// Setup notifications handlerr
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+async function requestNotifPermission() {
+  const { status } = await Notifications.requestPermissionsAsync();
+  return status === "granted";
+}
 
 function AppContent() {
   const router = useRouter();
@@ -31,21 +63,81 @@ function AppContent() {
   const [vehicles, setVehicles] = useState<Vehicle[]>(MOCK_VEHICLES);
   const [repairs, setRepairs] = useState<RepairEntry[]>(MOCK_REPAIRS);
   const [reminders, setReminders] = useState<Reminder[]>(MOCK_REMINDERS);
-  const [selectedVehicleId, setSelectedVehicleId] = useState(MOCK_VEHICLES[0].id);
+  const [tireLogs, setTireLogs] = useState<TireLog[]>([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState(
+    MOCK_VEHICLES[0].id,
+  );
   const [showAddSheet, setShowAddSheet] = useState(false);
-  const [prefillServiceType, setPrefillServiceType] = useState<string | undefined>();
+  const [editingRepair, setEditingRepair] = useState<RepairEntry | null>(null);
+  const [prefillServiceType, setPrefillServiceType] = useState<
+    string | undefined
+  >();
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [showLangModal, setShowLangModal] = useState(false);
+  const [showTireSheet, setShowTireSheet] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
-  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId)!;
+  const selectedVehicle =
+    vehicles.find((v) => v.id === selectedVehicleId) ?? vehicles[0];
   const vehicleRepairs = repairs.filter(
     (r) => r.vehicleId === selectedVehicleId,
   );
   const vehicleReminders = reminders.filter(
     (r) => r.vehicleId === selectedVehicleId,
   );
+  const vehicleTireLogs = tireLogs.filter(
+    (t) => t.vehicleId === selectedVehicleId,
+  );
+
+  // Load from AsyncStorage
+  useEffect(() => {
+    (async () => {
+      const [sv, sr, srm, stl, ssv] = await Promise.all([
+        loadVehicles(),
+        loadRepairs(),
+        loadReminders(),
+        loadTireLogs(),
+        loadSelectedVehicleId(),
+      ]);
+      if (sv) setVehicles(sv);
+      if (sr) setRepairs(sr);
+      if (srm) setReminders(srm);
+      if (stl) setTireLogs(stl);
+      if (ssv) setSelectedVehicleId(ssv);
+      setDataLoaded(true);
+    })();
+    requestNotifPermission();
+  }, []);
+
+  // Persist whenever state changes (after initial load)
+  useEffect(() => {
+    if (dataLoaded) saveVehicles(vehicles);
+  }, [vehicles, dataLoaded]);
+  useEffect(() => {
+    if (dataLoaded) saveRepairs(repairs);
+  }, [repairs, dataLoaded]);
+  useEffect(() => {
+    if (dataLoaded) saveReminders(reminders);
+  }, [reminders, dataLoaded]);
+  useEffect(() => {
+    if (dataLoaded) saveTireLogs(tireLogs);
+  }, [tireLogs, dataLoaded]);
+  useEffect(() => {
+    if (dataLoaded) saveSelectedVehicleId(selectedVehicleId);
+  }, [selectedVehicleId, dataLoaded]);
+
+  // Schedule notifications
+  useEffect(() => {
+    if (!dataLoaded || !selectedVehicle) return;
+    scheduleOdometerNotif(selectedVehicle, lang, t);
+  }, [selectedVehicle, dataLoaded]);
+
+  useEffect(() => {
+    if (!dataLoaded || !selectedVehicle) return;
+    scheduleDocNotifs(selectedVehicle, lang, t);
+  }, [selectedVehicle, dataLoaded]);
 
   const handleOdometerUpdate = (newValue: number) => {
     setVehicles((prev) =>
@@ -97,32 +189,43 @@ function AppContent() {
     });
   };
 
+  const handleUpdateRepair = (id: string, entry: Omit<RepairEntry, "id">) => {
+    setRepairs((prev) => prev.map((r) => (r.id === id ? { ...entry, id } : r)));
+  };
+
+  const handleDeleteRepair = (id: string) => {
+    setRepairs((prev) => prev.filter((r) => r.id !== id));
+  };
+
   const handleRecommendationTap = (serviceType: string) => {
     setPrefillServiceType(serviceType);
+    setEditingRepair(null);
+    setShowAddSheet(true);
+  };
+
+  const handleEditRepair = (entry: RepairEntry) => {
+    setEditingRepair(entry);
+    setPrefillServiceType(undefined);
     setShowAddSheet(true);
   };
 
   const handleVehicleSave = (
-    data: Omit<Vehicle, "id" | "currentOdometer" | "lastOdometerUpdate"> & { currentOdometer?: number },
+    data: Omit<Vehicle, "id" | "currentOdometer" | "lastOdometerUpdate"> & {
+      currentOdometer?: number;
+    },
   ) => {
     if (editingVehicle) {
       setVehicles((prev) =>
         prev.map((v) =>
           v.id === editingVehicle.id
-            ? { ...v, name: data.name, brand: data.brand, model: data.model, year: data.year, plateNumber: data.plateNumber, photoUrl: data.photoUrl, color: data.color }
+            ? { ...v, ...data, currentOdometer: v.currentOdometer }
             : v,
         ),
       );
     } else {
       const newVehicle: Vehicle = {
         id: `v${Date.now()}`,
-        name: data.name,
-        brand: data.brand,
-        model: data.model,
-        year: data.year,
-        plateNumber: data.plateNumber,
-        photoUrl: data.photoUrl,
-        color: data.color,
+        ...data,
         currentOdometer: data.currentOdometer ?? 0,
         lastOdometerUpdate: new Date(),
       };
@@ -132,11 +235,15 @@ function AppContent() {
     setEditingVehicle(null);
   };
 
+  const handleAddTireLog = (log: Omit<TireLog, "id">) => {
+    const newLog: TireLog = { ...log, id: `tl${Date.now()}` };
+    setTireLogs((prev) => [...prev, newLog]);
+  };
+
   const openEditVehicle = () => {
     setEditingVehicle(selectedVehicle);
     setShowVehicleModal(true);
   };
-
   const openAddVehicle = () => {
     setEditingVehicle(null);
     setShowVehicleModal(true);
@@ -176,7 +283,6 @@ function AppContent() {
             >
               <Text style={{ fontSize: 20 }}>👤</Text>
             </TouchableOpacity>
-
             <View>
               <Text
                 style={{
@@ -202,7 +308,6 @@ function AppContent() {
           </View>
 
           <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-            {/* Language Toggle */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setShowLangModal(true)}
@@ -218,12 +323,19 @@ function AppContent() {
                 gap: 4,
               }}
             >
-              <Text style={{ fontSize: 14 }}>{lang === "id" ? "🇮🇩" : "🇬🇧"}</Text>
-              <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: "600" }}>
+              <Text style={{ fontSize: 14 }}>
+                {lang === "id" ? "🇮🇩" : "🇬🇧"}
+              </Text>
+              <Text
+                style={{
+                  color: "rgba(255,255,255,0.6)",
+                  fontSize: 11,
+                  fontWeight: "600",
+                }}
+              >
                 {lang.toUpperCase()}
               </Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               activeOpacity={0.7}
               style={{
@@ -261,7 +373,9 @@ function AppContent() {
               />
 
               {/* Stats Row */}
-              <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
+              <View
+                style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}
+              >
                 <View
                   style={{
                     flex: 1,
@@ -273,7 +387,13 @@ function AppContent() {
                     gap: 4,
                   }}
                 >
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, letterSpacing: 1 }}>
+                  <Text
+                    style={{
+                      color: "rgba(255,255,255,0.4)",
+                      fontSize: 10,
+                      letterSpacing: 1,
+                    }}
+                  >
                     {t("totalSpent")}
                   </Text>
                   <Text
@@ -302,7 +422,13 @@ function AppContent() {
                     gap: 4,
                   }}
                 >
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, letterSpacing: 1 }}>
+                  <Text
+                    style={{
+                      color: "rgba(255,255,255,0.4)",
+                      fontSize: 10,
+                      letterSpacing: 1,
+                    }}
+                  >
                     {t("servicesDone")}
                   </Text>
                   <Text
@@ -318,18 +444,19 @@ function AppContent() {
                 </View>
               </View>
 
+              {/* Document Health */}
+              <DocumentHealthCard vehicle={selectedVehicle} />
+
               <MaintenanceStatusBar
                 reminders={vehicleReminders}
                 currentOdometer={selectedVehicle.currentOdometer}
                 accentColor={selectedVehicle.color}
               />
-
               <RecommendationBanner
                 reminders={vehicleReminders}
                 currentOdometer={selectedVehicle.currentOdometer}
                 onTap={handleRecommendationTap}
               />
-
               <UpcomingReminders
                 reminders={vehicleReminders}
                 currentOdometer={selectedVehicle.currentOdometer}
@@ -339,7 +466,19 @@ function AppContent() {
           )}
 
           {activeTab === "history" && (
-            <RepairHistory repairs={vehicleRepairs} />
+            <RepairHistory
+              repairs={vehicleRepairs}
+              onEdit={handleEditRepair}
+              onDelete={handleDeleteRepair}
+            />
+          )}
+
+          {activeTab === "tires" && (
+            <TireLogList
+              tireLogs={vehicleTireLogs}
+              onAdd={() => setShowTireSheet(true)}
+              vehicleType={selectedVehicle.vehicleType}
+            />
           )}
         </ScrollView>
 
@@ -360,7 +499,6 @@ function AppContent() {
             alignItems: "flex-start",
           }}
         >
-          {/* Overview Tab */}
           <TouchableOpacity
             onPress={() => setActiveTab("home")}
             activeOpacity={0.8}
@@ -371,14 +509,16 @@ function AppContent() {
                 width: 32,
                 height: 3,
                 borderRadius: 2,
-                backgroundColor: activeTab === "home" ? "#F5A623" : "transparent",
+                backgroundColor:
+                  activeTab === "home" ? "#F5A623" : "transparent",
                 marginBottom: 4,
               }}
             />
             <Text style={{ fontSize: 22 }}>🏠</Text>
             <Text
               style={{
-                color: activeTab === "home" ? "#F5A623" : "rgba(255,255,255,0.4)",
+                color:
+                  activeTab === "home" ? "#F5A623" : "rgba(255,255,255,0.4)",
                 fontSize: 11,
                 fontWeight: activeTab === "home" ? "700" : "400",
               }}
@@ -387,10 +527,39 @@ function AppContent() {
             </Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            onPress={() => setActiveTab("tires")}
+            activeOpacity={0.8}
+            style={{ flex: 1, alignItems: "center", gap: 4 }}
+          >
+            <View
+              style={{
+                width: 32,
+                height: 3,
+                borderRadius: 2,
+                backgroundColor:
+                  activeTab === "tires" ? "#F5A623" : "transparent",
+                marginBottom: 4,
+              }}
+            />
+            <Text style={{ fontSize: 22 }}>🛞</Text>
+            <Text
+              style={{
+                color:
+                  activeTab === "tires" ? "#F5A623" : "rgba(255,255,255,0.4)",
+                fontSize: 11,
+                fontWeight: activeTab === "tires" ? "700" : "400",
+              }}
+            >
+              {t("tireLog")}
+            </Text>
+          </TouchableOpacity>
+
           {/* FAB center */}
           <TouchableOpacity
             onPress={() => {
               setPrefillServiceType(undefined);
+              setEditingRepair(null);
               setShowAddSheet(true);
             }}
             activeOpacity={0.85}
@@ -407,15 +576,21 @@ function AppContent() {
               shadowRadius: 16,
               shadowOffset: { width: 0, height: 6 },
               elevation: 10,
-              marginHorizontal: 20,
+              marginHorizontal: 10,
             }}
           >
-            <Text style={{ color: "#0D1B2A", fontSize: 28, fontWeight: "700", lineHeight: 32 }}>
+            <Text
+              style={{
+                color: "#0D1B2A",
+                fontSize: 28,
+                fontWeight: "700",
+                lineHeight: 32,
+              }}
+            >
               +
             </Text>
           </TouchableOpacity>
 
-          {/* History Tab */}
           <TouchableOpacity
             onPress={() => setActiveTab("history")}
             activeOpacity={0.8}
@@ -426,14 +601,16 @@ function AppContent() {
                 width: 32,
                 height: 3,
                 borderRadius: 2,
-                backgroundColor: activeTab === "history" ? "#F5A623" : "transparent",
+                backgroundColor:
+                  activeTab === "history" ? "#F5A623" : "transparent",
                 marginBottom: 4,
               }}
             />
             <Text style={{ fontSize: 22 }}>🔧</Text>
             <Text
               style={{
-                color: activeTab === "history" ? "#F5A623" : "rgba(255,255,255,0.4)",
+                color:
+                  activeTab === "history" ? "#F5A623" : "rgba(255,255,255,0.4)",
                 fontSize: 11,
                 fontWeight: activeTab === "history" ? "700" : "400",
               }}
@@ -471,79 +648,476 @@ function AppContent() {
                     gap: 16,
                   }}
                 >
-                  <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "800", textAlign: "center" }}>
+                  <Text
+                    style={{
+                      color: "#FFFFFF",
+                      fontSize: 18,
+                      fontWeight: "800",
+                      textAlign: "center",
+                    }}
+                  >
                     {t("language")}
                   </Text>
-
-                  <TouchableOpacity
-                    onPress={() => { setLang("id"); setShowLangModal(false); }}
-                    activeOpacity={0.8}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      backgroundColor: lang === "id" ? "rgba(245,166,35,0.15)" : "#0D1B2A",
-                      borderRadius: 14,
-                      padding: 16,
-                      borderWidth: 1,
-                      borderColor: lang === "id" ? "rgba(245,166,35,0.4)" : "rgba(255,255,255,0.08)",
-                      gap: 12,
-                    }}
-                  >
-                    <Text style={{ fontSize: 24 }}>🇮🇩</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "600" }}>Indonesia</Text>
-                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>Bahasa Indonesia</Text>
-                    </View>
-                    {lang === "id" && <Text style={{ color: "#F5A623", fontSize: 18 }}>✓</Text>}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => { setLang("en"); setShowLangModal(false); }}
-                    activeOpacity={0.8}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      backgroundColor: lang === "en" ? "rgba(245,166,35,0.15)" : "#0D1B2A",
-                      borderRadius: 14,
-                      padding: 16,
-                      borderWidth: 1,
-                      borderColor: lang === "en" ? "rgba(245,166,35,0.4)" : "rgba(255,255,255,0.08)",
-                      gap: 12,
-                    }}
-                  >
-                    <Text style={{ fontSize: 24 }}>🇬🇧</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "600" }}>English</Text>
-                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>English Language</Text>
-                    </View>
-                    {lang === "en" && <Text style={{ color: "#F5A623", fontSize: 18 }}>✓</Text>}
-                  </TouchableOpacity>
+                  {(["id", "en"] as const).map((l) => (
+                    <TouchableOpacity
+                      key={l}
+                      onPress={() => {
+                        setLang(l);
+                        setShowLangModal(false);
+                      }}
+                      activeOpacity={0.8}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        backgroundColor:
+                          lang === l ? "rgba(245,166,35,0.15)" : "#0D1B2A",
+                        borderRadius: 14,
+                        padding: 16,
+                        borderWidth: 1,
+                        borderColor:
+                          lang === l
+                            ? "rgba(245,166,35,0.4)"
+                            : "rgba(255,255,255,0.08)",
+                        gap: 12,
+                      }}
+                    >
+                      <Text style={{ fontSize: 24 }}>
+                        {l === "id" ? "🇮🇩" : "🇬🇧"}
+                      </Text>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            color: "#FFFFFF",
+                            fontSize: 15,
+                            fontWeight: "600",
+                          }}
+                        >
+                          {l === "id" ? "Indonesia" : "English"}
+                        </Text>
+                        <Text
+                          style={{
+                            color: "rgba(255,255,255,0.4)",
+                            fontSize: 12,
+                          }}
+                        >
+                          {l === "id" ? "Bahasa Indonesia" : "English Language"}
+                        </Text>
+                      </View>
+                      {lang === l && (
+                        <Text style={{ color: "#F5A623", fontSize: 18 }}>
+                          ✓
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </TouchableWithoutFeedback>
             </View>
           </TouchableWithoutFeedback>
         </Modal>
 
-        {/* Add Repair Sheet */}
+        {/* Add/Edit Repair Sheet */}
         <AddRepairSheet
           visible={showAddSheet}
           vehicleId={selectedVehicleId}
           currentOdometer={selectedVehicle.currentOdometer}
+          vehicleType={selectedVehicle.vehicleType}
           prefillServiceType={prefillServiceType}
-          onClose={() => setShowAddSheet(false)}
+          editEntry={editingRepair}
+          onClose={() => {
+            setShowAddSheet(false);
+            setEditingRepair(null);
+          }}
           onSave={handleAddRepair}
+          onUpdate={handleUpdateRepair}
         />
 
         {/* Vehicle Edit / Add Modal */}
         <VehicleEditModal
           visible={showVehicleModal}
           vehicle={editingVehicle}
-          onClose={() => { setShowVehicleModal(false); setEditingVehicle(null); }}
+          onClose={() => {
+            setShowVehicleModal(false);
+            setEditingVehicle(null);
+          }}
           onSave={handleVehicleSave}
+        />
+
+        {/* Tire Log Sheet */}
+        <TireLogSheet
+          visible={showTireSheet}
+          vehicleId={selectedVehicleId}
+          vehicleType={selectedVehicle.vehicleType}
+          currentOdometer={selectedVehicle.currentOdometer}
+          onClose={() => setShowTireSheet(false)}
+          onSave={handleAddTireLog}
         />
       </SafeAreaView>
     </View>
   );
+}
+
+// Tire Log List Component
+function TireLogList({
+  tireLogs,
+  onAdd,
+  vehicleType,
+}: {
+  tireLogs: TireLog[];
+  onAdd: () => void;
+  vehicleType?: "car" | "motorcycle";
+}) {
+  const { t, lang } = useLanguage();
+
+  const positionLabel = (p: TireLog["position"]) => {
+    const map: Record<string, string> = {
+      front: t("tireFront"),
+      rear: t("tireRear"),
+      front_left: t("tireFrontLeft"),
+      front_right: t("tireFrontRight"),
+      rear_left: t("tireRearLeft"),
+      rear_right: t("tireRearRight"),
+    };
+    return map[p] || p;
+  };
+
+  function parseTireAge(code: string) {
+    if (code.length !== 4) return null;
+    const week = parseInt(code.substring(0, 2), 10);
+    const yearSuffix = parseInt(code.substring(2, 4), 10);
+    if (isNaN(week) || isNaN(yearSuffix) || week < 1 || week > 53) return null;
+    const fullYear = yearSuffix <= 30 ? 2000 + yearSuffix : 1900 + yearSuffix;
+    const prodDate = new Date(fullYear, 0, 1 + (week - 1) * 7);
+    const diffMs = Date.now() - prodDate.getTime();
+    const totalMonths = Math.floor(diffMs / (1000 * 60 * 60 * 24 * 30.4));
+    return {
+      years: Math.floor(totalMonths / 12),
+      months: totalMonths % 12,
+      isOld: Math.floor(totalMonths / 12) >= 3,
+    };
+  }
+
+  return (
+    <View style={{ gap: 12 }}>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          paddingHorizontal: 20,
+        }}
+      >
+        <Text style={{ color: "#FFFFFF", fontSize: 17, fontWeight: "700" }}>
+          🛞 {t("tireLog")}
+        </Text>
+        <TouchableOpacity
+          onPress={onAdd}
+          activeOpacity={0.8}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            backgroundColor: "rgba(245,166,35,0.15)",
+            borderRadius: 10,
+            paddingVertical: 7,
+            paddingHorizontal: 12,
+            borderWidth: 1,
+            borderColor: "rgba(245,166,35,0.3)",
+          }}
+        >
+          <Text style={{ color: "#F5A623", fontSize: 16, fontWeight: "700" }}>
+            +
+          </Text>
+          <Text style={{ color: "#F5A623", fontSize: 12, fontWeight: "600" }}>
+            {t("addTireLog")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {tireLogs.length === 0 ? (
+        <View style={{ alignItems: "center", paddingVertical: 40, gap: 8 }}>
+          <Text style={{ fontSize: 32 }}>🛞</Text>
+          <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
+            {t("noTireLogs")}
+          </Text>
+        </View>
+      ) : (
+        <View style={{ gap: 10, paddingHorizontal: 20 }}>
+          {[...tireLogs].reverse().map((log) => {
+            const age = parseTireAge(log.productionCode);
+            return (
+              <View
+                key={log.id}
+                style={{
+                  backgroundColor: "#1A2B3C",
+                  borderRadius: 16,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.06)",
+                  gap: 10,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 10,
+                        backgroundColor: "rgba(78,205,196,0.1)",
+                        borderWidth: 1,
+                        borderColor: "rgba(78,205,196,0.2)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text style={{ fontSize: 18 }}>🛞</Text>
+                    </View>
+                    <View>
+                      <Text
+                        style={{
+                          color: "#4ECDC4",
+                          fontSize: 13,
+                          fontWeight: "700",
+                        }}
+                      >
+                        {positionLabel(log.position)}
+                      </Text>
+                      <Text
+                        style={{
+                          color: "rgba(255,255,255,0.5)",
+                          fontSize: 11,
+                          marginTop: 1,
+                        }}
+                      >
+                        {log.brand} {log.size}
+                      </Text>
+                    </View>
+                  </View>
+                  {age && (
+                    <View
+                      style={{
+                        paddingVertical: 4,
+                        paddingHorizontal: 10,
+                        borderRadius: 8,
+                        backgroundColor: age.isOld
+                          ? "rgba(255,107,107,0.15)"
+                          : "rgba(78,205,196,0.15)",
+                        borderWidth: 1,
+                        borderColor: age.isOld
+                          ? "rgba(255,107,107,0.3)"
+                          : "rgba(78,205,196,0.3)",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: age.isOld ? "#FF6B6B" : "#4ECDC4",
+                          fontSize: 11,
+                          fontWeight: "700",
+                        }}
+                      >
+                        {age.isOld ? "⚠️ " : ""}
+                        {age.years}
+                        {t("years")} {age.months}
+                        {t("months")}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View
+                    style={{
+                      flex: 1,
+                      backgroundColor: "rgba(13,27,42,0.5)",
+                      borderRadius: 8,
+                      padding: 10,
+                      gap: 2,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "rgba(255,255,255,0.3)",
+                        fontSize: 10,
+                        letterSpacing: 1,
+                      }}
+                    >
+                      {t("tireInstalledDate")}
+                    </Text>
+                    <Text
+                      style={{
+                        color: "#FFFFFF",
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {log.installedDate}
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      flex: 1,
+                      backgroundColor: "rgba(13,27,42,0.5)",
+                      borderRadius: 8,
+                      padding: 10,
+                      gap: 2,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "rgba(255,255,255,0.3)",
+                        fontSize: 10,
+                        letterSpacing: 1,
+                      }}
+                    >
+                      ODOMETER
+                    </Text>
+                    <Text
+                      style={{
+                        color: "#FFFFFF",
+                        fontSize: 12,
+                        fontWeight: "600",
+                        fontFamily: "SpaceMono",
+                      }}
+                    >
+                      {log.installedOdometer.toLocaleString()} km
+                    </Text>
+                  </View>
+                  {log.productionCode ? (
+                    <View
+                      style={{
+                        flex: 1,
+                        backgroundColor: "rgba(13,27,42,0.5)",
+                        borderRadius: 8,
+                        padding: 10,
+                        gap: 2,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "rgba(255,255,255,0.3)",
+                          fontSize: 10,
+                          letterSpacing: 1,
+                        }}
+                      >
+                        DOT
+                      </Text>
+                      <Text
+                        style={{
+                          color: "#4ECDC4",
+                          fontSize: 12,
+                          fontWeight: "600",
+                          fontFamily: "SpaceMono",
+                        }}
+                      >
+                        {log.productionCode}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                {log.notes ? (
+                  <Text
+                    style={{
+                      color: "rgba(255,255,255,0.4)",
+                      fontSize: 12,
+                      fontStyle: "italic",
+                    }}
+                  >
+                    {log.notes}
+                  </Text>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// Notification helpers
+async function scheduleOdometerNotif(
+  vehicle: Vehicle,
+  lang: string,
+  t: (k: any) => string,
+) {
+  // Cek apakah di web, jika iya langsung stop/return agar tidak error
+  if (Platform.OS === "web") return;
+
+  const daysSince = Math.floor(
+    (Date.now() - vehicle.lastOdometerUpdate.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  if (daysSince >= 7) {
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: t("notifOdometerTitle"),
+          body: t("notifOdometerBody"),
+          sound: true,
+        },
+        trigger: null, // immediate
+      });
+    } catch (e) {
+      console.log("Notification error:", e);
+    }
+  }
+}
+
+async function scheduleDocNotifs(
+  vehicle: Vehicle,
+  lang: string,
+  t: (k: any) => string,
+) {
+  // Cegah error di browser Tempo
+  if (Platform.OS === "web") return;
+
+  const THRESHOLDS = [150, 90, 30]; // days before
+
+  const scheduleForDate = async (
+    dateStr: string | undefined,
+    titleKey: string,
+    bodyKey: string,
+  ) => {
+    if (!dateStr) return;
+    const dueDate = new Date(dateStr);
+    const now = new Date();
+    const daysLeft = Math.ceil(
+      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    for (const thresh of THRESHOLDS) {
+      if (daysLeft <= thresh && daysLeft > 0) {
+        const body = (t(bodyKey as any) as string).replace(
+          "{{days}}",
+          String(daysLeft),
+        );
+        try {
+          await Notifications.scheduleNotificationAsync({
+            content: { title: t(titleKey as any), body, sound: true },
+            trigger: null,
+          });
+        } catch (e) {
+          console.log("Notification failed", e);
+        }
+        break;
+      }
+    }
+  };
+
+  await scheduleForDate(vehicle.taxDueDate, "notifTaxTitle", "notifTaxBody");
+  await scheduleForDate(vehicle.stnkDueDate, "notifStnkTitle", "notifStnkBody");
 }
 
 export default function HomeScreen() {
@@ -553,4 +1127,3 @@ export default function HomeScreen() {
     </LanguageProvider>
   );
 }
-

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Alert } from 'react-native';
 import { RepairEntry } from '@/types/maintenance';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface RepairHistoryProps {
   repairs: RepairEntry[];
+  onEdit?: (entry: RepairEntry) => void;
+  onDelete?: (id: string) => void;
 }
 
 function formatCurrency(amount: number): string {
@@ -26,9 +28,20 @@ function extractReceipts(notes: string): { cleanNotes: string; receipts: string[
   return { cleanNotes: notes, receipts: [] };
 }
 
-export default function RepairHistory({ repairs }: RepairHistoryProps) {
+export default function RepairHistory({ repairs, onEdit, onDelete }: RepairHistoryProps) {
   const { t, lang } = useLanguage();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const handleDelete = (id: string) => {
+    Alert.alert(
+      t('confirmDelete'),
+      t('confirmDeleteMsg'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('delete'), style: 'destructive', onPress: () => onDelete?.(id) },
+      ]
+    );
+  };
 
   const sorted = [...repairs].sort((a, b) => b.date.getTime() - a.date.getTime());
 
@@ -220,6 +233,40 @@ export default function RepairHistory({ repairs }: RepairHistoryProps) {
                           />
                         ))}
                       </View>
+                    </View>
+                  )}
+
+                  {/* Edit / Delete buttons */}
+                  {(onEdit || onDelete) && (
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                      {onEdit && (
+                        <TouchableOpacity
+                          onPress={() => { setExpandedId(null); onEdit(repair); }}
+                          activeOpacity={0.8}
+                          style={{
+                            flex: 1, paddingVertical: 10, borderRadius: 10,
+                            backgroundColor: 'rgba(245,166,35,0.15)',
+                            borderWidth: 1, borderColor: 'rgba(245,166,35,0.3)',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <Text style={{ color: '#F5A623', fontSize: 13, fontWeight: '600' }}>✏️ {t('editRepair')}</Text>
+                        </TouchableOpacity>
+                      )}
+                      {onDelete && (
+                        <TouchableOpacity
+                          onPress={() => handleDelete(repair.id)}
+                          activeOpacity={0.8}
+                          style={{
+                            flex: 1, paddingVertical: 10, borderRadius: 10,
+                            backgroundColor: 'rgba(255,107,107,0.15)',
+                            borderWidth: 1, borderColor: 'rgba(255,107,107,0.3)',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <Text style={{ color: '#FF6B6B', fontSize: 13, fontWeight: '600' }}>🗑️ {t('deleteRepair')}</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   )}
                 </View>

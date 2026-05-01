@@ -1,15 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
+  View, Text, TouchableOpacity, Modal, TextInput, ScrollView,
+  KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Image, Alert,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Vehicle } from '@/types/maintenance';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -17,13 +11,13 @@ const ACCENT_COLORS = ['#F5A623', '#4ECDC4', '#FF6B6B', '#6C63FF', '#2ECC71', '#
 
 interface VehicleEditModalProps {
   visible: boolean;
-  vehicle?: Vehicle | null; // null = add new
+  vehicle?: Vehicle | null;
   onClose: () => void;
   onSave: (vehicle: Omit<Vehicle, 'id' | 'currentOdometer' | 'lastOdometerUpdate'> & { currentOdometer?: number }) => void;
 }
 
 export default function VehicleEditModal({ visible, vehicle, onClose, onSave }: VehicleEditModalProps) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const isEdit = !!vehicle;
 
   const [name, setName] = useState('');
@@ -31,9 +25,12 @@ export default function VehicleEditModal({ visible, vehicle, onClose, onSave }: 
   const [model, setModel] = useState('');
   const [year, setYear] = useState('');
   const [plateNumber, setPlateNumber] = useState('');
-  const [photoUrl, setPhotoUrl] = useState('');
+  const [photoUri, setPhotoUri] = useState('');
   const [initialOdo, setInitialOdo] = useState('0');
   const [color, setColor] = useState('#F5A623');
+  const [vehicleType, setVehicleType] = useState<'car' | 'motorcycle'>('motorcycle');
+  const [taxDueDate, setTaxDueDate] = useState('');
+  const [stnkDueDate, setStnkDueDate] = useState('');
 
   useEffect(() => {
     if (vehicle) {
@@ -42,19 +39,38 @@ export default function VehicleEditModal({ visible, vehicle, onClose, onSave }: 
       setModel(vehicle.model);
       setYear(vehicle.year.toString());
       setPlateNumber(vehicle.plateNumber);
-      setPhotoUrl(vehicle.photoUrl);
+      setPhotoUri(vehicle.photoUrl);
       setColor(vehicle.color);
+      setVehicleType(vehicle.vehicleType ?? 'motorcycle');
+      setTaxDueDate(vehicle.taxDueDate ?? '');
+      setStnkDueDate(vehicle.stnkDueDate ?? '');
     } else {
-      setName('');
-      setBrand('');
-      setModel('');
-      setYear('');
-      setPlateNumber('');
-      setPhotoUrl('');
-      setInitialOdo('0');
-      setColor('#F5A623');
+      setName(''); setBrand(''); setModel(''); setYear('');
+      setPlateNumber(''); setPhotoUri(''); setInitialOdo('0');
+      setColor('#F5A623'); setVehicleType('motorcycle');
+      setTaxDueDate(''); setStnkDueDate('');
     }
   }, [vehicle, visible]);
+
+  const handlePickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        lang === 'id' ? 'Izin Diperlukan' : 'Permission Required',
+        lang === 'id' ? 'Diperlukan izin akses galeri.' : 'Gallery access permission is required.',
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
 
   const handleSave = () => {
     if (!name.trim() || !brand.trim() || !model.trim() || !year.trim() || !plateNumber.trim()) return;
@@ -64,8 +80,11 @@ export default function VehicleEditModal({ visible, vehicle, onClose, onSave }: 
       model: model.trim(),
       year: parseInt(year, 10) || new Date().getFullYear(),
       plateNumber: plateNumber.trim().toUpperCase(),
-      photoUrl: photoUrl.trim() || 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&q=80',
+      photoUrl: photoUri.trim() || 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&q=80',
       color,
+      vehicleType,
+      taxDueDate: taxDueDate.trim() || undefined,
+      stnkDueDate: stnkDueDate.trim() || undefined,
       currentOdometer: isEdit ? undefined : (parseInt(initialOdo, 10) || 0),
     });
     onClose();
@@ -93,89 +112,107 @@ export default function VehicleEditModal({ visible, vehicle, onClose, onSave }: 
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
           <TouchableWithoutFeedback onPress={() => {}}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-              <View
-                style={{
-                  backgroundColor: '#1A2B3C',
-                  borderTopLeftRadius: 28,
-                  borderTopRightRadius: 28,
-                  maxHeight: '92%',
-                  borderWidth: 1,
-                  borderBottomWidth: 0,
-                  borderColor: 'rgba(255,255,255,0.1)',
-                }}
-              >
-                {/* Handle */}
+              <View style={{
+                backgroundColor: '#1A2B3C',
+                borderTopLeftRadius: 28, borderTopRightRadius: 28,
+                maxHeight: '92%', borderWidth: 1, borderBottomWidth: 0,
+                borderColor: 'rgba(255,255,255,0.1)',
+              }}>
                 <View style={{ alignItems: 'center', paddingTop: 14, paddingBottom: 4 }}>
                   <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
                 </View>
 
-                {/* Header */}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    paddingHorizontal: 24,
-                    paddingVertical: 16,
-                    borderBottomWidth: 1,
-                    borderBottomColor: 'rgba(255,255,255,0.06)',
-                  }}
-                >
+                <View style={{
+                  flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                  paddingHorizontal: 24, paddingVertical: 16,
+                  borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
+                }}>
                   <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800' }}>
                     {isEdit ? t('editVehicleTitle') : t('addVehicleTitle')}
                   </Text>
-                  <TouchableOpacity
-                    onPress={onClose}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: 'rgba(255,255,255,0.08)',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
+                  <TouchableOpacity onPress={onClose} style={{
+                    width: 32, height: 32, borderRadius: 16,
+                    backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center',
+                  }}>
                     <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>✕</Text>
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView
-                  contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 40 }}
-                  showsVerticalScrollIndicator={false}
-                >
+                <ScrollView contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+
+                  {/* Vehicle Type */}
+                  <View style={{ gap: 8 }}>
+                    <Text style={labelStyle}>{t('vehicleType')}</Text>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      {(['motorcycle', 'car'] as const).map((type) => (
+                        <TouchableOpacity
+                          key={type}
+                          onPress={() => setVehicleType(type)}
+                          style={{
+                            flex: 1, paddingVertical: 12, paddingHorizontal: 16,
+                            borderRadius: 12, borderWidth: 1.5, alignItems: 'center',
+                            backgroundColor: vehicleType === type ? 'rgba(245,166,35,0.15)' : '#0D1B2A',
+                            borderColor: vehicleType === type ? '#F5A623' : 'rgba(255,255,255,0.08)',
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={{ fontSize: 20, marginBottom: 4 }}>{type === 'motorcycle' ? '🏍️' : '🚗'}</Text>
+                          <Text style={{ color: vehicleType === type ? '#F5A623' : 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', textAlign: 'center' }}>
+                            {t(type as any)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Photo Picker */}
+                  <View style={{ gap: 8 }}>
+                    <Text style={labelStyle}>{lang === 'id' ? 'FOTO KENDARAAN' : 'VEHICLE PHOTO'}</Text>
+                    <TouchableOpacity
+                      onPress={handlePickPhoto}
+                      activeOpacity={0.8}
+                      style={{
+                        height: 120, borderRadius: 12, borderWidth: 1.5,
+                        borderColor: 'rgba(245,166,35,0.3)',
+                        overflow: 'hidden', backgroundColor: '#0D1B2A',
+                        alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      {photoUri ? (
+                        <Image source={{ uri: photoUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      ) : (
+                        <View style={{ alignItems: 'center', gap: 8 }}>
+                          <Text style={{ fontSize: 28 }}>📷</Text>
+                          <Text style={{ color: '#F5A623', fontSize: 13, fontWeight: '600' }}>
+                            {lang === 'id' ? 'Pilih dari Galeri' : 'Pick from Gallery'}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                    {photoUri ? (
+                      <TouchableOpacity onPress={handlePickPhoto}>
+                        <Text style={{ color: '#F5A623', fontSize: 12, textAlign: 'center' }}>
+                          {lang === 'id' ? '📷 Ganti Foto' : '📷 Change Photo'}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
                   {/* Name */}
                   <View style={{ gap: 8 }}>
                     <Text style={labelStyle}>{t('vehicleName')}</Text>
-                    <TextInput
-                      value={name}
-                      onChangeText={setName}
-                      placeholder={t('vehicleNamePlaceholder')}
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      style={inputStyle}
-                    />
+                    <TextInput value={name} onChangeText={setName} placeholder={t('vehicleNamePlaceholder')} placeholderTextColor="rgba(255,255,255,0.3)" style={inputStyle} />
                   </View>
 
                   {/* Brand + Model */}
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <View style={{ flex: 1, gap: 8 }}>
                       <Text style={labelStyle}>{t('brand')}</Text>
-                      <TextInput
-                        value={brand}
-                        onChangeText={setBrand}
-                        placeholder={t('brandPlaceholder')}
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                        style={inputStyle}
-                      />
+                      <TextInput value={brand} onChangeText={setBrand} placeholder={t('brandPlaceholder')} placeholderTextColor="rgba(255,255,255,0.3)" style={inputStyle} />
                     </View>
                     <View style={{ flex: 1, gap: 8 }}>
                       <Text style={labelStyle}>{t('model')}</Text>
-                      <TextInput
-                        value={model}
-                        onChangeText={setModel}
-                        placeholder={t('modelPlaceholder')}
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                        style={inputStyle}
-                      />
+                      <TextInput value={model} onChangeText={setModel} placeholder={t('modelPlaceholder')} placeholderTextColor="rgba(255,255,255,0.3)" style={inputStyle} />
                     </View>
                   </View>
 
@@ -183,55 +220,48 @@ export default function VehicleEditModal({ visible, vehicle, onClose, onSave }: 
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <View style={{ flex: 1, gap: 8 }}>
                       <Text style={labelStyle}>{t('year')}</Text>
-                      <TextInput
-                        value={year}
-                        onChangeText={setYear}
-                        placeholder={t('yearPlaceholder')}
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                        keyboardType="numeric"
-                        style={{ ...inputStyle, fontFamily: 'SpaceMono' }}
-                      />
+                      <TextInput value={year} onChangeText={setYear} placeholder={t('yearPlaceholder')} placeholderTextColor="rgba(255,255,255,0.3)" keyboardType="numeric" style={{ ...inputStyle, fontFamily: 'SpaceMono' }} />
                     </View>
                     <View style={{ flex: 1, gap: 8 }}>
                       <Text style={labelStyle}>{t('plateNumber')}</Text>
-                      <TextInput
-                        value={plateNumber}
-                        onChangeText={setPlateNumber}
-                        placeholder={t('platePlaceholder')}
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                        autoCapitalize="characters"
-                        style={{ ...inputStyle, fontFamily: 'SpaceMono' }}
-                      />
+                      <TextInput value={plateNumber} onChangeText={setPlateNumber} placeholder={t('platePlaceholder')} placeholderTextColor="rgba(255,255,255,0.3)" autoCapitalize="characters" style={{ ...inputStyle, fontFamily: 'SpaceMono' }} />
                     </View>
-                  </View>
-
-                  {/* Photo URL */}
-                  <View style={{ gap: 8 }}>
-                    <Text style={labelStyle}>{t('photoUrl')}</Text>
-                    <TextInput
-                      value={photoUrl}
-                      onChangeText={setPhotoUrl}
-                      placeholder={t('photoUrlPlaceholder')}
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      style={inputStyle}
-                      autoCapitalize="none"
-                    />
                   </View>
 
                   {/* Initial Odometer (add only) */}
                   {!isEdit && (
                     <View style={{ gap: 8 }}>
                       <Text style={labelStyle}>{t('initialOdometer')}</Text>
-                      <TextInput
-                        value={initialOdo}
-                        onChangeText={setInitialOdo}
-                        keyboardType="numeric"
-                        placeholder="0"
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                        style={{ ...inputStyle, fontFamily: 'SpaceMono', color: '#4ECDC4' }}
-                      />
+                      <TextInput value={initialOdo} onChangeText={setInitialOdo} keyboardType="numeric" placeholder="0" placeholderTextColor="rgba(255,255,255,0.3)" style={{ ...inputStyle, fontFamily: 'SpaceMono', color: '#4ECDC4' }} />
                     </View>
                   )}
+
+                  {/* Document Dates */}
+                  <View style={{ gap: 8 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 4 }}>
+                      📋 {t('documentHealth')}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <View style={{ flex: 1, gap: 8 }}>
+                        <Text style={labelStyle}>{t('taxDueDate')}</Text>
+                        <TextInput
+                          value={taxDueDate} onChangeText={setTaxDueDate}
+                          placeholder="YYYY-MM-DD"
+                          placeholderTextColor="rgba(255,255,255,0.3)"
+                          style={{ ...inputStyle, fontFamily: 'SpaceMono', color: '#F5A623' }}
+                        />
+                      </View>
+                      <View style={{ flex: 1, gap: 8 }}>
+                        <Text style={labelStyle}>{t('stnkDueDate')}</Text>
+                        <TextInput
+                          value={stnkDueDate} onChangeText={setStnkDueDate}
+                          placeholder="YYYY-MM-DD"
+                          placeholderTextColor="rgba(255,255,255,0.3)"
+                          style={{ ...inputStyle, fontFamily: 'SpaceMono', color: '#4ECDC4' }}
+                        />
+                      </View>
+                    </View>
+                  </View>
 
                   {/* Accent Color */}
                   <View style={{ gap: 12 }}>
@@ -239,47 +269,27 @@ export default function VehicleEditModal({ visible, vehicle, onClose, onSave }: 
                     <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
                       {ACCENT_COLORS.map((c) => (
                         <TouchableOpacity
-                          key={c}
-                          onPress={() => setColor(c)}
+                          key={c} onPress={() => setColor(c)}
                           style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: 18,
-                            backgroundColor: c,
+                            width: 36, height: 36, borderRadius: 18, backgroundColor: c,
                             borderWidth: color === c ? 3 : 1.5,
                             borderColor: color === c ? '#FFFFFF' : 'rgba(255,255,255,0.2)',
-                            alignItems: 'center',
-                            justifyContent: 'center',
+                            alignItems: 'center', justifyContent: 'center',
                           }}
                           activeOpacity={0.8}
                         >
-                          {color === c && (
-                            <Text style={{ color: '#000', fontSize: 14, fontWeight: '700' }}>✓</Text>
-                          )}
+                          {color === c && <Text style={{ color: '#000', fontSize: 14, fontWeight: '700' }}>✓</Text>}
                         </TouchableOpacity>
                       ))}
                     </View>
                   </View>
 
                   {/* Save Button */}
-                  <TouchableOpacity
-                    onPress={handleSave}
-                    activeOpacity={0.85}
-                    style={{
-                      backgroundColor: '#F5A623',
-                      borderRadius: 14,
-                      padding: 18,
-                      alignItems: 'center',
-                      marginTop: 8,
-                      shadowColor: '#F5A623',
-                      shadowOpacity: 0.4,
-                      shadowRadius: 12,
-                      shadowOffset: { width: 0, height: 4 },
-                    }}
-                  >
-                    <Text style={{ color: '#0D1B2A', fontSize: 16, fontWeight: '800', letterSpacing: 0.5 }}>
-                      {t('save')}
-                    </Text>
+                  <TouchableOpacity onPress={handleSave} activeOpacity={0.85} style={{
+                    backgroundColor: '#F5A623', borderRadius: 14, padding: 18, alignItems: 'center', marginTop: 8,
+                    shadowColor: '#F5A623', shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+                  }}>
+                    <Text style={{ color: '#0D1B2A', fontSize: 16, fontWeight: '800', letterSpacing: 0.5 }}>{t('save')}</Text>
                   </TouchableOpacity>
                 </ScrollView>
               </View>

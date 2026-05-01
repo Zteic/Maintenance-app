@@ -12,6 +12,9 @@ export const MOCK_VEHICLES: Vehicle[] = [
     currentOdometer: 47850,
     lastOdometerUpdate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
     color: '#F5A623',
+    vehicleType: 'car',
+    taxDueDate: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    stnkDueDate: new Date(Date.now() + 400 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   },
   {
     id: '2',
@@ -24,6 +27,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     currentOdometer: 82300,
     lastOdometerUpdate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
     color: '#4ECDC4',
+    vehicleType: 'car',
   },
 ];
 

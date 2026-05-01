@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Lang = 'id' | 'en';
 
@@ -63,6 +64,74 @@ const translations = {
     photoUrlPlaceholder: 'https://...',
     initialOdometer: 'INITIAL ODOMETER (KM)',
     accentColor: 'ACCENT COLOR',
+    vehicleType: 'VEHICLE TYPE',
+    car: 'Car (4 Wheels)',
+    motorcycle: 'Motorcycle (2 Wheels)',
+    documentHealth: 'Document Health',
+    taxDueDate: 'ANNUAL TAX DUE DATE',
+    stnkDueDate: 'STNK 5-YEAR DUE DATE',
+    taxExpiry: 'Annual Tax',
+    stnkExpiry: '5-Year STNK',
+    daysLeft: 'days left',
+    expired: 'EXPIRED',
+    expires: 'expires',
+    tireLog: 'Tire Log',
+    addTireLog: 'Add Tire Log',
+    tirePosition: 'TIRE POSITION',
+    tireFront: 'Front',
+    tireRear: 'Rear',
+    tireFrontLeft: 'Front Left',
+    tireFrontRight: 'Front Right',
+    tireRearLeft: 'Rear Left',
+    tireRearRight: 'Rear Right',
+    tireBrand: 'TIRE BRAND',
+    tireSize: 'TIRE SIZE',
+    tireProductionCode: 'PRODUCTION CODE (4 digits)',
+    tireProductionCodeHint: 'e.g. 2423 = week 24, year 2023',
+    tireInstalledDate: 'INSTALLED DATE',
+    tireInstalledOdometer: 'INSTALLED ODOMETER (KM)',
+    tireAge: 'Tire Age',
+    tireAgeWarning: 'Replace recommended (>3 years)',
+    saveTireLog: 'SAVE TIRE LOG',
+    noTireLogs: 'No tire records yet',
+    years: 'years',
+    months: 'months',
+    myProfile: 'My Profile',
+    userName: 'USERNAME',
+    email: 'EMAIL',
+    changePhoto: 'Change Profile Photo',
+    exportPdf: 'Export Service History (PDF)',
+    exportPdfDesc: 'Share full service records as PDF',
+    editProfile: 'Edit Profile',
+    saveProfile: 'SAVE PROFILE',
+    editRepair: 'Edit Repair',
+    deleteRepair: 'Delete',
+    confirmDelete: 'Confirm Delete',
+    confirmDeleteMsg: 'Are you sure you want to delete this repair record?',
+    delete: 'Delete',
+    notifOdometerTitle: 'Update Your Odometer!',
+    notifOdometerBody: "You haven't updated the odometer in over a week. Keep your maintenance tracking accurate!",
+    notifTaxTitle: 'Annual Tax Reminder',
+    notifTaxBody: 'Annual tax expires in {{days}} days!',
+    notifStnkTitle: 'STNK Renewal Reminder',
+    notifStnkBody: '5-year STNK expires in {{days}} days!',
+    'Oil Change': 'Oil Change',
+    'Tire Rotation': 'Tire Rotation',
+    'Brake Inspection': 'Brake Inspection',
+    'Air Filter': 'Air Filter',
+    'Spark Plugs': 'Spark Plugs',
+    'Transmission Service': 'Transmission Service',
+    'Coolant Flush': 'Coolant Flush',
+    'Battery Check': 'Battery Check',
+    'AC Service': 'AC Service',
+    'General Inspection': 'General Inspection',
+    'Tire Replacement Front': 'Front Tire Replacement',
+    'Tire Replacement Rear': 'Rear Tire Replacement',
+    'Chain Lubrication': 'Chain Lubrication',
+    'Valve Adjustment': 'Valve Adjustment',
+    'Carburetor/Injector Service': 'Carburetor/Injector Service',
+    'Drive Belt': 'Drive Belt',
+    'Other': 'Other',
   },
   id: {
     appTagline: 'AUTO PULSE',
@@ -124,6 +193,74 @@ const translations = {
     photoUrlPlaceholder: 'https://...',
     initialOdometer: 'ODOMETER AWAL (KM)',
     accentColor: 'WARNA AKSEN',
+    vehicleType: 'JENIS KENDARAAN',
+    car: 'Mobil (Roda 4)',
+    motorcycle: 'Motor (Roda 2)',
+    documentHealth: 'Kesehatan Dokumen',
+    taxDueDate: 'TANGGAL JATUH TEMPO PAJAK TAHUNAN',
+    stnkDueDate: 'TANGGAL JATUH TEMPO STNK 5 TAHUNAN',
+    taxExpiry: 'Pajak Tahunan',
+    stnkExpiry: 'STNK 5 Tahun',
+    daysLeft: 'hari lagi',
+    expired: 'KADALUARSA',
+    expires: 'jatuh tempo',
+    tireLog: 'Log Ban',
+    addTireLog: 'Tambah Log Ban',
+    tirePosition: 'POSISI BAN',
+    tireFront: 'Depan',
+    tireRear: 'Belakang',
+    tireFrontLeft: 'Depan Kiri',
+    tireFrontRight: 'Depan Kanan',
+    tireRearLeft: 'Belakang Kiri',
+    tireRearRight: 'Belakang Kanan',
+    tireBrand: 'MEREK BAN',
+    tireSize: 'UKURAN BAN',
+    tireProductionCode: 'KODE PRODUKSI (4 digit)',
+    tireProductionCodeHint: 'mis. 2423 = minggu 24, tahun 2023',
+    tireInstalledDate: 'TANGGAL PASANG',
+    tireInstalledOdometer: 'ODOMETER SAAT PASANG (KM)',
+    tireAge: 'Umur Ban',
+    tireAgeWarning: 'Disarankan ganti (>3 tahun)',
+    saveTireLog: 'SIMPAN LOG BAN',
+    noTireLogs: 'Belum ada catatan ban',
+    years: 'tahun',
+    months: 'bulan',
+    myProfile: 'Profil Saya',
+    userName: 'NAMA PENGGUNA',
+    email: 'EMAIL',
+    changePhoto: 'Ganti Foto Profil',
+    exportPdf: 'Ekspor Riwayat Servis (PDF)',
+    exportPdfDesc: 'Bagikan catatan servis lengkap sebagai PDF',
+    editProfile: 'Edit Profil',
+    saveProfile: 'SIMPAN PROFIL',
+    editRepair: 'Edit Perbaikan',
+    deleteRepair: 'Hapus',
+    confirmDelete: 'Konfirmasi Hapus',
+    confirmDeleteMsg: 'Apakah Anda yakin ingin menghapus catatan perbaikan ini?',
+    delete: 'Hapus',
+    notifOdometerTitle: 'Update Odometer Anda!',
+    notifOdometerBody: 'Anda belum memperbarui odometer lebih dari seminggu. Jaga akurasi pelacakan perawatan Anda!',
+    notifTaxTitle: 'Pengingat Pajak Tahunan',
+    notifTaxBody: 'Pajak tahunan jatuh tempo dalam {{days}} hari!',
+    notifStnkTitle: 'Pengingat Perpanjangan STNK',
+    notifStnkBody: 'STNK 5 tahunan jatuh tempo dalam {{days}} hari!',
+    'Oil Change': 'Ganti Oli',
+    'Tire Rotation': 'Rotasi Ban',
+    'Brake Inspection': 'Pemeriksaan Rem',
+    'Air Filter': 'Filter Udara',
+    'Spark Plugs': 'Busi',
+    'Transmission Service': 'Servis Transmisi',
+    'Coolant Flush': 'Ganti Coolant',
+    'Battery Check': 'Cek Aki',
+    'AC Service': 'Servis AC',
+    'General Inspection': 'Inspeksi Umum',
+    'Tire Replacement Front': 'Ganti Ban Depan',
+    'Tire Replacement Rear': 'Ganti Ban Belakang',
+    'Chain Lubrication': 'Lumasi Rantai',
+    'Valve Adjustment': 'Setel Klep',
+    'Carburetor/Injector Service': 'Servis Karburator/Injektor',
+    'Drive Belt': 'Ganti V-Belt',
+    'Other': 'Lainnya',
   },
 };
 
@@ -142,8 +279,24 @@ const LanguageContext = createContext<LanguageContextType>({
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>('id');
-  const t = (key: TranslationKey): string => translations[lang][key] ?? key;
+  const [lang, setLangState] = useState<Lang>('id');
+
+  useEffect(() => {
+    AsyncStorage.getItem('garasi_lang').then((v) => {
+      if (v === 'en' || v === 'id') setLangState(v as Lang);
+    });
+  }, []);
+
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    AsyncStorage.setItem('garasi_lang', l);
+  };
+
+  const t = (key: TranslationKey): string => {
+    const val = (translations[lang] as any)[key];
+    return val !== undefined ? val : key;
+  };
+
   return (
     <LanguageContext.Provider value={{ lang, setLang, t }}>
       {children}
