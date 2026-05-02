@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,10 +9,19 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Platform,
+  Animated,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Notifications from "expo-notifications";
-import { Vehicle, RepairEntry, Reminder, TireLog } from "@/types/maintenance";
+import {
+  Vehicle,
+  RepairEntry,
+  Reminder,
+  TireLog,
+  FuelEntry,
+  NotificationItem,
+} from "@/types/maintenance";
 import { MOCK_VEHICLES, MOCK_REPAIRS, MOCK_REMINDERS } from "@/data/mockData";
 import {
   loadVehicles,
@@ -25,6 +34,11 @@ import {
   saveTireLogs,
   loadSelectedVehicleId,
   saveSelectedVehicleId,
+  loadFuelEntries,
+  saveFuelEntries,
+  loadNotifications,
+  saveNotifications,
+  loadUserProfile,
 } from "@/utils/storage";
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
 import VehicleSwitcher from "@/components/maintenance/VehicleSwitcher";
@@ -33,12 +47,13 @@ import MaintenanceStatusBar from "@/components/maintenance/MaintenanceStatusBar"
 import UpcomingReminders from "@/components/maintenance/UpcomingReminders";
 import RepairHistory from "@/components/maintenance/RepairHistory";
 import AddRepairSheet from "@/components/maintenance/AddRepairSheet";
-import RecommendationBanner from "@/components/maintenance/RecommendationBanner";
 import VehicleEditModal from "@/components/maintenance/VehicleEditModal";
-import DocumentHealthCard from "@/components/maintenance/DocumentHealthCard";
-import TireLogSheet from "@/components/maintenance/TireLogSheet";
+import RecommendationBanner from "@/components/maintenance/RecommendationBanner";
+import FuelLog from "@/components/maintenance/FuelLog";
+import FuelSheet from "@/components/maintenance/FuelSheet";
+import NotifCenter from "@/components/maintenance/NotifCenter";
 
-type TabType = "home" | "history" | "tires";
+type TabType = "home" | "history" | "fuel";
 
 // Setup notifications handlerr
 Notifications.setNotificationHandler({
@@ -64,6 +79,9 @@ function AppContent() {
   const [repairs, setRepairs] = useState<RepairEntry[]>(MOCK_REPAIRS);
   const [reminders, setReminders] = useState<Reminder[]>(MOCK_REMINDERS);
   const [tireLogs, setTireLogs] = useState<TireLog[]>([]);
+  const [fuelEntries, setFuelEntries] = useState<FuelEntry[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [profilePhotoUri, setProfilePhotoUri] = useState<string | undefined>();
   const [selectedVehicleId, setSelectedVehicleId] = useState(
     MOCK_VEHICLES[0].id,
   );
@@ -76,8 +94,29 @@ function AppContent() {
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [showLangModal, setShowLangModal] = useState(false);
-  const [showTireSheet, setShowTireSheet] = useState(false);
+  const [showFuelSheet, setShowFuelSheet] = useState(false);
+  const [showNotifCenter, setShowNotifCenter] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Tab animation
+  const tabAnim = useRef(new Animated.Value(0)).current;
+
+  const animateTab = () => {
+    tabAnim.setValue(0);
+    Animated.spring(tabAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 8,
+    }).start();
+  };
+
+  const handleTabChange = (tab: TabType) => {
+    if (tab !== activeTab) {
+      setActiveTab(tab);
+      animateTab();
+    }
+  };
 
   const selectedVehicle =
     vehicles.find((v) => v.id === selectedVehicleId) ?? vehicles[0];
@@ -87,31 +126,53 @@ function AppContent() {
   const vehicleReminders = reminders.filter(
     (r) => r.vehicleId === selectedVehicleId,
   );
+  const vehicleFuelEntries = fuelEntries.filter(
+    (f) => f.vehicleId === selectedVehicleId,
+  );
   const vehicleTireLogs = tireLogs.filter(
     (t) => t.vehicleId === selectedVehicleId,
   );
+  const totalCost = vehicleRepairs.reduce((sum, r) => sum + r.cost, 0);
+
+  // Monthly stats
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const monthlyRepairs = vehicleRepairs.filter(
+    (r) => r.date >= monthStart && r.date <= monthEnd,
+  );
+  const monthlyCost = monthlyRepairs.reduce((sum, r) => sum + r.cost, 0);
+  const monthlyCount = monthlyRepairs.length;
+
+  const unreadNotifCount = notifications.filter((n) => !n.read).length;
 
   // Load from AsyncStorage
   useEffect(() => {
     (async () => {
-      const [sv, sr, srm, stl, ssv] = await Promise.all([
+      const [sv, sr, srm, stl, ssv, sfe, sn, sp] = await Promise.all([
         loadVehicles(),
         loadRepairs(),
         loadReminders(),
         loadTireLogs(),
         loadSelectedVehicleId(),
+        loadFuelEntries(),
+        loadNotifications(),
+        loadUserProfile(),
       ]);
       if (sv) setVehicles(sv);
       if (sr) setRepairs(sr);
       if (srm) setReminders(srm);
       if (stl) setTireLogs(stl);
       if (ssv) setSelectedVehicleId(ssv);
+      if (sfe) setFuelEntries(sfe);
+      if (sn) setNotifications(sn);
+      if (sp?.photoUri) setProfilePhotoUri(sp.photoUri);
       setDataLoaded(true);
     })();
     requestNotifPermission();
   }, []);
 
-  // Persist whenever state changes (after initial load)
+  // Persist
   useEffect(() => {
     if (dataLoaded) saveVehicles(vehicles);
   }, [vehicles, dataLoaded]);
@@ -127,17 +188,33 @@ function AppContent() {
   useEffect(() => {
     if (dataLoaded) saveSelectedVehicleId(selectedVehicleId);
   }, [selectedVehicleId, dataLoaded]);
+  useEffect(() => {
+    if (dataLoaded) saveFuelEntries(fuelEntries);
+  }, [fuelEntries, dataLoaded]);
+  useEffect(() => {
+    if (dataLoaded) saveNotifications(notifications);
+  }, [notifications, dataLoaded]);
 
-  // Schedule notifications
   useEffect(() => {
     if (!dataLoaded || !selectedVehicle) return;
-    scheduleOdometerNotif(selectedVehicle, lang, t);
+    scheduleOdometerNotif(selectedVehicle, lang, t, addNotification);
   }, [selectedVehicle, dataLoaded]);
 
   useEffect(() => {
     if (!dataLoaded || !selectedVehicle) return;
-    scheduleDocNotifs(selectedVehicle, lang, t);
+    scheduleDocNotifs(selectedVehicle, lang, t, addNotification);
   }, [selectedVehicle, dataLoaded]);
+
+  const addNotification = (title: string, body: string) => {
+    const newNotif: NotificationItem = {
+      id: `n${Date.now()}`,
+      title,
+      body,
+      timestamp: new Date(),
+      read: false,
+    };
+    setNotifications((prev) => [newNotif, ...prev].slice(0, 50));
+  };
 
   const handleOdometerUpdate = (newValue: number) => {
     setVehicles((prev) =>
@@ -197,16 +274,21 @@ function AppContent() {
     setRepairs((prev) => prev.filter((r) => r.id !== id));
   };
 
+  const handleEditRepair = (entry: RepairEntry) => {
+    setEditingRepair(entry);
+    setPrefillServiceType(undefined);
+    setShowAddSheet(true);
+  };
+
   const handleRecommendationTap = (serviceType: string) => {
     setPrefillServiceType(serviceType);
     setEditingRepair(null);
     setShowAddSheet(true);
   };
 
-  const handleEditRepair = (entry: RepairEntry) => {
-    setEditingRepair(entry);
-    setPrefillServiceType(undefined);
-    setShowAddSheet(true);
+  const handleAddTireLog = (log: Omit<TireLog, "id">) => {
+    const newLog = { ...log, id: `tl${Date.now()}` };
+    setTireLogs((prev) => [...prev, newLog]);
   };
 
   const handleVehicleSave = (
@@ -235,9 +317,8 @@ function AppContent() {
     setEditingVehicle(null);
   };
 
-  const handleAddTireLog = (log: Omit<TireLog, "id">) => {
-    const newLog: TireLog = { ...log, id: `tl${Date.now()}` };
-    setTireLogs((prev) => [...prev, newLog]);
+  const handleAddFuel = (entry: Omit<FuelEntry, "id">) => {
+    setFuelEntries((prev) => [...prev, { ...entry, id: `fe${Date.now()}` }]);
   };
 
   const openEditVehicle = () => {
@@ -249,7 +330,20 @@ function AppContent() {
     setShowVehicleModal(true);
   };
 
-  const totalCost = vehicleRepairs.reduce((sum, r) => sum + r.cost, 0);
+  const tabTranslateY = tabAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [8, -4, 0],
+  });
+  const tabOpacity = tabAnim.interpolate({
+    inputRange: [0, 0.3, 1],
+    outputRange: [0.6, 1, 1],
+  });
+
+  const TABS: { key: TabType; icon: string; label: () => string }[] = [
+    { key: "home", icon: "🏠", label: () => t("overview") },
+    { key: "fuel", icon: "⛽", label: () => (lang === "id" ? "BBM" : "Fuel") },
+    { key: "history", icon: "🔧", label: () => t("history") },
+  ];
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
@@ -444,9 +538,6 @@ function AppContent() {
                 </View>
               </View>
 
-              {/* Document Health */}
-              <DocumentHealthCard vehicle={selectedVehicle} />
-
               <MaintenanceStatusBar
                 reminders={vehicleReminders}
                 currentOdometer={selectedVehicle.currentOdometer}
@@ -457,11 +548,7 @@ function AppContent() {
                 currentOdometer={selectedVehicle.currentOdometer}
                 onTap={handleRecommendationTap}
               />
-              <UpcomingReminders
-                reminders={vehicleReminders}
-                currentOdometer={selectedVehicle.currentOdometer}
-                onAddReminder={handleRecommendationTap}
-              />
+              <UpcomingReminders vehicle={selectedVehicle} />
             </>
           )}
 
@@ -473,11 +560,10 @@ function AppContent() {
             />
           )}
 
-          {activeTab === "tires" && (
-            <TireLogList
-              tireLogs={vehicleTireLogs}
-              onAdd={() => setShowTireSheet(true)}
-              vehicleType={selectedVehicle.vehicleType}
+          {activeTab === "fuel" && (
+            <FuelLog
+              fuelEntries={vehicleFuelEntries}
+              onAdd={() => setShowFuelSheet(true)}
             />
           )}
         </ScrollView>
@@ -528,7 +614,7 @@ function AppContent() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setActiveTab("tires")}
+            onPress={() => handleTabChange("fuel")}
             activeOpacity={0.8}
             style={{ flex: 1, alignItems: "center", gap: 4 }}
           >
@@ -538,20 +624,20 @@ function AppContent() {
                 height: 3,
                 borderRadius: 2,
                 backgroundColor:
-                  activeTab === "tires" ? "#F5A623" : "transparent",
+                  activeTab === "fuel" ? "#F5A623" : "transparent",
                 marginBottom: 4,
               }}
             />
-            <Text style={{ fontSize: 22 }}>🛞</Text>
+            <Text style={{ fontSize: 22 }}>⛽</Text>
             <Text
               style={{
                 color:
-                  activeTab === "tires" ? "#F5A623" : "rgba(255,255,255,0.4)",
+                  activeTab === "fuel" ? "#F5A623" : "rgba(255,255,255,0.4)",
                 fontSize: 11,
-                fontWeight: activeTab === "tires" ? "700" : "400",
+                fontWeight: activeTab === "fuel" ? "700" : "400",
               }}
             >
-              {t("tireLog")}
+              {lang === "id" ? "BBM" : "Fuel"}
             </Text>
           </TouchableOpacity>
 
@@ -732,6 +818,14 @@ function AppContent() {
           onUpdate={handleUpdateRepair}
         />
 
+        <FuelSheet
+          visible={showFuelSheet}
+          vehicleId={selectedVehicleId}
+          currentOdometer={selectedVehicle?.currentOdometer || 0}
+          onClose={() => setShowFuelSheet(false)}
+          onSave={handleAddFuel}
+        />
+
         {/* Vehicle Edit / Add Modal */}
         <VehicleEditModal
           visible={showVehicleModal}
@@ -741,16 +835,6 @@ function AppContent() {
             setEditingVehicle(null);
           }}
           onSave={handleVehicleSave}
-        />
-
-        {/* Tire Log Sheet */}
-        <TireLogSheet
-          visible={showTireSheet}
-          vehicleId={selectedVehicleId}
-          vehicleType={selectedVehicle.vehicleType}
-          currentOdometer={selectedVehicle.currentOdometer}
-          onClose={() => setShowTireSheet(false)}
-          onSave={handleAddTireLog}
         />
       </SafeAreaView>
     </View>

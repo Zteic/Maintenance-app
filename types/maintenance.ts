@@ -37,6 +37,13 @@ export interface RepairEntry {
   notes: string;
   nextIntervalKm: number;
   nextServiceDate?: Date;
+  // Tire info (only when serviceType involves tire replacement)
+  tireInfo?: {
+    position: 'front' | 'rear';
+    brand: string;
+    size: string;
+    productionCode: string;
+  };
 }
 
 export interface Reminder {
@@ -50,24 +57,26 @@ export interface Reminder {
   lastServiceOdometer: number;
 }
 
-export type ServiceType =
-  | 'Oil Change'
-  | 'Tire Rotation'
-  | 'Brake Inspection'
-  | 'Air Filter'
-  | 'Spark Plugs'
-  | 'Transmission Service'
-  | 'Coolant Flush'
-  | 'Battery Check'
-  | 'AC Service'
-  | 'General Inspection'
-  | 'Tire Replacement Front'
-  | 'Tire Replacement Rear'
-  | 'Chain Lubrication'
-  | 'Valve Adjustment'
-  | 'Carburetor/Injector Service'
-  | 'Drive Belt'
-  | 'Other';
+export interface FuelEntry {
+  id: string;
+  vehicleId: string;
+  date: string; // YYYY-MM-DD
+  liters: number;
+  pricePerLiter: number;
+  totalCost: number;
+  odometer: number;
+  notes?: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  body: string;
+  timestamp: Date;
+  read: boolean;
+}
+
+export type ServiceType = string;
 
 export interface UserProfile {
   name: string;

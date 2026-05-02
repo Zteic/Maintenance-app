@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Vehicle, RepairEntry, Reminder, TireLog, UserProfile } from '@/types/maintenance';
+import { Vehicle, RepairEntry, Reminder, TireLog, UserProfile, FuelEntry, NotificationItem } from '@/types/maintenance';
 
 const KEYS = {
   VEHICLES: 'garasi_vehicles',
@@ -8,6 +8,9 @@ const KEYS = {
   TIRE_LOGS: 'garasi_tire_logs',
   SELECTED_VEHICLE: 'garasi_selected_vehicle',
   USER_PROFILE: 'garasi_user_profile',
+  FUEL_ENTRIES: 'garasi_fuel_entries',
+  NOTIFICATIONS: 'garasi_notifications',
+  CUSTOM_SERVICE_TYPES: 'garasi_custom_service_types',
 };
 
 // Helpers to serialize/deserialize dates
@@ -128,5 +131,53 @@ export async function loadUserProfile(): Promise<UserProfile | null> {
 export async function saveUserProfile(profile: UserProfile): Promise<void> {
   try {
     await AsyncStorage.setItem(KEYS.USER_PROFILE, JSON.stringify(profile));
+  } catch {}
+}
+
+// Fuel Entries
+export async function loadFuelEntries(): Promise<FuelEntry[] | null> {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.FUEL_ENTRIES);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+export async function saveFuelEntries(entries: FuelEntry[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEYS.FUEL_ENTRIES, JSON.stringify(entries));
+  } catch {}
+}
+
+// Notifications
+export async function loadNotifications(): Promise<NotificationItem[] | null> {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.NOTIFICATIONS);
+    if (!raw) return null;
+    const items = JSON.parse(raw);
+    return items.map((n: any) => ({ ...n, timestamp: new Date(n.timestamp) }));
+  } catch { return null; }
+}
+
+export async function saveNotifications(items: NotificationItem[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEYS.NOTIFICATIONS, JSON.stringify(
+      items.map(n => ({ ...n, timestamp: n.timestamp.toISOString() }))
+    ));
+  } catch {}
+}
+
+// Custom Service Types
+export async function loadCustomServiceTypes(): Promise<string[] | null> {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.CUSTOM_SERVICE_TYPES);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+export async function saveCustomServiceTypes(types: string[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEYS.CUSTOM_SERVICE_TYPES, JSON.stringify(types));
   } catch {}
 }
