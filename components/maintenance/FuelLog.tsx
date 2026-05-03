@@ -8,6 +8,7 @@ import {
   Image,
   Dimensions,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { FuelEntry } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
@@ -15,6 +16,9 @@ import { useLanguage } from "@/context/LanguageContext";
 interface FuelLogProps {
   fuelEntries: FuelEntry[];
   onAdd: () => void;
+  onEdit?: (entry: FuelEntry) => void; // Pastikan ada ini
+  onDelete?: (id: string) => void;
+  onUpdateEntries?: (entries: FuelEntry[]) => void;
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -27,7 +31,12 @@ function formatCurrency(n: number) {
   }).format(n);
 }
 
-export default function FuelLog({ fuelEntries, onAdd }: FuelLogProps) {
+export default function FuelLog({
+  fuelEntries,
+  onAdd,
+  onEdit,
+  onDelete,
+}: FuelLogProps) {
   const { lang } = useLanguage();
   const isId = lang === "id";
 
@@ -61,6 +70,38 @@ export default function FuelLog({ fuelEntries, onAdd }: FuelLogProps) {
       });
     }
   }
+
+  // Tambahan: Hitung rata-rata KM/L untuk menentukan Status Irit/Normal/Boros
+  const avgKmPerL =
+    efficiencies.length > 0
+      ? efficiencies.reduce((acc, curr) => acc + curr.kmPerL, 0) /
+        efficiencies.length
+      : 0;
+
+  const getStatus = (kmPerL: number) => {
+    if (kmPerL > avgKmPerL * 1.1)
+      return { label: isId ? "Irit" : "Efficient", color: "#4ECDC4" };
+    if (kmPerL < avgKmPerL * 0.9)
+      return { label: isId ? "Boros" : "Wasteful", color: "#FF5252" };
+    return { label: "Normal", color: "#F5A623" };
+  };
+
+  const handleDelete = (id: string) => {
+    Alert.alert(
+      isId ? "Hapus Catatan" : "Delete Record",
+      isId
+        ? "Apakah Anda yakin ingin menghapus data ini?"
+        : "Are you sure you want to delete this data?",
+      [
+        { text: isId ? "Batal" : "Cancel", style: "cancel" },
+        {
+          text: isId ? "Hapus" : "Delete",
+          style: "destructive",
+          onPress: () => onDelete?.(id),
+        },
+      ],
+    );
+  };
 
   return (
     <View style={{ gap: 12 }}>
@@ -143,6 +184,21 @@ export default function FuelLog({ fuelEntries, onAdd }: FuelLogProps) {
 
             return (
               <View key={entry.id} style={styles.entryCard}>
+                {/* Tambahan: Action Buttons (Edit/Delete) */}
+                <View style={styles.actionHeader}>
+                  <TouchableOpacity onPress={() => onEdit?.(entry)}>
+                    <Text style={styles.editText}>
+                      {isId ? "Edit" : "Edit"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* GANTI BAGIAN INI: Pastikan memanggil handleDelete(entry.id) */}
+                  <TouchableOpacity onPress={() => handleDelete(entry.id)}>
+                    <Text style={styles.deleteText}>
+                      {isId ? "Hapus" : "Delete"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
                 <View
                   style={{
                     flexDirection: "row",
@@ -231,9 +287,27 @@ export default function FuelLog({ fuelEntries, onAdd }: FuelLogProps) {
                   {eff && (
                     <View style={styles.miniStatBox}>
                       <Text style={styles.miniLabel}>KM/LITER</Text>
-                      <Text style={[styles.miniValue, { color: "#4ECDC4" }]}>
-                        {eff.kmPerL.toFixed(1)}
-                      </Text>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Text style={[styles.miniValue, { color: "#4ECDC4" }]}>
+                          {eff.kmPerL.toFixed(1)}
+                        </Text>
+                        {/* Tambahan: Status Label */}
+                        <Text
+                          style={{
+                            fontSize: 8,
+                            color: getStatus(eff.kmPerL).color,
+                            fontWeight: "900",
+                          }}
+                        >
+                          ({getStatus(eff.kmPerL).label})
+                        </Text>
+                      </View>
                     </View>
                   )}
                   {eff && (
@@ -302,6 +376,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
     gap: 12,
+  },
+  // Tambahan: style untuk edit/delete
+  actionHeader: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 15,
+    marginBottom: -5,
+  },
+  editText: { color: "#4ECDC4", fontSize: 11, fontWeight: "700", opacity: 0.8 },
+  deleteText: {
+    color: "#FF5252",
+    fontSize: 11,
+    fontWeight: "700",
+    opacity: 0.8,
   },
   iconBox: {
     width: 40,

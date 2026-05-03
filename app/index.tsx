@@ -95,6 +95,7 @@ function AppContent() {
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedDateRecords, setSelectedDateRecords] = useState<any[]>([]);
+  const [editingFuel, setEditingFuel] = useState<FuelEntry | null>(null);
 
   // 1. Sinkronisasi Tab dari URL (Penting!)
   useEffect(() => {
@@ -393,8 +394,27 @@ function AppContent() {
 
         {activeTab === "fuel" && (
           <FuelLog
-            fuelEntries={vehicleFuelEntries}
-            onAdd={() => setShowFuelSheet(true)}
+            // Filter data agar hanya menampilkan 7 hari terakhir
+            fuelEntries={vehicleFuelEntries.filter((entry) => {
+              const entryDate = new Date(entry.date);
+              const today = new Date();
+              const sevenDaysAgo = new Date();
+              sevenDaysAgo.setDate(today.getDate() - 7);
+
+              // Mengembalikan true jika tanggal entry berada di antara 7 hari lalu dan hari ini
+              return entryDate >= sevenDaysAgo && entryDate <= today;
+            })}
+            onAdd={() => {
+              setEditingFuel(null);
+              setShowFuelSheet(true);
+            }}
+            onEdit={(entry) => {
+              setEditingFuel(entry);
+              setShowFuelSheet(true);
+            }}
+            onDelete={(id) => {
+              setFuelEntries((prev) => prev.filter((f) => f.id !== id));
+            }}
           />
         )}
       </ScrollView>
@@ -418,8 +438,26 @@ function AppContent() {
         visible={showFuelSheet}
         vehicleId={selectedVehicleId}
         currentOdometer={selectedVehicle?.currentOdometer || 0}
-        onClose={() => setShowFuelSheet(false)}
-        onSave={handleAddFuel}
+        editEntry={editingFuel} // TAMBAHKAN INI agar form terisi saat edit
+        onClose={() => {
+          setShowFuelSheet(false);
+          setEditingFuel(null);
+        }}
+        onSave={(entry) => {
+          if (editingFuel) {
+            // Logika Update data lama
+            setFuelEntries((prev) =>
+              prev.map((f) =>
+                f.id === editingFuel.id ? { ...f, ...entry } : f,
+              ),
+            );
+          } else {
+            // Logika Tambah data baru
+            handleAddFuel(entry);
+          }
+          setShowFuelSheet(false);
+          setEditingFuel(null);
+        }}
       />
 
       {/* 3. Vehicle Edit */}
