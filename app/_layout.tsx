@@ -1,21 +1,37 @@
-import {
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import {
+  Stack,
+  useRouter,
+  usePathname,
+  useGlobalSearchParams, // Ganti ini dari useLocalSearchParams
+} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import {
+  View,
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  Dimensions,
+} from "react-native";
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import "react-native-reanimated";
 import "../global.css";
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Import pemicu modal dari index
+import { openFuelSheet, openRepairSheet } from "./index";
+
+const { width } = Dimensions.get("window");
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
   useEffect(() => {
@@ -24,20 +40,229 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  if (!loaded) {
-    return null;
-  }
+  if (!loaded) return null;
 
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <Stack
-        screenOptions={({ route }) => ({
-          headerShown: !route.name.startsWith("tempobook"),
-        })}
-      >
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider value={DefaultTheme}>
+        <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="profile" />
+          </Stack>
+          <AppNavigationOverlay />
+        </View>
+        <StatusBar style="light" />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
+
+function AppNavigationOverlay() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useGlobalSearchParams(); // Menggunakan Global agar Layout bisa baca params index
+
+  // 1. Ambil nilai mentah dari parameter 'tab'
+  const tabParam = params.tab;
+
+  // 2. LOGIKA PENENTUAN TAB AKTIF (Sangat Eksplisit)
+  let currentActiveTab = "home";
+
+  if (pathname.includes("profile")) {
+    currentActiveTab = "profile";
+  } else if (tabParam === "fuel") {
+    currentActiveTab = "fuel";
+  } else if (tabParam === "history") {
+    currentActiveTab = "history";
+  } else {
+    currentActiveTab = "home";
+  }
+
+  const handleNavPress = (tabName: string) => {
+    // Menggunakan replace agar tidak menumpuk history back button
+    router.replace({
+      pathname: "/",
+      params: { tab: tabName },
+    });
+  };
+
+  const handleFabAction = () => {
+    if (currentActiveTab === "home") openRepairSheet();
+    else if (currentActiveTab === "fuel") openFuelSheet();
+  };
+
+  const showFab = currentActiveTab === "home" || currentActiveTab === "fuel";
+
+  return (
+    <View style={styles.overlay} pointerEvents="box-none">
+      {/* 1. SMART FAB */}
+      {showFab && (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={handleFabAction}
+          style={[styles.fab, { bottom: 80 + insets.bottom }]}
+        >
+          <Text style={styles.fabIcon}>+</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* 2. BOTTOM NAVBAR */}
+      <View
+        style={[
+          styles.navbar,
+          { height: 60 + insets.bottom, paddingBottom: insets.bottom },
+        ]}
+      >
+        {/* Tab Overview */}
+        <TouchableOpacity
+          onPress={() => handleNavPress("home")}
+          style={styles.navItem}
+        >
+          <Text
+            style={[
+              styles.navEmoji,
+              currentActiveTab === "home" && styles.activeEmoji,
+            ]}
+          >
+            📊
+          </Text>
+          <Text
+            style={[
+              styles.navLabel,
+              currentActiveTab === "home" && styles.activeText,
+            ]}
+          >
+            Dashboard
+          </Text>
+        </TouchableOpacity>
+
+        {/* Tab Fuel */}
+        <TouchableOpacity
+          onPress={() => handleNavPress("fuel")}
+          style={styles.navItem}
+        >
+          <Text
+            style={[
+              styles.navEmoji,
+              currentActiveTab === "fuel" && styles.activeEmoji,
+            ]}
+          >
+            ⛽
+          </Text>
+          <Text
+            style={[
+              styles.navLabel,
+              currentActiveTab === "fuel" && styles.activeText,
+            ]}
+          >
+            Fuel
+          </Text>
+        </TouchableOpacity>
+
+        {/* Tab History */}
+        <TouchableOpacity
+          onPress={() => handleNavPress("history")}
+          style={styles.navItem}
+        >
+          <Text
+            style={[
+              styles.navEmoji,
+              currentActiveTab === "history" && styles.activeEmoji,
+            ]}
+          >
+            🔧
+          </Text>
+          <Text
+            style={[
+              styles.navLabel,
+              currentActiveTab === "history" && styles.activeText,
+            ]}
+          >
+            History
+          </Text>
+        </TouchableOpacity>
+
+        {/* Tab Profile */}
+        <TouchableOpacity
+          onPress={() => router.push("/profile")}
+          style={styles.navItem}
+        >
+          <Text
+            style={[
+              styles.navEmoji,
+              currentActiveTab === "profile" && styles.activeEmoji,
+            ]}
+          >
+            👤
+          </Text>
+          <Text
+            style={[
+              styles.navLabel,
+              currentActiveTab === "profile" && styles.activeText,
+            ]}
+          >
+            Profile
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 99999,
+  },
+  navbar: {
+    position: "absolute",
+    bottom: 0,
+    width: width,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    backgroundColor: "#1A2B3C",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.1)",
+  },
+  navItem: { alignItems: "center", flex: 1, paddingTop: 8 },
+  navEmoji: { fontSize: 20, opacity: 0.4 },
+  activeEmoji: { opacity: 1 },
+  navLabel: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.4)",
+    marginTop: 4,
+    fontWeight: "700",
+  },
+  activeText: { color: "#4ECDC4" },
+  fab: {
+    position: "absolute",
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#4ECDC4",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 5,
+  },
+  fabIcon: { fontSize: 32, color: "#0D1B2A", fontWeight: "bold" },
+  fabLabel: {
+    position: "absolute",
+    top: -16,
+    backgroundColor: "#4ECDC4",
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  fabLabelText: { fontSize: 9, fontWeight: "900", color: "#0D1B2A" },
+});
