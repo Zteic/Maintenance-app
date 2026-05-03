@@ -49,6 +49,7 @@ import RecommendationBanner from "@/components/maintenance/RecommendationBanner"
 import FuelLog from "@/components/maintenance/FuelLog";
 import FuelSheet from "@/components/maintenance/FuelSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import MaintenanceCalendar from "../components/maintenance/MaintenanceCalendar";
 
 type TabType = "home" | "history" | "fuel";
 
@@ -91,6 +92,9 @@ function AppContent() {
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [showLangModal, setShowLangModal] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedDateRecords, setSelectedDateRecords] = useState<any[]>([]);
 
   // 1. Sinkronisasi Tab dari URL (Penting!)
   useEffect(() => {
@@ -323,7 +327,10 @@ function AppContent() {
                   }).format(totalCost)}
                 </Text>
               </View>
-              <View
+              {/* KOTAK SERVICES DONE YANG BISA DIKLIK */}
+              <TouchableOpacity
+                onPress={() => setShowCalendarModal(true)}
+                activeOpacity={0.7}
                 style={{
                   flex: 1,
                   backgroundColor: "#1A2B3C",
@@ -336,16 +343,26 @@ function AppContent() {
                 <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
                   {t("servicesDone")}
                 </Text>
-                <Text
+                <View
                   style={{
-                    color: "#4ECDC4",
-                    fontSize: 14,
-                    fontWeight: "700",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginTop: 4,
                   }}
                 >
-                  {vehicleRepairs.length} {t("records")}
-                </Text>
-              </View>
+                  <Text
+                    style={{
+                      color: "#4ECDC4",
+                      fontSize: 14,
+                      fontWeight: "700",
+                    }}
+                  >
+                    {vehicleRepairs.length} {t("records")}
+                  </Text>
+                  <Text style={{ fontSize: 12 }}>📅</Text>
+                </View>
+              </TouchableOpacity>
             </View>
             <MaintenanceStatusBar
               reminders={vehicleReminders}
@@ -382,7 +399,9 @@ function AppContent() {
         )}
       </ScrollView>
 
-      {/* MODALS */}
+      {/* MODALS SECTION */}
+
+      {/* 1. Add Repair Sheet */}
       <AddRepairSheet
         visible={showAddSheet}
         vehicleId={selectedVehicleId}
@@ -394,6 +413,7 @@ function AppContent() {
         onSave={handleAddRepair}
       />
 
+      {/* 2. Fuel Sheet */}
       <FuelSheet
         visible={showFuelSheet}
         vehicleId={selectedVehicleId}
@@ -402,6 +422,7 @@ function AppContent() {
         onSave={handleAddFuel}
       />
 
+      {/* 3. Vehicle Edit */}
       <VehicleEditModal
         visible={showVehicleModal}
         vehicle={editingVehicle}
@@ -409,7 +430,7 @@ function AppContent() {
         onSave={handleVehicleSave}
       />
 
-      {/* --- TAMBAHKAN MODAL BAHASA DI SINI --- */}
+      {/* 4. MODAL BAHASA (Sudah Diperbaiki Penutupnya) */}
       <Modal
         visible={showLangModal}
         transparent
@@ -448,7 +469,6 @@ function AppContent() {
                 >
                   {lang === "id" ? "Pilih Bahasa" : "Select Language"}
                 </Text>
-
                 {(["id", "en"] as const).map((l) => (
                   <TouchableOpacity
                     key={l}
@@ -456,7 +476,6 @@ function AppContent() {
                       setLang(l);
                       setShowLangModal(false);
                     }}
-                    activeOpacity={0.8}
                     style={{
                       paddingVertical: 18,
                       flexDirection: "row",
@@ -466,9 +485,6 @@ function AppContent() {
                         lang === l ? "#F5A623" : "rgba(255,255,255,0.03)",
                       borderRadius: 16,
                       marginBottom: 12,
-                      borderWidth: 1,
-                      borderColor:
-                        lang === l ? "#F5A623" : "rgba(255,255,255,0.08)",
                     }}
                   >
                     <Text style={{ fontSize: 22, marginRight: 12 }}>
@@ -489,6 +505,237 @@ function AppContent() {
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* 5. MODAL KALENDER (Sekarang Sejajar, Bukan di Dalam) */}
+      <Modal
+        visible={showCalendarModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCalendarModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.85)",
+            justifyContent: "center",
+          }}
+        >
+          <View
+            style={{
+              margin: 20,
+              height: "85%",
+              backgroundColor: "#1A2B3C",
+              borderRadius: 25,
+              overflow: "hidden",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.1)",
+            }}
+          >
+            {/* HEADER */}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                padding: 20,
+                alignItems: "center",
+                backgroundColor: "rgba(255,255,255,0.02)",
+                borderBottomWidth: 1,
+                borderBottomColor: "rgba(255,255,255,0.05)",
+              }}
+            >
+              <Text style={{ color: "#FFF", fontSize: 18, fontWeight: "800" }}>
+                Jejak Kendaraan
+              </Text>
+              <TouchableOpacity onPress={() => setShowCalendarModal(false)}>
+                <View
+                  style={{
+                    backgroundColor: "rgba(255,82,82,0.1)",
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 10,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#FF5252",
+                      fontWeight: "800",
+                      fontSize: 12,
+                    }}
+                  >
+                    TUTUP
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* KALENDER */}
+            <View style={{ paddingHorizontal: 10, paddingVertical: 10 }}>
+              <MaintenanceCalendar
+                repairs={vehicleRepairs}
+                fuelEntries={vehicleFuelEntries} // Pastikan props ini terisi
+                onDayPress={(day: any) => {
+                  setSelectedDate(day.dateString);
+
+                  // 1. Ambil data perbaikan/servis
+                  const repairsOnDate = vehicleRepairs.filter(
+                    (r) => r.date === day.dateString,
+                  );
+
+                  // 2. Ambil data bensin (Fuel)
+                  // Kita tambahkan pengecekan format tanggal untuk berjaga-jaga
+                  const fuelsOnDate = vehicleFuelEntries.filter((f) => {
+                    const fuelDate =
+                      typeof f.date === "string"
+                        ? f.date.split("T")[0]
+                        : f.date;
+                    return fuelDate === day.dateString;
+                  });
+
+                  // 3. GABUNGKAN KEDUANYA ke dalam satu list
+                  const combined = [
+                    ...repairsOnDate.map((item) => ({
+                      ...item,
+                      category: "repair", // Label untuk membedakan di UI
+                    })),
+                    ...fuelsOnDate.map((item) => ({
+                      ...item,
+                      category: "fuel", // Label untuk membedakan di UI
+                    })),
+                  ];
+
+                  // 4. Update state records untuk ditampilkan di ScrollView bawah kalender
+                  setSelectedDateRecords(combined);
+                }}
+              />
+            </View>
+
+            {/* LIST RIWAYAT */}
+            <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)" }}>
+              <View
+                style={{
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  backgroundColor: "rgba(255,255,255,0.03)",
+                }}
+              >
+                <Text
+                  style={{ color: "#4ECDC4", fontSize: 12, fontWeight: "700" }}
+                >
+                  {selectedDate
+                    ? `LOG TANGGAL: ${selectedDate}`
+                    : "SILAKAN PILIH TANGGAL"}
+                </Text>
+              </View>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ padding: 20, paddingBottom: 30 }}
+              >
+                {selectedDateRecords.length > 0 ? (
+                  selectedDateRecords.map((item, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        flexDirection: "row",
+                        backgroundColor: "rgba(255,255,255,0.05)",
+                        padding: 15,
+                        borderRadius: 16,
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 12,
+                      }}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 12,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 12,
+                            backgroundColor:
+                              item.category === "fuel"
+                                ? "rgba(245, 166, 35, 0.1)"
+                                : "rgba(78, 205, 196, 0.1)",
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Text style={{ fontSize: 20 }}>
+                            {item.category === "fuel" ? "⛽" : "🔧"}
+                          </Text>
+                        </View>
+                        <View>
+                          <Text
+                            style={{
+                              color: "#FFF",
+                              fontWeight: "700",
+                              fontSize: 14,
+                            }}
+                          >
+                            {item.category === "fuel"
+                              ? "Isi Bensin"
+                              : item.serviceType || "Servis"}
+                          </Text>
+                          <Text
+                            style={{
+                              color: "rgba(255,255,255,0.4)",
+                              fontSize: 11,
+                            }}
+                          >
+                            {item.category === "fuel"
+                              ? `${item.liters}L • ${item.fuelType}`
+                              : item.workshop || "Bengkel"}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Text
+                          style={{
+                            color:
+                              item.category === "fuel" ? "#F5A623" : "#4ECDC4",
+                            fontWeight: "800",
+                          }}
+                        >
+                          Rp {Number(item.cost || 0).toLocaleString("id-ID")}
+                        </Text>
+                        <Text
+                          style={{
+                            color: "rgba(255,255,255,0.2)",
+                            fontSize: 9,
+                          }}
+                        >
+                          {item.odometer?.toLocaleString("id-ID")} km
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <View style={{ alignItems: "center", marginTop: 40 }}>
+                    <Text
+                      style={{ fontSize: 40, marginBottom: 10, opacity: 0.2 }}
+                    >
+                      📋
+                    </Text>
+                    <Text
+                      style={{
+                        color: "rgba(255,255,255,0.3)",
+                        fontStyle: "italic",
+                        textAlign: "center",
+                      }}
+                    >
+                      Tidak ada catatan pada tanggal ini.
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );

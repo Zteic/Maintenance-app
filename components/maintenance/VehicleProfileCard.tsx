@@ -63,19 +63,6 @@ export default function VehicleProfileCard({
             backgroundColor: "rgba(26, 43, 60, 0.85)",
           }}
         />
-        {/* Amber glow top-right */}
-        <View
-          style={{
-            position: "absolute",
-            top: -20,
-            right: -20,
-            width: 120,
-            height: 120,
-            borderRadius: 60,
-            backgroundColor: vehicle.color,
-            opacity: 0.15,
-          }}
-        />
         {/* Plate badge + Edit button */}
         <View
           style={{
