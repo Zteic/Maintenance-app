@@ -24,18 +24,8 @@ const STORAGE_KEY = "garasiku_fuel_prices";
 
 const INITIAL_PRICES: FuelPrice[] = [
   // PERTAMINA
-  {
-    id: "p1",
-    brand: "Pertamina",
-    product: "Pertalite (RON 90)",
-    price: "10000",
-  },
-  {
-    id: "p2",
-    brand: "Pertamina",
-    product: "Pertamax (RON 92)",
-    price: "12950",
-  },
+  { id: "p1", brand: "Pertamina", product: "Pertalite 90", price: "10000" },
+  { id: "p2", brand: "Pertamina", product: "Pertamax 92", price: "12950" },
   {
     id: "p3",
     brand: "Pertamina",
@@ -45,26 +35,21 @@ const INITIAL_PRICES: FuelPrice[] = [
   {
     id: "p4",
     brand: "Pertamina",
-    product: "Pertamax Turbo (RON 98)",
+    product: "Pertamax Turbo 98",
     price: "14400",
   },
   // SHELL
-  { id: "s1", brand: "Shell", product: "Shell Super (RON 92)", price: "14530" },
-  {
-    id: "s2",
-    brand: "Shell",
-    product: "Shell V-Power (RON 95)",
-    price: "15370",
-  },
+  { id: "s1", brand: "Shell", product: "Shell Super 92", price: "14530" },
+  { id: "s2", brand: "Shell", product: "Shell V-Power 95", price: "15370" },
   { id: "s3", brand: "Shell", product: "Shell V-Power Nitro+", price: "15570" },
   // VIVO
   { id: "v1", brand: "VIVO", product: "Revvo 90", price: "12500" },
   { id: "v2", brand: "VIVO", product: "Revvo 92", price: "14300" },
   { id: "v3", brand: "VIVO", product: "Revvo 95", price: "15200" },
   // BP
-  { id: "b1", brand: "BP", product: "BP 90", price: "12000" },
-  { id: "b2", brand: "BP", product: "BP 92", price: "13990" },
-  { id: "b3", brand: "BP", product: "BP Ultimate (RON 95)", price: "15370" },
+  { id: "b1", brand: "BP", product: "90", price: "12000" },
+  { id: "b2", brand: "BP", product: "92", price: "13990" },
+  { id: "b3", brand: "BP", product: "Ultimate 95", price: "15370" },
 ];
 
 export default function FuelPriceUpdate({ onBack }: { onBack: () => void }) {
