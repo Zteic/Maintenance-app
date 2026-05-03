@@ -94,7 +94,7 @@ export default function FuelLog({ fuelEntries, onAdd }: FuelLogProps) {
       {/* Header */}
       <View style={styles.header}>
         <Text style={{ color: "#FFFFFF", fontSize: 17, fontWeight: "700" }}>
-          ⛽ {isId ? "Catatan BBM" : "Fuel Log"}
+          ⛽ {isId ? "Riwayat BBM" : "Fuel History"}
         </Text>
         <TouchableOpacity
           onPress={onAdd}

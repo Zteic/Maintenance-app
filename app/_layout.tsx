@@ -179,7 +179,7 @@ function AppNavigationOverlay() {
               currentActiveTab === "history" && styles.activeText,
             ]}
           >
-            History
+            Service
           </Text>
         </TouchableOpacity>
 
