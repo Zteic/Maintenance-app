@@ -48,6 +48,7 @@ import VehicleEditModal from "@/components/maintenance/VehicleEditModal";
 import RecommendationBanner from "@/components/maintenance/RecommendationBanner";
 import FuelLog from "@/components/maintenance/FuelLog";
 import FuelSheet from "@/components/maintenance/FuelSheet";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type TabType = "home" | "history" | "fuel";
 
@@ -69,6 +70,7 @@ function AppContent() {
   const router = useRouter();
   const params = useLocalSearchParams(); // Mengambil parameter dari URL
   const { t, lang, setLang } = useLanguage();
+  const insets = useSafeAreaInsets();
 
   // State
   const [vehicles, setVehicles] = useState<Vehicle[]>(MOCK_VEHICLES);
@@ -197,15 +199,18 @@ function AppContent() {
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
       <StatusBar barStyle="light-content" />
-      <SafeAreaView style={{ flex: 1 }}>
-        {/* Header */}
+
+      {/* HEADER & TOP NAVIGATION SECTION */}
+      <View style={{ paddingTop: insets.top, backgroundColor: "#0D1B2A" }}>
+        {/* Container untuk Logo & Bahasa */}
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
             paddingHorizontal: 20,
-            paddingTop: 16,
+            paddingTop: 10,
+            paddingBottom: 16,
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -225,8 +230,15 @@ function AppContent() {
               <Text style={{ fontSize: 20 }}>👤</Text>
             </TouchableOpacity>
             <View>
-              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
-                {t("appTagline")}
+              <Text
+                style={{
+                  color: "rgba(255,255,255,0.4)",
+                  fontSize: 10,
+                  fontWeight: "700",
+                  letterSpacing: 1,
+                }}
+              >
+                {t("appTagline").toUpperCase()}
               </Text>
               <Text
                 style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}
@@ -235,149 +247,249 @@ function AppContent() {
               </Text>
             </View>
           </View>
+
           <TouchableOpacity
-            onPress={() => setShowLangModal(true)}
-            style={{ backgroundColor: "#1A2B3C", borderRadius: 12, padding: 8 }}
+            onPress={() => setShowLangModal(true)} // Pastikan ini memanggil modal
+            activeOpacity={0.7}
+            style={{
+              backgroundColor: "#1A2B3C",
+              borderRadius: 12,
+              padding: 10,
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.1)",
+            }}
           >
-            <Text>{lang === "id" ? "🇮🇩" : "🇬🇧"}</Text>
+            <Text style={{ fontSize: 18 }}>{lang === "id" ? "🇮🇩" : "🇬🇧"}</Text>
           </TouchableOpacity>
         </View>
 
-        <VehicleSwitcher
-          vehicles={vehicles}
-          selectedId={selectedVehicleId}
-          onSelect={setSelectedVehicleId}
-          onAddVehicle={() => setShowVehicleModal(true)}
-        />
+        {/* Baris Switcher Kendaraan */}
+        <View style={{ paddingBottom: 8 }}>
+          <VehicleSwitcher
+            vehicles={vehicles}
+            selectedId={selectedVehicleId}
+            onSelect={setSelectedVehicleId}
+            onAddVehicle={() => setShowVehicleModal(true)}
+          />
+        </View>
+      </View>
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ gap: 20, paddingBottom: 150 }}
-        >
-          {activeTab === "home" && (
-            <>
-              <VehicleProfileCard
-                vehicle={selectedVehicle}
-                onOdometerUpdate={handleOdometerUpdate}
-                onEditVehicle={() => {
-                  setEditingVehicle(selectedVehicle);
-                  setShowVehicleModal(true);
-                }}
-              />
-              <View
-                style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}
-              >
-                <View
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#1A2B3C",
-                    borderRadius: 14,
-                    padding: 14,
-                  }}
-                >
-                  <Text
-                    style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}
-                  >
-                    {t("totalSpent")}
-                  </Text>
-                  <Text
-                    style={{
-                      color: "#F5A623",
-                      fontSize: 14,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {new Intl.NumberFormat("id-ID", {
-                      style: "currency",
-                      currency: "IDR",
-                      maximumFractionDigits: 0,
-                    }).format(totalCost)}
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#1A2B3C",
-                    borderRadius: 14,
-                    padding: 14,
-                  }}
-                >
-                  <Text
-                    style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}
-                  >
-                    {t("servicesDone")}
-                  </Text>
-                  <Text
-                    style={{
-                      color: "#4ECDC4",
-                      fontSize: 14,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {vehicleRepairs.length} {t("records")}
-                  </Text>
-                </View>
-              </View>
-              <MaintenanceStatusBar
-                reminders={vehicleReminders}
-                currentOdometer={selectedVehicle.currentOdometer}
-                accentColor={selectedVehicle.color}
-              />
-              <RecommendationBanner
-                reminders={vehicleReminders}
-                currentOdometer={selectedVehicle.currentOdometer}
-                onTap={handleRecommendationTap}
-              />
-              <UpcomingReminders vehicle={selectedVehicle} />
-            </>
-          )}
-
-          {activeTab === "history" && (
-            <RepairHistory
-              repairs={vehicleRepairs}
-              onEdit={(r) => {
-                setEditingRepair(r);
-                setShowAddSheet(true);
+      {/* BODY CONTENT */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          gap: 20,
+          paddingBottom: 150, // Ruang untuk Navbar Bawah & FAB
+          paddingTop: 10,
+        }}
+      >
+        {activeTab === "home" && (
+          <>
+            <VehicleProfileCard
+              vehicle={selectedVehicle}
+              onOdometerUpdate={handleOdometerUpdate}
+              onEditVehicle={() => {
+                setEditingVehicle(selectedVehicle);
+                setShowVehicleModal(true);
               }}
-              onDelete={(id) =>
-                setRepairs((prev) => prev.filter((r) => r.id !== id))
-              }
             />
-          )}
-
-          {activeTab === "fuel" && (
-            <FuelLog
-              fuelEntries={vehicleFuelEntries}
-              onAdd={() => setShowFuelSheet(true)}
+            <View
+              style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}
+            >
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: "#1A2B3C",
+                  borderRadius: 14,
+                  padding: 14,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.05)",
+                }}
+              >
+                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
+                  {t("totalSpent")}
+                </Text>
+                <Text
+                  style={{
+                    color: "#F5A623",
+                    fontSize: 14,
+                    fontWeight: "700",
+                  }}
+                >
+                  {new Intl.NumberFormat("id-ID", {
+                    style: "currency",
+                    currency: "IDR",
+                    maximumFractionDigits: 0,
+                  }).format(totalCost)}
+                </Text>
+              </View>
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: "#1A2B3C",
+                  borderRadius: 14,
+                  padding: 14,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.05)",
+                }}
+              >
+                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
+                  {t("servicesDone")}
+                </Text>
+                <Text
+                  style={{
+                    color: "#4ECDC4",
+                    fontSize: 14,
+                    fontWeight: "700",
+                  }}
+                >
+                  {vehicleRepairs.length} {t("records")}
+                </Text>
+              </View>
+            </View>
+            <MaintenanceStatusBar
+              reminders={vehicleReminders}
+              currentOdometer={selectedVehicle.currentOdometer}
+              accentColor={selectedVehicle.color}
             />
-          )}
-        </ScrollView>
+            <RecommendationBanner
+              reminders={vehicleReminders}
+              currentOdometer={selectedVehicle.currentOdometer}
+              onTap={handleRecommendationTap}
+            />
+            <UpcomingReminders vehicle={selectedVehicle} />
+          </>
+        )}
 
-        {/* Modal-modal */}
-        <AddRepairSheet
-          visible={showAddSheet}
-          vehicleId={selectedVehicleId}
-          currentOdometer={selectedVehicle.currentOdometer}
-          vehicleType={selectedVehicle.vehicleType}
-          prefillServiceType={prefillServiceType}
-          editEntry={editingRepair}
-          onClose={() => setShowAddSheet(false)}
-          onSave={handleAddRepair}
-        />
-        <FuelSheet
-          visible={showFuelSheet}
-          vehicleId={selectedVehicleId}
-          currentOdometer={selectedVehicle?.currentOdometer || 0}
-          onClose={() => setShowFuelSheet(false)}
-          onSave={handleAddFuel}
-        />
-        <VehicleEditModal
-          visible={showVehicleModal}
-          vehicle={editingVehicle}
-          onClose={() => setShowVehicleModal(false)}
-          onSave={handleVehicleSave}
-        />
-      </SafeAreaView>
+        {activeTab === "history" && (
+          <RepairHistory
+            repairs={vehicleRepairs}
+            onEdit={(r) => {
+              setEditingRepair(r);
+              setShowAddSheet(true);
+            }}
+            onDelete={(id) =>
+              setRepairs((prev) => prev.filter((r) => r.id !== id))
+            }
+          />
+        )}
+
+        {activeTab === "fuel" && (
+          <FuelLog
+            fuelEntries={vehicleFuelEntries}
+            onAdd={() => setShowFuelSheet(true)}
+          />
+        )}
+      </ScrollView>
+
+      {/* MODALS */}
+      <AddRepairSheet
+        visible={showAddSheet}
+        vehicleId={selectedVehicleId}
+        currentOdometer={selectedVehicle.currentOdometer}
+        vehicleType={selectedVehicle.vehicleType}
+        prefillServiceType={prefillServiceType}
+        editEntry={editingRepair}
+        onClose={() => setShowAddSheet(false)}
+        onSave={handleAddRepair}
+      />
+
+      <FuelSheet
+        visible={showFuelSheet}
+        vehicleId={selectedVehicleId}
+        currentOdometer={selectedVehicle?.currentOdometer || 0}
+        onClose={() => setShowFuelSheet(false)}
+        onSave={handleAddFuel}
+      />
+
+      <VehicleEditModal
+        visible={showVehicleModal}
+        vehicle={editingVehicle}
+        onClose={() => setShowVehicleModal(false)}
+        onSave={handleVehicleSave}
+      />
+
+      {/* --- TAMBAHKAN MODAL BAHASA DI SINI --- */}
+      <Modal
+        visible={showLangModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLangModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowLangModal(false)}>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.8)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <TouchableWithoutFeedback>
+              <View
+                style={{
+                  backgroundColor: "#1A2B3C",
+                  borderRadius: 28,
+                  padding: 24,
+                  width: "85%",
+                  maxWidth: 320,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.1)",
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#FFF",
+                    fontSize: 20,
+                    fontWeight: "800",
+                    textAlign: "center",
+                    marginBottom: 24,
+                  }}
+                >
+                  {lang === "id" ? "Pilih Bahasa" : "Select Language"}
+                </Text>
+
+                {(["id", "en"] as const).map((l) => (
+                  <TouchableOpacity
+                    key={l}
+                    onPress={() => {
+                      setLang(l);
+                      setShowLangModal(false);
+                    }}
+                    activeOpacity={0.8}
+                    style={{
+                      paddingVertical: 18,
+                      flexDirection: "row",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor:
+                        lang === l ? "#F5A623" : "rgba(255,255,255,0.03)",
+                      borderRadius: 16,
+                      marginBottom: 12,
+                      borderWidth: 1,
+                      borderColor:
+                        lang === l ? "#F5A623" : "rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <Text style={{ fontSize: 22, marginRight: 12 }}>
+                      {l === "id" ? "🇮🇩" : "🇬🇧"}
+                    </Text>
+                    <Text
+                      style={{
+                        color: lang === l ? "#0D1B2A" : "#FFFFFF",
+                        fontSize: 16,
+                        fontWeight: "800",
+                      }}
+                    >
+                      {l === "id" ? "Indonesia" : "English"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
