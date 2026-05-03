@@ -117,10 +117,15 @@ export default function FuelSheet({
     const p = parseFloat(pricePerLiter.replace(/\D/g, "")) || 0;
     if (!l || !odometer || !p) return;
 
-    // Masukkan info struk ke dalam notes jika ada
-    const finalNotes = receiptImage
-      ? `${notes.trim()} [receipt:${receiptImage}]`
-      : notes.trim();
+    // MODIFIKASI LOGIKA PENYIMPANAN NOTES:
+    // Format: "Nama Bensin | Catatan Manual [receipt:URI]"
+    // Karakter "|" digunakan sebagai pemisah antara Nama POM dan Deskripsi User
+    const fuelLabel = selectedFuelName || (lang === "id" ? "Bensin" : "Fuel");
+    const manualNotes = notes.trim();
+
+    const finalNotes = `${fuelLabel} | ${manualNotes} ${
+      receiptImage ? `[receipt:${receiptImage}]` : ""
+    }`.trim();
 
     onSave({
       vehicleId,
@@ -323,7 +328,8 @@ export default function FuelSheet({
                             }}
                           >
                             <Text style={{ color: "#FFF", fontSize: 14 }}>
-                              {fuel.brand} - {fuel.product}
+                              {fuel.brand} -{" "}
+                              {fuel.product.replace(/\s*\(RON\s*\d+\)/gi, "")}
                             </Text>
                           </TouchableOpacity>
                         ))}
@@ -421,7 +427,9 @@ export default function FuelSheet({
                           }}
                         >
                           {pricePerLiter
-                            ? `Rp ${parseInt(pricePerLiter).toLocaleString("id-ID")}`
+                            ? `Rp ${parseInt(pricePerLiter).toLocaleString(
+                                "id-ID",
+                              )}`
                             : "---"}
                         </Text>
                       </View>
