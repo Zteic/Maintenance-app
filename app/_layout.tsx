@@ -4,11 +4,11 @@ import {
   Stack,
   useRouter,
   usePathname,
-  useGlobalSearchParams, // Ganti ini dari useLocalSearchParams
+  useGlobalSearchParams,
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import React, { useEffect, useMemo } from "react"; // Tambahkan useMemo
 import {
   View,
   TouchableOpacity,
@@ -46,7 +46,8 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider value={DefaultTheme}>
         <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
-          <Stack screenOptions={{ headerShown: false }}>
+          {/* Tambahkan animation: 'none' untuk menghilangkan delay transisi */}
+          <Stack screenOptions={{ headerShown: false, animation: "none" }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="profile" />
           </Stack>
@@ -62,30 +63,25 @@ function AppNavigationOverlay() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
-  const params = useGlobalSearchParams(); // Menggunakan Global agar Layout bisa baca params index
+  const params = useGlobalSearchParams();
 
-  // 1. Ambil nilai mentah dari parameter 'tab'
-  const tabParam = params.tab;
-
-  // 2. LOGIKA PENENTUAN TAB AKTIF (Sangat Eksplisit)
-  let currentActiveTab = "home";
-
-  if (pathname.includes("profile")) {
-    currentActiveTab = "profile";
-  } else if (tabParam === "fuel") {
-    currentActiveTab = "fuel";
-  } else if (tabParam === "history") {
-    currentActiveTab = "history";
-  } else {
-    currentActiveTab = "home";
-  }
+  // OPTIMASI: Gunakan useMemo agar penentuan tab aktif instan & ringan
+  const currentActiveTab = useMemo(() => {
+    if (pathname.includes("profile")) return "profile";
+    return params.tab?.toString() || "home";
+  }, [params.tab, pathname]);
 
   const handleNavPress = (tabName: string) => {
-    // Menggunakan replace agar tidak menumpuk history back button
-    router.replace({
-      pathname: "/",
-      params: { tab: tabName },
-    });
+    // Jika sudah di halaman utama, gunakan setParams (Tanpa Reload)
+    if (pathname === "/") {
+      router.setParams({ tab: tabName });
+    } else {
+      // Jika dari luar, baru gunakan replace
+      router.replace({
+        pathname: "/",
+        params: { tab: tabName },
+      });
+    }
   };
 
   const handleFabAction = () => {
@@ -104,6 +100,12 @@ function AppNavigationOverlay() {
           onPress={handleFabAction}
           style={[styles.fab, { bottom: 80 + insets.bottom }]}
         >
+          {/* Label mini di atas FAB */}
+          <View style={styles.fabLabel}>
+            <Text style={styles.fabLabelText}>
+              {currentActiveTab === "home" ? "SERVIS" : "BBM"}
+            </Text>
+          </View>
           <Text style={styles.fabIcon}>+</Text>
         </TouchableOpacity>
       )}
@@ -115,7 +117,6 @@ function AppNavigationOverlay() {
           { height: 60 + insets.bottom, paddingBottom: insets.bottom },
         ]}
       >
-        {/* Tab Overview */}
         <TouchableOpacity
           onPress={() => handleNavPress("home")}
           style={styles.navItem}
@@ -138,7 +139,6 @@ function AppNavigationOverlay() {
           </Text>
         </TouchableOpacity>
 
-        {/* Tab Fuel */}
         <TouchableOpacity
           onPress={() => handleNavPress("fuel")}
           style={styles.navItem}
@@ -161,7 +161,6 @@ function AppNavigationOverlay() {
           </Text>
         </TouchableOpacity>
 
-        {/* Tab History */}
         <TouchableOpacity
           onPress={() => handleNavPress("history")}
           style={styles.navItem}
@@ -184,7 +183,6 @@ function AppNavigationOverlay() {
           </Text>
         </TouchableOpacity>
 
-        {/* Tab Profile */}
         <TouchableOpacity
           onPress={() => router.push("/profile")}
           style={styles.navItem}
