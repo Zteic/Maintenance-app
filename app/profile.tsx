@@ -14,7 +14,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router";
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
 import {
   loadUserProfile,
@@ -25,6 +25,7 @@ import {
 import { UserProfile, Vehicle, RepairEntry } from "@/types/maintenance";
 import { MOCK_VEHICLES, MOCK_REPAIRS } from "@/data/mockData";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import FuelPriceUpdate from "@/components/maintenance/FuelPriceUpdate";
 
 // --- Fungsi Pembantu (Helpers) ---
 function formatCurrency(n: number) {
@@ -74,6 +75,8 @@ function ProfileContent() {
   const router = useRouter();
   const isId = lang === "id";
 
+  // 1. Definisikan semua Hook di atas (Jangan ada 'if return' sebelum ini)
+  const [showPriceUpdate, setShowPriceUpdate] = useState(false);
   const [profile, setProfile] = useState<UserProfile>({
     name: "Pengguna",
     email: "user@example.com",
@@ -89,6 +92,7 @@ function ProfileContent() {
     });
   }, []);
 
+  // 2. Fungsi-fungsi Handler
   const handlePickPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -153,6 +157,11 @@ function ProfileContent() {
     }
   };
 
+  // 3. Conditional Return (Letakkan di sini agar tidak melanggar aturan Hook)
+  if (showPriceUpdate) {
+    return <FuelPriceUpdate onBack={() => setShowPriceUpdate(false)} />;
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
       <StatusBar barStyle="light-content" />
@@ -161,26 +170,33 @@ function ProfileContent() {
         <View
           style={{
             paddingHorizontal: 20,
-            paddingTop: 16,
+            paddingTop: 60,
             flexDirection: "row",
             alignItems: "center",
-            gap: 14,
+            justifyContent: "space-between",
+            marginBottom: 20,
           }}
         >
           <TouchableOpacity
             onPress={() => router.back()}
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 14,
-              backgroundColor: "#1A2B3C",
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
             }}
           >
-            <Text style={{ color: "#FFFFFF", fontSize: 20 }}>‹</Text>
+            <Text style={{ color: "#F5A623", fontSize: 16 }}>← Kembali</Text>
           </TouchableOpacity>
-          <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}>
+
+          <Text
+            style={{
+              color: "#FFFFFF",
+              fontSize: 20,
+              fontWeight: "800",
+              flex: 1,
+              textAlign: "center",
+              marginRight: 80,
+            }}
+          >
             {t("myProfile")}
           </Text>
         </View>
@@ -330,6 +346,53 @@ function ProfileContent() {
         {/* Action Buttons */}
         <View style={{ marginHorizontal: 20, marginTop: 16, gap: 12 }}>
           <TouchableOpacity
+            onPress={() => setShowPriceUpdate(true)}
+            activeOpacity={0.85}
+            style={{
+              backgroundColor: "#1A2B3C",
+              borderRadius: 16,
+              padding: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 16,
+              borderWidth: 1,
+              borderColor: "rgba(245,166,35,0.2)",
+            }}
+          >
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 14,
+                backgroundColor: "rgba(245,166,35,0.15)",
+                borderWidth: 1,
+                borderColor: "rgba(245,166,35,0.3)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ fontSize: 22 }}>⛽</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}
+              >
+                Update Harga Bensin
+              </Text>
+              <Text
+                style={{
+                  color: "rgba(255,255,255,0.4)",
+                  fontSize: 12,
+                  marginTop: 2,
+                }}
+              >
+                Atur harga BBM per liter saat ini
+              </Text>
+            </View>
+            <Text style={{ color: "#F5A623", fontSize: 18 }}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             onPress={handleExport}
             style={{
               backgroundColor: "#1A2B3C",
@@ -347,6 +410,7 @@ function ProfileContent() {
               {t("exportPdf")}
             </Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             onPress={() => setShowBackupModal(true)}
             style={{
@@ -425,6 +489,9 @@ function ProfileContent() {
 export default function ProfileScreen() {
   return (
     <LanguageProvider>
+      {/* 1. Header Bawaan dimatikan di sini */}
+      <Stack.Screen options={{ headerShown: false }} />
+      {/* 2. Baru panggil konten */}
       <ProfileContent />
     </LanguageProvider>
   );
