@@ -17,6 +17,7 @@ export default function VehicleProfileCard({
   const { t } = useLanguage();
   const [editing, setEditing] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  if (!vehicle) return null;
 
   const daysSinceUpdate = Math.floor(
     (Date.now() - vehicle.lastOdometerUpdate.getTime()) / (1000 * 60 * 60 * 24),
@@ -32,6 +33,7 @@ export default function VehicleProfileCard({
   };
 
   const formatOdometer = (km: number) => {
+    if (km === undefined || km === null) return "0";
     return km.toLocaleString("id-ID");
   };
 

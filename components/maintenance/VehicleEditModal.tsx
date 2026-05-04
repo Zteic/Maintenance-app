@@ -444,7 +444,7 @@ export default function VehicleEditModal({
                         marginBottom: 4,
                       }}
                     >
-                      📋 {t("documentHealth")}
+                      📋 {t("Tax Reminder")}
                     </Text>
                     <View style={{ flexDirection: "row", gap: 12 }}>
                       <View style={{ flex: 1, gap: 8 }}>

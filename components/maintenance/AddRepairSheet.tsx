@@ -75,7 +75,7 @@ export default function AddRepairSheet({
   const [showServicePicker, setShowServicePicker] = useState(false);
   const [customTypes, setCustomTypes] = useState<string[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [odometer, setOdometer] = useState(currentOdometer.toString());
+  const [odometer, setOdometer] = useState(currentOdometer?.toString() || "0");
   const [cost, setCost] = useState("");
   const [workshop, setWorkshop] = useState("");
   const [notes, setNotes] = useState("");
