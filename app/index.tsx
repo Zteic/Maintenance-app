@@ -192,6 +192,38 @@ function AppContent() {
     setShowVehicleModal(false);
   };
 
+  const handleVehicleDelete = (id: string) => {
+    // Validasi: Minimal harus ada 1 kendaraan
+    if (vehicles.length <= 1) {
+      alert(
+        lang === "id"
+          ? "Minimal harus ada satu kendaraan."
+          : "At least one vehicle is required.",
+      );
+      return;
+    }
+
+    const confirmDelete = confirm(
+      lang === "id"
+        ? "Hapus kendaraan ini? Semua data servis dan bensin akan hilang."
+        : "Delete this vehicle? All service and fuel data will be lost.",
+    );
+
+    if (confirmDelete) {
+      const newVehicles = vehicles.filter((v) => v.id !== id);
+      setVehicles(newVehicles);
+
+      // Jika kendaraan yang dihapus adalah yang sedang dipilih, alihkan ke kendaraan pertama
+      if (selectedVehicleId === id) {
+        const nextVehicleId = newVehicles[0].id;
+        setSelectedVehicleId(nextVehicleId);
+        saveSelectedVehicleId(nextVehicleId);
+      }
+
+      setShowVehicleModal(false);
+    }
+  };
+
   const handleAddRepair = (entry: Omit<RepairEntry, "id">) => {
     setRepairs((prev) => [...prev, { ...entry, id: `r${Date.now()}` }]);
     setShowAddSheet(false);
@@ -466,6 +498,7 @@ function AppContent() {
         vehicle={editingVehicle}
         onClose={() => setShowVehicleModal(false)}
         onSave={handleVehicleSave}
+        onDelete={handleVehicleDelete} // <--- TAMBAHKAN BARIS INI
       />
 
       {/* 4. MODAL BAHASA (Sudah Diperbaiki Penutupnya) */}
