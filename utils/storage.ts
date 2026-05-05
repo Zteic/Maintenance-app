@@ -11,6 +11,7 @@ const KEYS = {
   FUEL_ENTRIES: 'garasi_fuel_entries',
   NOTIFICATIONS: 'garasi_notifications',
   CUSTOM_SERVICE_TYPES: 'garasi_custom_service_types',
+  FUEL_STATS_RESET_DATE: 'garasi_fuel_stats_reset_date',
 };
 
 // Helpers to serialize/deserialize dates
@@ -179,5 +180,22 @@ export async function loadCustomServiceTypes(): Promise<string[] | null> {
 export async function saveCustomServiceTypes(types: string[]): Promise<void> {
   try {
     await AsyncStorage.setItem(KEYS.CUSTOM_SERVICE_TYPES, JSON.stringify(types));
+  } catch {}
+}
+
+// Fuel Stats Reset Date
+export async function loadFuelStatsResetDate(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(KEYS.FUEL_STATS_RESET_DATE);
+  } catch { return null; }
+}
+
+export async function saveFuelStatsResetDate(date: string | null): Promise<void> {
+  try {
+    if (date === null) {
+      await AsyncStorage.removeItem(KEYS.FUEL_STATS_RESET_DATE);
+    } else {
+      await AsyncStorage.setItem(KEYS.FUEL_STATS_RESET_DATE, date);
+    }
   } catch {}
 }

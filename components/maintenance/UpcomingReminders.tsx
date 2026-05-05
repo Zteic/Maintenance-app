@@ -4,8 +4,8 @@ import { Reminder, Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
 
 interface UpcomingRemindersProps {
-  reminders?: Reminder[]; // Diubah menjadi opsional agar lebih aman
-  currentOdometer: number;
+  reminders?: Reminder[];
+  currentOdometer?: number;
   vehicle?: Vehicle;
   onAddReminder?: (serviceType: string) => void;
 }
@@ -28,7 +28,7 @@ function getDocStatusColor(days: number | null): string {
 }
 
 export default function UpcomingReminders({
-  reminders = [], // Memberikan default value array kosong
+  reminders = [],
   currentOdometer = 0,
   vehicle,
   onAddReminder,
@@ -36,7 +36,6 @@ export default function UpcomingReminders({
   const { t, lang } = useLanguage();
   const isId = lang === "id";
 
-  // Jika data belum ada, jangan render dulu untuk menghindari error sorting
   if (!reminders) return null;
 
   const STATUS_CONFIG: any = {
@@ -60,9 +59,9 @@ export default function UpcomingReminders({
     },
   };
 
-  // Pelindung: Pastikan reminders adalah array sebelum di-spread
   const safeReminders = Array.isArray(reminders) ? reminders : [];
 
+  // Sort: overdue first, then approaching, then safe
   const sorted = [...safeReminders].sort((a, b) => {
     const order: any = { overdue: 0, approaching: 1, safe: 2 };
     return (order[a.status] ?? 3) - (order[b.status] ?? 3);
@@ -87,6 +86,16 @@ export default function UpcomingReminders({
     return `${days} ${t("daysLeft") || "hari lagi"}`;
   };
 
+  // Smart recommendations: urgent reminders (overdue or approaching)
+  const urgentReminders = sorted.filter(
+    (r) => r.status === "overdue" || r.status === "approaching"
+  );
+
+  const totalItems =
+    sorted.length +
+    (vehicle?.taxDueDate ? 1 : 0) +
+    (vehicle?.stnkDueDate ? 1 : 0);
+
   return (
     <View style={{ gap: 10 }}>
       <View
@@ -98,17 +107,92 @@ export default function UpcomingReminders({
         }}
       >
         <Text style={{ color: "#FFFFFF", fontSize: 17, fontWeight: "700" }}>
-          {t("upcomingReminders")}
+          {isId ? "Pengingat & Rekomendasi" : "Reminders & Recommendations"}
         </Text>
         <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
-          {sorted.length +
-            (vehicle?.taxDueDate ? 1 : 0) +
-            (vehicle?.stnkDueDate ? 1 : 0)}{" "}
-          {t("items")}
+          {totalItems} {t("items")}
         </Text>
       </View>
 
+      {/* Smart Recommendations Banner - urgent items */}
+      {urgentReminders.length > 0 && (
+        <View style={{ paddingHorizontal: 20, gap: 6 }}>
+          <Text
+            style={{
+              color: "rgba(255,255,255,0.35)",
+              fontSize: 9,
+              letterSpacing: 1.5,
+              fontWeight: "700",
+            }}
+          >
+            🤖 SMART RECOMMENDATIONS
+          </Text>
+          {urgentReminders.map((reminder) => {
+            const isOverdue = reminder.status === "overdue";
+            const color = isOverdue ? "#FF6B6B" : "#F5A623";
+            const bg = isOverdue
+              ? "rgba(255,107,107,0.08)"
+              : "rgba(245,166,35,0.08)";
+            const border = isOverdue
+              ? "rgba(255,107,107,0.3)"
+              : "rgba(245,166,35,0.3)";
+            const kmDiff = (reminder.dueOdometer || 0) - currentOdometer;
+            const label = isOverdue
+              ? isId
+                ? `${reminder.serviceType} sudah terlambat!`
+                : `${reminder.serviceType} is overdue!`
+              : isId
+              ? `${reminder.serviceType} dalam ${Math.abs(kmDiff).toLocaleString()} km lagi`
+              : `${reminder.serviceType} in ${Math.abs(kmDiff).toLocaleString()} km`;
+
+            return (
+              <TouchableOpacity
+                key={`rec-${reminder.id}`}
+                onPress={() => onAddReminder?.(reminder.serviceType)}
+                activeOpacity={0.8}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: bg,
+                  borderRadius: 12,
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderWidth: 1,
+                  borderColor: border,
+                  gap: 10,
+                }}
+              >
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: color,
+                    shadowColor: color,
+                    shadowOpacity: 0.9,
+                    shadowRadius: 4,
+                    shadowOffset: { width: 0, height: 0 },
+                  }}
+                />
+                <Text
+                  style={{
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: "700",
+                    flex: 1,
+                  }}
+                >
+                  {label}
+                </Text>
+                <Text style={{ color: color, fontSize: 14 }}>→</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
       <View style={{ gap: 8, paddingHorizontal: 20 }}>
+        {/* Doc health reminders */}
         {hasDocHealth && vehicle.taxDueDate && (
           <DocReminderCard
             icon="🏛️"
@@ -142,6 +226,9 @@ export default function UpcomingReminders({
                 })
               : "-";
 
+          const isUrgent =
+            reminder.status === "overdue" || reminder.status === "approaching";
+
           return (
             <TouchableOpacity
               key={reminder.id}
@@ -152,7 +239,7 @@ export default function UpcomingReminders({
                 borderRadius: 14,
                 padding: 16,
                 borderWidth: 1,
-                borderColor: cfg.border,
+                borderColor: isUrgent ? cfg.border : "rgba(255,255,255,0.06)",
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 14,
@@ -184,11 +271,49 @@ export default function UpcomingReminders({
                 />
               </View>
               <View style={{ flex: 1, gap: 4 }}>
-                <Text
-                  style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
                 >
-                  {reminder.serviceType}
-                </Text>
+                  <Text
+                    style={{
+                      color: "#FFFFFF",
+                      fontSize: 14,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {reminder.serviceType}
+                  </Text>
+                  {isUrgent && (
+                    <View
+                      style={{
+                        backgroundColor: cfg.bg,
+                        borderRadius: 6,
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: cfg.color,
+                          fontSize: 9,
+                          fontWeight: "800",
+                        }}
+                      >
+                        {reminder.status === "overdue"
+                          ? isId
+                            ? "MENDESAK"
+                            : "URGENT"
+                          : isId
+                          ? "SEGERA"
+                          : "SOON"}
+                      </Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
                   {t("due")} {formattedDate} ·{" "}
                   {reminder.dueOdometer?.toLocaleString()} {t("km")}
@@ -212,7 +337,9 @@ export default function UpcomingReminders({
                     fontWeight: "700",
                   }}
                 >
-                  {kmRemaining > 0 ? `+${kmRemaining.toLocaleString()}` : "NOW"}
+                  {kmRemaining > 0
+                    ? `+${kmRemaining.toLocaleString()}`
+                    : "NOW"}
                 </Text>
                 <Text
                   style={{
@@ -233,7 +360,9 @@ export default function UpcomingReminders({
           <View style={{ alignItems: "center", paddingVertical: 30, gap: 8 }}>
             <Text style={{ fontSize: 28 }}>🔔</Text>
             <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>
-              {isId ? "Tidak ada pengingat mendatang" : "No upcoming reminders"}
+              {isId
+                ? "Tidak ada pengingat mendatang"
+                : "No upcoming reminders"}
             </Text>
           </View>
         )}

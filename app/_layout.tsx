@@ -29,6 +29,7 @@ import { openFuelSheet, openRepairSheet } from "./index";
 const { width } = Dimensions.get("window");
 SplashScreen.preventAutoHideAsync();
 
+
 export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
@@ -95,20 +96,14 @@ function AppNavigationOverlay() {
     <View style={styles.overlay} pointerEvents="box-none">
       {/* 1. SMART FAB */}
       {showFab && (
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={handleFabAction}
-          style={[styles.fab, { bottom: 80 + insets.bottom }]}
-        >
-          {/* Label mini di atas FAB */}
-          <View style={styles.fabLabel}>
-            <Text style={styles.fabLabelText}>
-              {currentActiveTab === "home" ? "SERVIS" : "BBM"}
-            </Text>
-          </View>
-          <Text style={styles.fabIcon}>+</Text>
-        </TouchableOpacity>
-      )}
+  <TouchableOpacity
+    activeOpacity={0.8}
+    onPress={handleFabAction}
+    style={[styles.fab, { bottom: 80 + insets.bottom }]}
+  >
+    <Text style={styles.fabIcon}>+</Text>
+  </TouchableOpacity>
+)}
 
       {/* 2. BOTTOM NAVBAR */}
       <View

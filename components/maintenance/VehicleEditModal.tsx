@@ -61,6 +61,7 @@ export default function VehicleEditModal({
   );
   const [taxDueDate, setTaxDueDate] = useState("");
   const [stnkDueDate, setStnkDueDate] = useState("");
+  const [tankCapacity, setTankCapacity] = useState("");
 
   useEffect(() => {
     if (vehicle) {
@@ -74,6 +75,7 @@ export default function VehicleEditModal({
       setVehicleType(vehicle.vehicleType ?? "motorcycle");
       setTaxDueDate(vehicle.taxDueDate ?? "");
       setStnkDueDate(vehicle.stnkDueDate ?? "");
+      setTankCapacity(vehicle.tankCapacity ? vehicle.tankCapacity.toString() : "");
     } else {
       setName("");
       setBrand("");
@@ -86,6 +88,7 @@ export default function VehicleEditModal({
       setVehicleType("motorcycle");
       setTaxDueDate("");
       setStnkDueDate("");
+      setTankCapacity("");
     }
   }, [vehicle, visible]);
 
@@ -133,6 +136,7 @@ export default function VehicleEditModal({
       vehicleType,
       taxDueDate: taxDueDate.trim() || undefined,
       stnkDueDate: stnkDueDate.trim() || undefined,
+      tankCapacity: tankCapacity.trim() ? parseFloat(tankCapacity) : undefined,
       currentOdometer: isEdit ? undefined : parseInt(initialOdo, 10) || 0,
     });
     onClose();
@@ -171,7 +175,7 @@ export default function VehicleEditModal({
         >
           <TouchableWithoutFeedback onPress={() => {}}>
             <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              behavior="height"
             >
               <View
                 style={{
@@ -476,6 +480,25 @@ export default function VehicleEditModal({
                         />
                       </View>
                     </View>
+                  </View>
+
+                  {/* Tank Capacity */}
+                  <View style={{ gap: 8 }}>
+                    <Text style={labelStyle}>
+                      {lang === "id" ? "KAPASITAS TANGKI (LITER)" : "TANK CAPACITY (LITERS)"}
+                    </Text>
+                    <TextInput
+                      value={tankCapacity}
+                      onChangeText={setTankCapacity}
+                      keyboardType="decimal-pad"
+                      placeholder={lang === "id" ? "mis. 4.7" : "e.g. 4.7"}
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      style={{
+                        ...inputStyle,
+                        fontFamily: "SpaceMono",
+                        color: "#4ECDC4",
+                      }}
+                    />
                   </View>
 
                   {/* Accent Color */}

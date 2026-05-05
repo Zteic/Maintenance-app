@@ -10,6 +10,7 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Image,
+  Alert,
 } from "react-native";
 import { FuelEntry } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
@@ -20,8 +21,11 @@ interface FuelSheetProps {
   visible: boolean;
   vehicleId: string;
   currentOdometer: number;
+  tankCapacity?: number;
+  editEntry?: FuelEntry | null;
   onClose: () => void;
   onSave: (entry: Omit<FuelEntry, "id">) => void;
+  onDelete?: (id: string) => void;
 }
 
 interface SavedFuelPrice {
@@ -37,8 +41,11 @@ export default function FuelSheet({
   visible,
   vehicleId,
   currentOdometer,
+  tankCapacity,
+  editEntry,
   onClose,
   onSave,
+  onDelete,
 }: FuelSheetProps) {
   const { lang } = useLanguage();
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -68,16 +75,37 @@ export default function FuelSheet({
       };
 
       loadFuelPrices();
-      setDate(new Date().toISOString().split("T")[0]);
-      setLiters("");
-      setPricePerLiter("");
-      setSelectedFuelName("");
-      setOdometer(currentOdometer.toString());
-      setNotes("");
-      setReceiptImage(null);
-      setShowFuelPicker(false);
+
+      if (editEntry) {
+        // Populate form with editEntry data
+        setDate(editEntry.date);
+        setLiters(editEntry.liters.toString());
+        setPricePerLiter(editEntry.pricePerLiter.toString());
+        setOdometer(editEntry.odometer.toString());
+        setSelectedFuelName(editEntry.fuelType || "");
+        setReceiptImage(editEntry.receiptPhoto || null);
+        // Extract notes
+        let baseNotes = editEntry.notes || "";
+        baseNotes = baseNotes.replace(/\[receipt:.*?\]/g, "").trim();
+        if (baseNotes.includes("|")) {
+          const parts = baseNotes.split("|");
+          setSelectedFuelName(editEntry.fuelType || parts[0].trim() || "");
+          setNotes(parts[1]?.trim() || "");
+        } else {
+          setNotes(baseNotes);
+        }
+      } else {
+        setDate(new Date().toISOString().split("T")[0]);
+        setLiters("");
+        setPricePerLiter("");
+        setSelectedFuelName("");
+        setOdometer(currentOdometer.toString());
+        setNotes("");
+        setReceiptImage(null);
+        setShowFuelPicker(false);
+      }
     }
-  }, [visible, currentOdometer]);
+  }, [visible, currentOdometer, editEntry]);
 
   // Logika untuk mengambil foto struk dari galeri
   const handlePickReceipt = async () => {
@@ -117,9 +145,6 @@ export default function FuelSheet({
     const p = parseFloat(pricePerLiter.replace(/\D/g, "")) || 0;
     if (!l || !odometer || !p) return;
 
-    // MODIFIKASI LOGIKA PENYIMPANAN NOTES:
-    // Format: "Nama Bensin | Catatan Manual [receipt:URI]"
-    // Karakter "|" digunakan sebagai pemisah antara Nama POM dan Deskripsi User
     const fuelLabel = selectedFuelName || (lang === "id" ? "Bensin" : "Fuel");
     const manualNotes = notes.trim();
 
@@ -134,7 +159,9 @@ export default function FuelSheet({
       pricePerLiter: p,
       totalCost: l * p,
       odometer: parseInt(odometer, 10) || currentOdometer,
+      fuelType: fuelLabel,
       notes: finalNotes,
+      receiptPhoto: receiptImage || undefined,
     });
     onClose();
   };
@@ -390,7 +417,7 @@ export default function FuelSheet({
                         value={liters}
                         onChangeText={setLiters}
                         keyboardType="decimal-pad"
-                        placeholder="0.0"
+                        placeholder={tankCapacity ? `Std: ${tankCapacity}L` : "0.0"}
                         placeholderTextColor="rgba(255,255,255,0.3)"
                         style={{
                           ...inputStyle,
@@ -398,6 +425,11 @@ export default function FuelSheet({
                           fontFamily: "SpaceMono",
                         }}
                       />
+                      {tankCapacity && (
+                        <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>
+                          📏 {lang === "id" ? "Kapasitas tangki" : "Tank capacity"}: {tankCapacity}L
+                        </Text>
+                      )}
                     </View>
                     <View style={{ flex: 1, gap: 8 }}>
                       <Text
@@ -592,6 +624,39 @@ export default function FuelSheet({
                       {label.save}
                     </Text>
                   </TouchableOpacity>
+
+                  {/* TOMBOL HAPUS */}
+{editEntry && (
+  <TouchableOpacity
+    onPress={() => {
+      Alert.alert(
+        "Hapus Data",
+        "Yakin ingin menghapus catatan bensin ini?",
+        [
+          { text: "Batal", style: "cancel" },
+          { 
+            text: "Hapus", 
+            style: "destructive", 
+            onPress: () => {
+              onDelete?.(editEntry.id);
+              onClose(); // Tutup modal setelah hapus
+            }
+          }
+        ]
+      );
+    }}
+    style={{
+      marginTop: 15,
+      padding: 15,
+      alignItems: "center",
+    }}
+  >
+    <Text style={{ color: "#FF5252", fontWeight: "700", fontSize: 14 }}>
+      🗑️ Hapus Catatan Ini
+    </Text>
+  </TouchableOpacity>
+)}
+
                 </ScrollView>
               </View>
             </KeyboardAvoidingView>

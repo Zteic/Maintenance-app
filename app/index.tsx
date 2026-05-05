@@ -45,13 +45,12 @@ import UpcomingReminders from "@/components/maintenance/UpcomingReminders";
 import RepairHistory from "@/components/maintenance/RepairHistory";
 import AddRepairSheet from "@/components/maintenance/AddRepairSheet";
 import VehicleEditModal from "@/components/maintenance/VehicleEditModal";
-import RecommendationBanner from "@/components/maintenance/RecommendationBanner";
 import FuelLog from "@/components/maintenance/FuelLog";
 import FuelSheet from "@/components/maintenance/FuelSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaintenanceCalendar from "../components/maintenance/MaintenanceCalendar";
 
-type TabType = "home" | "history" | "fuel";
+type TabType = "home" | "service" | "fuel";
 
 // --- GLOBAL TRIGGER UNTUK LAYOUT ---
 export let openFuelSheet: () => void = () => {};
@@ -125,6 +124,20 @@ function AppContent() {
   const vehicleFuelEntries = fuelEntries.filter(
     (f) => f.vehicleId === selectedVehicleId,
   );
+
+  // Monthly calculations (current month, day 1 to last day)
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  const monthlyRepairs = vehicleRepairs.filter((r) => {
+    const d = new Date(r.date);
+    return d >= monthStart && d <= monthEnd;
+  });
+
+  const monthlyCost = monthlyRepairs.reduce((sum, r) => sum + r.cost, 0);
+  const monthlyServicesDone = monthlyRepairs.length;
+
   const totalCost = vehicleRepairs.reduce((sum, r) => sum + r.cost, 0);
 
   // Load Data
@@ -229,10 +242,24 @@ function AppContent() {
     setShowAddSheet(false);
   };
 
+  const handleUpdateRepair = (id: string, entry: Omit<RepairEntry, "id">) => {
+    setRepairs((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...entry, id } : r))
+    );
+    setShowAddSheet(false);
+    setEditingRepair(null);
+  };
+
   const handleAddFuel = (entry: Omit<FuelEntry, "id">) => {
     setFuelEntries((prev) => [...prev, { ...entry, id: `fe${Date.now()}` }]);
   };
 
+const handleDeleteFuel = (id: string) => {
+    setFuelEntries((prev) => prev.filter((f) => f.id !== id));
+    setShowFuelSheet(false);
+    setEditingFuel(null);
+  };
+  
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
       <StatusBar barStyle="light-content" />
@@ -303,11 +330,14 @@ function AppContent() {
         {/* Baris Switcher Kendaraan */}
         <View style={{ paddingBottom: 8 }}>
           <VehicleSwitcher
-            vehicles={vehicles}
-            selectedId={selectedVehicleId}
-            onSelect={setSelectedVehicleId}
-            onAddVehicle={() => setShowVehicleModal(true)}
-          />
+  vehicles={vehicles}
+  selectedId={selectedVehicleId}
+  onSelect={setSelectedVehicleId}
+  onAddVehicle={() => {
+    setEditingVehicle(null); 
+    setShowVehicleModal(true);
+  }}
+/>
         </View>
       </View>
 
@@ -344,7 +374,7 @@ function AppContent() {
                 }}
               >
                 <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
-                  {t("totalSpent")}
+                  {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
                 </Text>
                 <Text
                   style={{
@@ -357,7 +387,10 @@ function AppContent() {
                     style: "currency",
                     currency: "IDR",
                     maximumFractionDigits: 0,
-                  }).format(totalCost)}
+                  }).format(monthlyCost)}
+                </Text>
+                <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, marginTop: 2 }}>
+                  {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
                 </Text>
               </View>
               {/* KOTAK SERVICES DONE YANG BISA DIKLIK */}
@@ -374,7 +407,7 @@ function AppContent() {
                 }}
               >
                 <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
-                  {t("servicesDone")}
+                  {t("servicesDone")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
                 </Text>
                 <View
                   style={{
@@ -391,10 +424,13 @@ function AppContent() {
                       fontWeight: "700",
                     }}
                   >
-                    {vehicleRepairs.length} {t("records")}
+                    {monthlyServicesDone} {t("records")}
                   </Text>
                   <Text style={{ fontSize: 12 }}>📅</Text>
                 </View>
+                <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, marginTop: 2 }}>
+                  {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
+                </Text>
               </TouchableOpacity>
             </View>
             <MaintenanceStatusBar
@@ -402,40 +438,31 @@ function AppContent() {
               currentOdometer={selectedVehicle.currentOdometer}
               accentColor={selectedVehicle.color}
             />
-            <RecommendationBanner
+            <UpcomingReminders
               reminders={vehicleReminders}
               currentOdometer={selectedVehicle.currentOdometer}
-              onTap={handleRecommendationTap}
+              vehicle={selectedVehicle}
+              onAddReminder={handleRecommendationTap}
             />
-            <UpcomingReminders vehicle={selectedVehicle} />
           </>
         )}
 
         {activeTab === "history" && (
-          <RepairHistory
-            repairs={vehicleRepairs}
-            onEdit={(r) => {
-              setEditingRepair(r);
-              setShowAddSheet(true);
-            }}
-            onDelete={(id) =>
-              setRepairs((prev) => prev.filter((r) => r.id !== id))
-            }
-          />
-        )}
+  <RepairHistory
+    repairs={vehicleRepairs}
+    onEdit={(r) => {
+      setEditingRepair(r);
+      setShowAddSheet(true);
+    }}
+    onDelete={(id) => {
+      setRepairs((prev) => prev.filter((r) => r.id !== id));
+    }}
+  />
+)}
 
         {activeTab === "fuel" && (
           <FuelLog
-            // Filter data agar hanya menampilkan 7 hari terakhir
-            fuelEntries={vehicleFuelEntries.filter((entry) => {
-              const entryDate = new Date(entry.date);
-              const today = new Date();
-              const sevenDaysAgo = new Date();
-              sevenDaysAgo.setDate(today.getDate() - 7);
-
-              // Mengembalikan true jika tanggal entry berada di antara 7 hari lalu dan hari ini
-              return entryDate >= sevenDaysAgo && entryDate <= today;
-            })}
+            fuelEntries={vehicleFuelEntries}
             onAdd={() => {
               setEditingFuel(null);
               setShowFuelSheet(true);
@@ -445,10 +472,10 @@ function AppContent() {
               setShowFuelSheet(true);
             }}
             onDelete={(id) => {
-              setFuelEntries((prev) => prev.filter((f) => f.id !== id));
-            }}
-          />
-        )}
+      setFuelEntries((prev) => prev.filter((f) => f.id !== id));
+    }}
+  />
+)}
       </ScrollView>
 
       {/* MODALS SECTION */}
@@ -461,8 +488,9 @@ function AppContent() {
         vehicleType={selectedVehicle.vehicleType}
         prefillServiceType={prefillServiceType}
         editEntry={editingRepair}
-        onClose={() => setShowAddSheet(false)}
+        onClose={() => { setShowAddSheet(false); setEditingRepair(null); }}
         onSave={handleAddRepair}
+        onUpdate={handleUpdateRepair}
       />
 
       {/* 2. Fuel Sheet */}
@@ -470,8 +498,15 @@ function AppContent() {
         visible={showFuelSheet}
         vehicleId={selectedVehicleId}
         currentOdometer={selectedVehicle?.currentOdometer || 0}
-        editEntry={editingFuel} // TAMBAHKAN INI agar form terisi saat edit
+        tankCapacity={selectedVehicle?.tankCapacity}
+        editEntry={editingFuel}
         onClose={() => {
+          setShowFuelSheet(false);
+          setEditingFuel(null);
+        }}
+        // TAMBAHKAN LOGIKA HAPUS DI SINI
+        onDelete={(id) => {
+          setFuelEntries((prev) => prev.filter((f) => f.id !== id));
           setShowFuelSheet(false);
           setEditingFuel(null);
         }}
@@ -640,171 +675,35 @@ function AppContent() {
               </TouchableOpacity>
             </View>
 
-            {/* KALENDER */}
-            <View style={{ paddingHorizontal: 10, paddingVertical: 10 }}>
-              <MaintenanceCalendar
-                repairs={vehicleRepairs}
-                fuelEntries={vehicleFuelEntries} // Pastikan props ini terisi
-                onDayPress={(day: any) => {
-                  setSelectedDate(day.dateString);
+               {/* KALENDER */}
+<View style={{ 
+  paddingHorizontal: 5, 
+  paddingVertical: 10,
+  backgroundColor: 'rgba(0,0,0,0.1)', // Memberi kontras tipis agar angka tanggal terlihat jelas
+  borderRadius: 20,
+  marginHorizontal: 10
+}}>
+  <MaintenanceCalendar
+    repairs={vehicleRepairs}
+    fuelEntries={vehicleFuelEntries}
+    // Pastikan di dalam komponen MaintenanceCalendar kamu mengatur 
+    // theme={{ calendarBackground: 'transparent', ... }} agar menyatu
+    onDayPress={(day: any) => {
+      setSelectedDate(day.dateString);
+      const repairsOnDate = vehicleRepairs.filter((r) => r.date === day.dateString);
+      const fuelsOnDate = vehicleFuelEntries.filter((f) => {
+        const fuelDate = typeof f.date === "string" ? f.date.split("T")[0] : f.date;
+        return fuelDate === day.dateString;
+      });
 
-                  // 1. Ambil data perbaikan/servis
-                  const repairsOnDate = vehicleRepairs.filter(
-                    (r) => r.date === day.dateString,
-                  );
-
-                  // 2. Ambil data bensin (Fuel)
-                  // Kita tambahkan pengecekan format tanggal untuk berjaga-jaga
-                  const fuelsOnDate = vehicleFuelEntries.filter((f) => {
-                    const fuelDate =
-                      typeof f.date === "string"
-                        ? f.date.split("T")[0]
-                        : f.date;
-                    return fuelDate === day.dateString;
-                  });
-
-                  // 3. GABUNGKAN KEDUANYA ke dalam satu list
-                  const combined = [
-                    ...repairsOnDate.map((item) => ({
-                      ...item,
-                      category: "repair", // Label untuk membedakan di UI
-                    })),
-                    ...fuelsOnDate.map((item) => ({
-                      ...item,
-                      category: "fuel", // Label untuk membedakan di UI
-                    })),
-                  ];
-
-                  // 4. Update state records untuk ditampilkan di ScrollView bawah kalender
-                  setSelectedDateRecords(combined);
-                }}
-              />
-            </View>
-
-            {/* LIST RIWAYAT */}
-            <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)" }}>
-              <View
-                style={{
-                  paddingHorizontal: 20,
-                  paddingVertical: 10,
-                  backgroundColor: "rgba(255,255,255,0.03)",
-                }}
-              >
-                <Text
-                  style={{ color: "#4ECDC4", fontSize: 12, fontWeight: "700" }}
-                >
-                  {selectedDate
-                    ? `LOG TANGGAL: ${selectedDate}`
-                    : "SILAKAN PILIH TANGGAL"}
-                </Text>
-              </View>
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ padding: 20, paddingBottom: 30 }}
-              >
-                {selectedDateRecords.length > 0 ? (
-                  selectedDateRecords.map((item, index) => (
-                    <View
-                      key={index}
-                      style={{
-                        flexDirection: "row",
-                        backgroundColor: "rgba(255,255,255,0.05)",
-                        padding: 15,
-                        borderRadius: 16,
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: 12,
-                      }}
-                    >
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 12,
-                        }}
-                      >
-                        <View
-                          style={{
-                            width: 42,
-                            height: 42,
-                            borderRadius: 12,
-                            backgroundColor:
-                              item.category === "fuel"
-                                ? "rgba(245, 166, 35, 0.1)"
-                                : "rgba(78, 205, 196, 0.1)",
-                            justifyContent: "center",
-                            alignItems: "center",
-                          }}
-                        >
-                          <Text style={{ fontSize: 20 }}>
-                            {item.category === "fuel" ? "⛽" : "🔧"}
-                          </Text>
-                        </View>
-                        <View>
-                          <Text
-                            style={{
-                              color: "#FFF",
-                              fontWeight: "700",
-                              fontSize: 14,
-                            }}
-                          >
-                            {item.category === "fuel"
-                              ? "Isi Bensin"
-                              : item.serviceType || "Servis"}
-                          </Text>
-                          <Text
-                            style={{
-                              color: "rgba(255,255,255,0.4)",
-                              fontSize: 11,
-                            }}
-                          >
-                            {item.category === "fuel"
-                              ? `${item.liters}L • ${item.fuelType}`
-                              : item.workshop || "Bengkel"}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={{ alignItems: "flex-end" }}>
-                        <Text
-                          style={{
-                            color:
-                              item.category === "fuel" ? "#F5A623" : "#4ECDC4",
-                            fontWeight: "800",
-                          }}
-                        >
-                          Rp {Number(item.cost || 0).toLocaleString("id-ID")}
-                        </Text>
-                        <Text
-                          style={{
-                            color: "rgba(255,255,255,0.2)",
-                            fontSize: 9,
-                          }}
-                        >
-                          {item.odometer?.toLocaleString("id-ID")} km
-                        </Text>
-                      </View>
-                    </View>
-                  ))
-                ) : (
-                  <View style={{ alignItems: "center", marginTop: 40 }}>
-                    <Text
-                      style={{ fontSize: 40, marginBottom: 10, opacity: 0.2 }}
-                    >
-                      📋
-                    </Text>
-                    <Text
-                      style={{
-                        color: "rgba(255,255,255,0.3)",
-                        fontStyle: "italic",
-                        textAlign: "center",
-                      }}
-                    >
-                      Tidak ada catatan pada tanggal ini.
-                    </Text>
-                  </View>
-                )}
-              </ScrollView>
-            </View>
+      const combined = [
+        ...repairsOnDate.map((item) => ({ ...item, category: "repair" })),
+        ...fuelsOnDate.map((item) => ({ ...item, category: "fuel" })),
+      ];
+      setSelectedDateRecords(combined);
+    }}
+  />
+</View>
           </View>
         </View>
       </Modal>

@@ -20,6 +20,7 @@ export default function VehicleSwitcher({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingVertical: 10,
@@ -91,40 +92,43 @@ export default function VehicleSwitcher({
         })}
 
         <TouchableOpacity
-          onPress={onAddVehicle}
-          activeOpacity={0.7}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            height: 38,
-            borderRadius: 19,
-            paddingHorizontal: 12,
-            borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.2)",
-            borderStyle: "dashed",
-            backgroundColor: "rgba(255,255,255,0.02)",
-            marginLeft: 4,
-          }}
-        >
-          <Text
-            style={{
-              color: "rgba(255,255,255,0.4)",
-              fontSize: 16,
-              marginRight: 4,
-            }}
-          >
-            +
-          </Text>
-          <Text
-            style={{
-              color: "rgba(255,255,255,0.4)",
-              fontSize: 12,
-              fontWeight: "600",
-            }}
-          >
-            Add
-          </Text>
-        </TouchableOpacity>
+  onPress={(e) => {
+    e.stopPropagation(); // Mencegah klik "tembus" ke area scroll
+    onAddVehicle?.();    // Menjalankan fungsi tambah kendaraan
+  }}
+  activeOpacity={0.7}
+  style={{
+    flexDirection: "row",
+    alignItems: "center",
+    height: 38,
+    borderRadius: 19,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+    borderStyle: "dashed",
+    backgroundColor: "rgba(255,255,255,0.02)",
+    marginLeft: 4,
+  }}
+>
+  <Text
+    style={{
+      color: "rgba(255,255,255,0.4)",
+      fontSize: 16,
+      marginRight: 4,
+    }}
+  >
+    +
+  </Text>
+  <Text
+    style={{
+      color: "rgba(255,255,255,0.4)",
+      fontSize: 12,
+      fontWeight: "600",
+    }}
+  >
+    Add
+  </Text>
+</TouchableOpacity>
       </ScrollView>
     </View>
   );

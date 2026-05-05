@@ -12,6 +12,7 @@ export interface Vehicle {
   vehicleType?: 'car' | 'motorcycle';
   taxDueDate?: string; // YYYY-MM-DD pajak tahunan
   stnkDueDate?: string; // YYYY-MM-DD STNK 5 tahunan
+  tankCapacity?: number; // Kapasitas tangki bensin dalam liter
 }
 
 export interface TireLog {
@@ -65,7 +66,10 @@ export interface FuelEntry {
   pricePerLiter: number;
   totalCost: number;
   odometer: number;
+  fuelType?: string; // jenis BBM
   notes?: string;
+  receiptPhoto?: string; // URI foto struk
+  isFlagged?: boolean; // Auto-Flag jika angka tidak wajar
 }
 
 export interface NotificationItem {

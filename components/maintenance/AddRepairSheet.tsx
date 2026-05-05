@@ -22,18 +22,12 @@ import {
 
 const DEFAULT_SERVICE_TYPES = [
   "Ganti Oli",
-  "Servis AC",
-  "Cek Aki",
   "Ganti Ban",
-  "Ganti Ban Belakang",
-  "Rem",
+  "Kampas Rem",
   "Filter Udara",
   "Busi",
-  "Radiator / Coolant",
-  "Transmisi",
-  "Rantai / V-Belt",
-  "Klep / Karburator",
-  "Inspeksi Umum",
+  "Air Radiator",
+  "V-Belt / Rantai",
 ];
 
 const isTireService = (s: string) => {
@@ -119,7 +113,7 @@ export default function AddRepairSheet({
         setServiceType(pre);
         setServiceTypeInput(pre);
         setDate(new Date().toISOString().split("T")[0]);
-        setOdometer(currentOdometer.toString());
+        setOdometer(currentOdometer ? currentOdometer.toString() : "0");
         setCost("");
         setWorkshop("");
         setNotes("");
