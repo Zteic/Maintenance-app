@@ -11,6 +11,8 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+
+
 function extractReceipts(notes: string): { cleanNotes: string; receipts: string[] } {
   const match = notes.match(/\[receipts:(.*?)\]/);
   if (match) {
@@ -33,6 +35,7 @@ interface RepairHistoryProps {
 }
 
 export default function RepairHistory({ repairs = [], onEdit, onDelete }: RepairHistoryProps) {
+  const [deleteRepairId, setDeleteRepairId] = useState<string | null>(null);
   const { t, lang } = useLanguage();
   const isId = lang === 'id';
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -153,23 +156,55 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
   </View>
 )}
 
-            {/* Tombol Aksi */}
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TouchableOpacity 
-                onPress={() => onEdit?.(repair)}
-                style={{ flex: 1, height: 45, backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: 12, borderWeight: 1, borderColor: 'rgba(245,166,35,0.2)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
-              >
-                <Text>✏️</Text>
-                <Text style={{ color: '#F5A623', fontWeight: '700', fontSize: 13 }}>Edit Perbaikan</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => onDelete?.(repair.id)}
-                style={{ flex: 1, height: 45, backgroundColor: 'rgba(255,107,107,0.1)', borderRadius: 12, borderWeight: 1, borderColor: 'rgba(255,107,107,0.2)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
-              >
-                <Text>🗑️</Text>
-                <Text style={{ color: '#FF6B6B', fontWeight: '700', fontSize: 13 }}>Hapus</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Tombol Aksi - Dibuat 2 Kolom Sejajar */}
+<View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+  
+  {/* Tombol Edit Perbaikan */}
+  <TouchableOpacity 
+    onPress={() => onEdit?.(repair)}
+    activeOpacity={0.7}
+    style={{ 
+      flex: 1, 
+      height: 45, 
+      backgroundColor: 'rgba(245,166,35,0.1)', 
+      borderRadius: 12, 
+      borderWidth: 1, // Perbaikan dari borderWeight
+      borderColor: 'rgba(245,166,35,0.2)', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      flexDirection: 'row', 
+      gap: 8 
+    }}
+  >
+    <Text>✏️</Text>
+    <Text style={{ color: '#F5A623', fontWeight: '700', fontSize: 13 }}>
+      {isId ? "Edit Perbaikan" : "Edit Repair"}
+    </Text>
+  </TouchableOpacity>
+
+  {/* Tombol Hapus Perbaikan */}
+  <TouchableOpacity 
+    onPress={() => setDeleteRepairId(repair.id)}
+    activeOpacity={0.7}
+    style={{ 
+      flex: 1, 
+      height: 45, 
+      backgroundColor: 'rgba(255,82,82,0.1)', 
+      borderRadius: 12, 
+      borderWidth: 1, 
+      borderColor: 'rgba(255,82,82,0.2)', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      flexDirection: 'row', 
+      gap: 8 
+    }}
+  >
+    <Text>🗑️</Text>
+    <Text style={{ color: '#FF5252', fontWeight: '700', fontSize: 13 }}>
+      {isId ? "Hapus" : "Delete"}
+    </Text>
+  </TouchableOpacity>
+</View>
           </View>
         )}
       </View>
@@ -205,6 +240,76 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
       />
     </View>
   </Modal>
+
+  {/* Modal Konfirmasi Hapus Riwayat Servis */}
+<Modal visible={!!deleteRepairId} transparent animationType="fade">
+  <View style={{ 
+    flex: 1, 
+    backgroundColor: 'rgba(7, 18, 28, 0.95)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  }}>
+    <View style={{ 
+      width: '85%', 
+      backgroundColor: '#162431', 
+      borderRadius: 32, 
+      padding: 30,
+      alignItems: 'center'
+    }}>
+      {/* Visual Indicator */}
+      <View style={{ width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, marginBottom: 25 }} />
+
+      <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '800', marginBottom: 10 }}>
+        {isId ? "Hapus Riwayat?" : "Delete History?"}
+      </Text>
+      
+      <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', fontSize: 14, lineHeight: 22, marginBottom: 35 }}>
+        {isId 
+          ? "Data perbaikan/servis ini akan dihapus permanen dari riwayat kendaraan." 
+          : "This maintenance record will be permanently removed from your vehicle history."}
+      </Text>
+
+      <View style={{ width: '100%', gap: 12 }}>
+        <TouchableOpacity 
+  onPress={() => {
+    if (deleteRepairId) {
+      // Ganti handleConfirmDelete menjadi onDelete
+      onDelete(deleteRepairId); 
+      setDeleteRepairId(null);
+    }
+  }}
+          activeOpacity={0.8}
+          style={{ 
+            width: '100%', 
+            paddingVertical: 16, 
+            borderRadius: 20, 
+            backgroundColor: '#FF5252',
+            alignItems: 'center'
+          }}
+        >
+          <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 16 }}>
+            {isId ? "Ya, Hapus Riwayat" : "Yes, Delete History"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          onPress={() => setDeleteRepairId(null)}
+          activeOpacity={0.6}
+          style={{ 
+            width: '100%', 
+            paddingVertical: 16, 
+            borderRadius: 20, 
+            alignItems: 'center' 
+          }}
+        >
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '700', fontSize: 15 }}>
+            {isId ? "Batal" : "Cancel"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
 
 </View>
   );
