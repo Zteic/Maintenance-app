@@ -43,7 +43,7 @@ export default function FuelLog({
 }: FuelLogProps) {
   const { lang } = useLanguage();
   const isId = lang === "id";
-
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   
@@ -161,7 +161,7 @@ export default function FuelLog({
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>{isId ? "TOTAL BIAYA" : "TOTAL COST"}</Text>
-              <Text style={[styles.statValue, { color: "#FF6B6B", fontSize: 9 }]}>{formatCurrency(totalFuelCost)}</Text>
+              <Text style={[styles.statValue, { color: "#FF6B6B", fontSize: 14 }]}>{formatCurrency(totalFuelCost)}</Text>
             </View>
           </View>
 
@@ -292,6 +292,7 @@ export default function FuelLog({
       <View style={{ gap: 8, paddingHorizontal: 20 }}>
         {sorted.map((entry) => {
           const eff = efficiencies.find((e) => e.entryId === entry.id);
+          const isExpanded = expandedId === entry.id;
           const receiptUrl = entry.notes?.match(/\[receipt:(.*?)\]/)?.[1] || entry.receiptPhoto || null;
           let baseText = entry.notes ? entry.notes.replace(/\[receipt:.*?\]/g, "").trim() : "";
           let fuelInfo = isId ? "Bensin" : "Fuel";
@@ -308,49 +309,93 @@ export default function FuelLog({
           const isFlagged = eff?.isFlagged || entry.isFlagged;
 
           return (
-            <View key={entry.id} style={[styles.entryCard, isFlagged && { borderColor: "rgba(255,82,82,0.4)" }]}>
-              <View style={styles.actionHeader}>
-                <TouchableOpacity onPress={() => onEdit?.(entry)}>
-                  <Text style={styles.editText}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(entry.id)}>
-                  <Text style={styles.deleteText}>{isId ? "Hapus" : "Delete"}</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <View style={{ flexDirection: "row", gap: 10, flex: 1 }}>
-                  <View style={styles.iconBox}><Text style={{ fontSize: 18 }}>⛽</Text></View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "800" }}>{entry.liters.toFixed(1)} L</Text>
-                      <Text style={{ color: "#F5A623", fontSize: 12, fontWeight: "700" }}>• {fuelInfo}</Text>
-                    </View>
-                    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{entry.date} · {entry.odometer.toLocaleString()} km</Text>
-                  </View>
-                </View>
-                <Text style={styles.totalPriceText}>{formatCurrency(entry.totalCost)}</Text>
-              </View>
+  <View key={entry.id} style={[styles.entryCard, isFlagged && { borderColor: "rgba(255,82,82,0.4)" }]}>
+    
+    {/* 1. BAGIAN HEADER (Selalu Tampil & Bisa Diklik) */}
+    <TouchableOpacity 
+      activeOpacity={0.7}
+      onPress={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+      style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}
+    >
+      <View style={{ flexDirection: "row", gap: 10, flex: 1 }}>
+        <View style={styles.iconBox}><Text style={{ fontSize: 18 }}>⛽</Text></View>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "800" }}>{entry.liters.toFixed(1)} L</Text>
+            <Text style={{ color: "#F5A623", fontSize: 12, fontWeight: "700" }}>• {fuelInfo}</Text>
+          </View>
+          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{entry.date} · {entry.odometer.toLocaleString()} km</Text>
+        </View>
+      </View>
+      
+      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+        <Text style={styles.totalPriceText}>{formatCurrency(entry.totalCost)}</Text>
+        {/* Indikator Panah */}
+        <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>
+          {expandedId === entry.id ? '▲' : '▼'}
+        </Text>
+      </View>
+    </TouchableOpacity>
 
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <View style={styles.miniStatBox}>
-                  <Text style={styles.miniLabel}>HARGA/L</Text>
-                  <Text style={styles.miniValue}>{formatCurrency(entry.pricePerLiter)}</Text>
-                </View>
-                {eff && (
-                  <View style={styles.miniStatBox}>
-                    <Text style={styles.miniLabel}>KM/LITER</Text>
-                    <Text style={[styles.miniValue, { color: isFlagged ? "#FF5252" : "#4ECDC4" }]}>{eff.kmPerL.toFixed(1)}</Text>
-                  </View>
-                )}
-              </View>
-              {userDescription ? <Text style={styles.descriptionText}>"{userDescription}"</Text> : null}
-              {receiptUrl && (
-                <TouchableOpacity onPress={() => setSelectedImage(receiptUrl)} style={styles.receiptButton}>
-                  <Text style={styles.receiptButtonText}>📸 {isId ? "Lihat Struk" : "View Receipt"}</Text>
-                </TouchableOpacity>
-              )}
+    {/* 2. BAGIAN DETAIL (Hanya Muncul Jika expandedId cocok) */}
+    {expandedId === entry.id && (
+      <View style={{ marginTop: 16, gap: 12 }}>
+        
+        {/* Statistik Kecil */}
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={styles.miniStatBox}>
+            <Text style={styles.miniLabel}>HARGA/L</Text>
+            <Text style={styles.miniValue}>{formatCurrency(entry.pricePerLiter)}</Text>
+          </View>
+          {eff && (
+            <View style={styles.miniStatBox}>
+              <Text style={styles.miniLabel}>KM/LITER</Text>
+              <Text style={[styles.miniValue, { color: isFlagged ? "#FF5252" : "#4ECDC4" }]}>{eff.kmPerL.toFixed(1)}</Text>
             </View>
-          );
+          )}
+        </View>
+
+        {/* Catatan & Struk */}
+        {userDescription ? <Text style={styles.descriptionText}>"{userDescription}"</Text> : null}
+        
+        {receiptUrl && (
+          <TouchableOpacity onPress={() => setSelectedImage(receiptUrl)} style={styles.receiptButton}>
+            <Text style={styles.receiptButtonText}>📸 {isId ? "Lihat Struk" : "View Receipt"}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Tombol Aksi */}
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 12 }}>
+          <TouchableOpacity 
+            onPress={() => onEdit?.(entry)}
+            activeOpacity={0.7}
+            style={{ 
+              flex: 1, height: 45, backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: 12, 
+              borderWidth: 1, borderColor: 'rgba(245,166,35,0.2)', alignItems: 'center', 
+              justifyContent: 'center', flexDirection: 'row', gap: 8 
+            }}
+          >
+            <Text>✏️</Text>
+            <Text style={{ color: '#F5A623', fontWeight: '700', fontSize: 13 }}>{isId ? "Edit" : "Edit"}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={() => handleDelete(entry.id)}
+            activeOpacity={0.7}
+            style={{ 
+              flex: 1, height: 45, backgroundColor: 'rgba(255,82,82,0.1)', borderRadius: 12, 
+              borderWidth: 1, borderColor: 'rgba(255,82,82,0.2)', alignItems: 'center', 
+              justifyContent: 'center', flexDirection: 'row', gap: 8 
+            }}
+          >
+            <Text>🗑️</Text>
+            <Text style={{ color: '#FF5252', fontWeight: '700', fontSize: 13 }}>{isId ? "Hapus" : "Delete"}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    )}
+  </View>
+);
         })}
       </View>
     </View>
