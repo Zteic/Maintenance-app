@@ -62,9 +62,67 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
     const dB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
     return dB - dA;
   });
+  
 
   return (
-    <View style={{ gap: 12, paddingHorizontal: 20 }}>
+    <View style={{ paddingHorizontal: 20, paddingBottom: 30 }}>
+  {/* ROW 1: Judul dan Tombol Add */}
+  <View style={{ 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 10
+  }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <Text style={{ fontSize: 20 }}>🔧</Text>
+      <Text style={{ 
+        color: '#FFFFFF', 
+        fontSize: 18, 
+        fontWeight: '800',
+        letterSpacing: 0.5 
+      }}>
+        {isId ? "Riwayat Perbaikan" : "Repair History"}
+      </Text>
+    </View>
+
+    <TouchableOpacity 
+      onPress={() => onAddRepair?.()} // Pastikan fungsi ini tersedia di props
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(78, 205, 196, 0.15)', // Warna hijau toska transparan
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(78, 205, 196, 0.3)',
+        gap: 6
+      }}
+    >
+      <Text style={{ color: '#4ECDC4', fontSize: 16, fontWeight: '700' }}>+</Text>
+      <Text style={{ 
+        color: '#4ECDC4', 
+        fontSize: 13, 
+        fontWeight: '700' 
+      }}>
+        {isId ? "Tambah Perbaikan" : "Add Repair"}
+      </Text>
+    </TouchableOpacity>
+  </View>
+
+  {/* ROW 2: Statistik Tanggal */}
+  <View style={{ paddingHorizontal: 22, marginTop: 8 }}>
+    <Text style={{ 
+      color: 'rgba(255, 255, 255, 0.3)', 
+      fontSize: 10, 
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 1
+    }}>
+      {isId ? "CATATAN DARI" : "STATS FROM"}: {new Date().toISOString().split('T')[0]}
+    </Text>
+  </View>
   {sorted.map((repair) => {
     const { cleanNotes, receipts } = extractReceipts(repair.notes || '');
   const isExpanded = expandedId === repair.id;
@@ -74,14 +132,19 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
     });
 
     return (
-      <View key={repair.id} style={{ backgroundColor: '#1A2B3C', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+      <View key={repair.id} style={{ backgroundColor: '#1A2B3C', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',marginBottom: 8 }}>
         <TouchableOpacity 
           onPress={() => setExpandedId(isExpanded ? null : repair.id)} 
           activeOpacity={0.9} 
-          style={{ flexDirection: 'row', alignItems: 'center', padding: 18 }}
+          style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            paddingVertical: 12,
+            paddingHorizontal: 16 
+          }}
         >
           {/* Ikon Box */}
-          <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+          <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
             <Text style={{ fontSize: 20 }}>🔧</Text>
           </View>
 
@@ -95,7 +158,7 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
 
           {/* Harga & Indikator */}
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ color: '#F5A623', fontSize: 15, fontWeight: '800' }}>{formatCurrency(repair.cost)}</Text>
+            <Text style={{ color: '#F5A623', fontSize: 14, fontWeight: '800', fontFamily: 'SpaceMono' }}>{formatCurrency(repair.cost)}</Text>
             <View style={{ marginTop: 8, opacity: 0.3 }}>
               <Text style={{ color: 'white', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
             </View>
