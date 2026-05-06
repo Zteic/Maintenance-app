@@ -104,7 +104,7 @@ const translations = {
     exportPdfDesc: 'Share full service records as PDF',
     editProfile: 'Edit Profile',
     saveProfile: 'SAVE PROFILE',
-    editRepair: 'Edit Repair',
+    editRepair: 'Update Repair',
     deleteRepair: 'Delete',
     confirmDelete: 'Confirm Delete',
     confirmDeleteMsg: 'Are you sure you want to delete this repair record?',
