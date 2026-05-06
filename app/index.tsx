@@ -141,10 +141,21 @@ function AppContent() {
   });
   const totalFuelMonthly = monthlyFuel.reduce((sum, f) => sum + (Number(f.totalCost) || 0), 0);
 
-  // 5. Kesimpulan Biaya Bulanan & Statistik
+  // Kesimpulan Biaya Bulanan & Statistik
   const monthlyCost = totalFuelMonthly + totalRepairMonthly;
   const monthlyServicesDone = monthlyRepairs.length;
   const totalCost = vehicleRepairs.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
+  const totalLitersMonthly = monthlyFuel.reduce((sum, f) => sum + (Number(f.liters) || 0), 0);
+
+  // Hitung Jarak Tempuh Bulan Ini (Odometer tertinggi - Odometer terendah bulan ini)
+  const monthlyOdometers = [
+    ...monthlyRepairs.map(r => r.odometer),
+    ...monthlyFuel.map(f => f.odometer)
+  ].filter(odo => odo > 0);
+
+  const monthlyDistance = monthlyOdometers.length > 0 
+    ? Math.max(...monthlyOdometers) - Math.min(...monthlyOdometers) 
+    : 0;
 
   // Load Data
   useEffect(() => {
@@ -510,7 +521,7 @@ const handleMarkDone = async (item: Reminder) => {
                 style={{
                   color: "#F5A623",
                   fontSize: 16,
-                  fontWeight: "800",
+                  fontWeight: "600",
                   marginTop: 2,
                   marginBottom: 8
                 }}
@@ -525,19 +536,19 @@ const handleMarkDone = async (item: Reminder) => {
               {/* Rincian Terpisah (Fuel & Repair) */}
               <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8, gap: 4 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 14 }}>
                     ⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}
                   </Text>
-                  <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "600" }}>
+                  <Text style={{ color: "#F5A623", fontSize: 14, fontWeight: "600" }}>
                     Rp {totalFuelMonthly.toLocaleString('id-ID')}
                   </Text>
                 </View>
                 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 14 }}>
                     🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}
                   </Text>
-                  <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "600" }}>
+                  <Text style={{ color: "#F5A623", fontSize: 14, fontWeight: "600" }}>
                     Rp {totalRepairMonthly.toLocaleString('id-ID')}
                   </Text>
                 </View>
@@ -560,29 +571,43 @@ const handleMarkDone = async (item: Reminder) => {
                   borderColor: "rgba(255,255,255,0.05)",
                 }}
               >
-                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
-                  {t("servicesDone")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
-                </Text>
-                <View
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: '600' }}>
+                    {t("servicesDone")}
+                  </Text>
+                  <Text style={{ fontSize: 14 }}>📅</Text>
+                </View>
+
+                <Text
                   style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginTop: 4,
+                    color: "#4ECDC4",
+                    fontSize: 16,
+                    fontWeight: "800",
+                    marginTop: 2,
                   }}
                 >
-                  <Text
-                    style={{
-                      color: "#4ECDC4",
-                      fontSize: 14,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {monthlyServicesDone} {t("records")}
-                  </Text>
-                  <Text style={{ fontSize: 12 }}>📅</Text>
+                  {monthlyServicesDone} <Text style={{ fontSize: 16, fontWeight: '600',marginTop: 2,
+                  marginBottom: 8 }}>{t("records")}</Text>
+                </Text>
+
+                {/* STATS TAMBAHAN UNTUK MENGISI RUANG KOSONG */}
+                <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8, marginTop: 8, gap: 4 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 14 }}>⛽ Total Liter</Text>
+                    <Text style={{ color: "#4ECDC4", fontSize: 14, fontWeight: "700" }}>
+                      {totalLitersMonthly.toFixed(1)} L
+                    </Text>
+                  </View>
+                  
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 14 }}>🛣️ {lang === "id" ? "Jarak" : "Distance"}</Text>
+                    <Text style={{ color: "#4ECDC4", fontSize: 14, fontWeight: "700" }}>
+                      +{monthlyDistance.toLocaleString('id-ID')} km
+                    </Text>
+                  </View>
                 </View>
-                <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, marginTop: 2 }}>
+
+                <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10 }}>
                   {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
                 </Text>
               </TouchableOpacity>
