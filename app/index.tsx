@@ -71,7 +71,8 @@ function AppContent() {
   const params = useLocalSearchParams(); // Mengambil parameter dari URL
   const { t, lang, setLang } = useLanguage();
   const insets = useSafeAreaInsets();
-
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
   // State
   const [vehicles, setVehicles] = useState<Vehicle[]>(MOCK_VEHICLES);
   const [repairs, setRepairs] = useState<RepairEntry[]>(MOCK_REPAIRS);
@@ -383,17 +384,18 @@ const handleMarkDone = async (item: Reminder) => {
     setFuelEntries((prev) => [...prev, { ...entry, id: `fe${Date.now()}` }]);
   };
 
-const handleDelete = (id: string) => {
-    const confirmDelete = confirm(
-      lang === "id" 
-        ? "Hapus pengingat ini? Jadwal servis akan hilang." 
-        : "Delete this reminder? The service schedule will be lost."
-    );
+    const handleDelete = (id: string) => {
+    setItemToDeleteId(id);
+    setShowDeleteConfirm(true);
+    };
 
-    if (confirmDelete) {
-      setReminders((prev) => prev.filter((r) => r.id !== id));
-    }
-  };
+    const confirmDeleteAction = () => {
+    if (itemToDeleteId) {
+      setReminders((prev) => prev.filter((r) => r.id !== itemToDeleteId));
+      setShowDeleteConfirm(false);
+      setItemToDeleteId(null);
+      }
+    };
   
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
@@ -750,6 +752,98 @@ const handleDelete = (id: string) => {
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
+      </Modal>
+      
+      {/* Custom Delete Confirmation Modal */}
+      <Modal 
+        visible={showDeleteConfirm} 
+        transparent 
+        animationType="fade"
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <View style={{ 
+          flex: 1, 
+          backgroundColor: 'rgba(7, 18, 28, 0.95)', // Background overlay lebih gelap sesuai referensi
+          justifyContent: 'center', 
+          alignItems: 'center' 
+        }}>
+          <View style={{ 
+            width: '85%', // Lebar disesuaikan menjadi 85%
+            backgroundColor: '#162431', // Warna kartu disesuaikan
+            borderRadius: 32, // Border radius lebih membulat (32)
+            padding: 30, // Padding disesuaikan
+            alignItems: 'center'
+          }}>
+            {/* Visual Indicator (Garis Handle di atas) */}
+            <View style={{ 
+              width: 40, 
+              height: 4, 
+              backgroundColor: 'rgba(255,255,255,0.1)', 
+              borderRadius: 2, 
+              marginBottom: 25 
+            }} />
+
+            <Text style={{ 
+              color: '#FFF', 
+              fontSize: 20, // Font size disesuaikan
+              fontWeight: '800', 
+              marginBottom: 10 
+            }}>
+              {lang === "id" ? "Hapus Riwayat?" : "Delete History?"}
+            </Text>
+            
+            <Text style={{ 
+              color: 'rgba(255,255,255,0.4)', // Warna teks deskripsi disesuaikan
+              textAlign: 'center', 
+              fontSize: 14, 
+              lineHeight: 22, 
+              marginBottom: 35 
+            }}>
+              {lang === "id" 
+                ? "Catatan pemeliharaan ini akan dihapus secara permanen dari riwayat kendaraan Anda." 
+                : "This maintenance record will be permanently removed from your vehicle history."}
+            </Text>
+
+            <View style={{ width: '100%', gap: 12 }}>
+              {/* Tombol Hapus (Confirm) */}
+              <TouchableOpacity 
+                onPress={confirmDeleteAction}
+                activeOpacity={0.8}
+                style={{ 
+                  width: '100%', 
+                  paddingVertical: 16, 
+                  borderRadius: 20, // Border radius tombol disesuaikan
+                  backgroundColor: '#FF5252',
+                  alignItems: 'center'
+                }}
+              >
+                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 16 }}>
+                  {lang === "id" ? "Ya, Hapus Riwayat" : "Yes, Delete History"}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Tombol Batal (Cancel) */}
+              <TouchableOpacity 
+                onPress={() => setShowDeleteConfirm(false)}
+                activeOpacity={0.6}
+                style={{ 
+                  width: '100%', 
+                  paddingVertical: 16, 
+                  borderRadius: 20, 
+                  alignItems: 'center' 
+                }}
+              >
+                <Text style={{ 
+                  color: 'rgba(255,255,255,0.4)', 
+                  fontWeight: '700', 
+                  fontSize: 15 
+                }}>
+                  {lang === "id" ? "Batal" : "Cancel"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* 5. MODAL KALENDER (Sekarang Sejajar, Bukan di Dalam) */}
