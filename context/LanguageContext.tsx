@@ -233,7 +233,7 @@ const translations = {
     exportPdfDesc: 'Bagikan catatan servis lengkap sebagai PDF',
     editProfile: 'Edit Profil',
     saveProfile: 'SIMPAN PROFIL',
-    editRepair: 'Edit Perbaikan',
+    editRepair: 'Update Perbaikan',
     deleteRepair: 'Hapus',
     confirmDelete: 'Konfirmasi Hapus',
     confirmDeleteMsg: 'Apakah Anda yakin ingin menghapus catatan perbaikan ini?',

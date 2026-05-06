@@ -94,7 +94,7 @@ export default function AddRepairSheet({
       if (editEntry) {
         setServiceType(editEntry.serviceType);
         setServiceTypeInput(editEntry.serviceType);
-        setDate(editEntry.date.toISOString().split("T")[0]);
+        setDate(new Date(editEntry.date).toISOString().split("T")[0]);
         setOdometer(editEntry.odometer.toString());
         setCost(editEntry.cost.toString());
         setWorkshop(editEntry.workshop);
@@ -176,6 +176,24 @@ export default function AddRepairSheet({
       saveCustomServiceTypes(updated);
     }
   };
+
+  const handleSaveRepair = async (newRepairData) => {
+  // 1. Simpan ke History (seperti yang sudah berjalan sekarang)
+  await saveToRepairHistory(newRepairData);
+
+  // 2. LOGIKA BARU: Update target di list Prioritas
+  const updatedReminder = {
+    serviceType: newRepairData.serviceType,
+    lastServiceOdometer: newRepairData.odometer,
+    // Hitung target berikutnya (misal + 10.000 km)
+    dueOdometer: newRepairData.odometer + (newRepairData.nextIntervalKm || 10000),
+    status: 'safe', // Reset status jadi hijau lagi
+    lastServiceDate: new Date().toISOString(),
+  };
+
+  // Simpan/Update ke daftar Reminders (Prioritas)
+  await updateReminder(updatedReminder); 
+};
 
   const handleSave = () => {
     const finalType =

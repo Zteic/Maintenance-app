@@ -125,6 +125,19 @@ function AppContent() {
     (f) => f.vehicleId === selectedVehicleId,
   );
 
+const onAddRepairComplete = async (newRepair) => {
+  await saveRepairToHistory(newRepair);
+
+  const nextService = {
+    serviceType: newRepair.serviceType,
+    lastServiceOdometer: newRepair.odometer,
+    dueOdometer: newRepair.odometer + newRepair.nextIntervalKm,
+    status: 'safe'
+  };
+  
+  await updateReminder(nextService);
+};
+
   // Monthly calculations (current month, day 1 to last day)
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -188,35 +201,84 @@ function AppContent() {
   };
 
   const handleEdit = (item: Reminder) => {
-  // Opsi A: Jika ingin membuka modal edit yang sudah ada
-  if (typeof setSelectedReminder === 'function' && typeof setAddReminderVisible === 'function') {
-    setSelectedReminder(item);
-    setAddReminderVisible(true);
-  } else {
-    // Opsi B: Jika ingin langsung "Mark Done" otomatis tanpa modal
-    handleMarkDone(item); 
-  }
-};
+    // 1. Prefill tipe servis
+    setPrefillServiceType(item.serviceType);
+
+    // 2. Buat objek perbaikan sementara
+    const mockRepair: RepairEntry = {
+      id: `temp-${Date.now()}`,
+      vehicleId: selectedVehicleId,
+      serviceType: item.serviceType,
+      date: new Date().toISOString().split('T')[0],
+      odometer: selectedVehicle.currentOdometer,
+      cost: 0,
+      workshop: "",
+      notes: "Service from Priority List",
+      nextIntervalKm: item.intervalKm
+    };
+
+    setEditingRepair(mockRepair);
+    setShowAddSheet(true); 
+  };
 
 // Fungsi pendukung untuk reset Odometer servis
 const handleMarkDone = async (item: Reminder) => {
-  const currentOdo = selectedVehicle?.odometer || 0;
+    const currentOdo = selectedVehicle?.currentOdometer || 0;
   
-  const updatedReminder = {
-    ...item,
-    lastServiceOdometer: currentOdo,
-    dueOdometer: currentOdo + (item.intervalKm || 10000),
-    status: 'safe',
-    lastServiceDate: new Date().toISOString(),
-  };
+  const newHistoryEntry: RepairEntry = {
+      id: `rep${Date.now()}`,
+      vehicleId: selectedVehicleId,
+      serviceType: item.serviceType,
+      date: new Date().toISOString().split('T')[0],
+      odometer: currentOdo,
+      cost: 0, // Bisa diedit nanti di history
+      workshop: "",
+      notes: "Auto-generated from Priority Maintenance",
+      nextIntervalKm: item.intervalKm
+    };
+  
+  const updatedReminder: Reminder = {
+      ...item,
+      lastServiceOdometer: currentOdo,
+      dueOdometer: currentOdo + (item.intervalKm || 10000),
+      status: 'safe',
+      lastServiceDate: new Date().toISOString(),
+    };
 
   try {
-    await handleUpdateReminder(updatedReminder); 
-    alert(`${item.serviceType} diperbarui ke target ${updatedReminder.dueOdometer} km`);
-  } catch (err) {
-    console.error("Gagal update reminder:", err);
-  }
-};
+      // 1. Tambahkan ke History
+      const newRepair: RepairEntry = {
+        id: `rep${Date.now()}`,
+        vehicleId: selectedVehicleId,
+        ...formData,
+      };
+      setRepairs(prev => [newRepair, ...prev]);
+
+      setReminders(prev => prev.map(rem => {
+        const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
+        
+        if (isMatch && rem.vehicleId === selectedVehicleId) {
+          return {
+            ...rem,
+            lastServiceOdometer: Number(formData.odometer),
+            dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
+            status: 'safe',
+            lastServiceDate: new Date().toISOString(),
+          };
+        }
+        return rem;
+      }));
+
+      setShowAddSheet(false);
+      setEditingRepair(null);
+      setPrefillServiceType(undefined);
+      
+      alert(lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
+    } catch (error) {
+      console.error("Gagal menyimpan:", error);
+    }
+  };
+  
 
   const handleVehicleSave = (data: any) => {
     if (editingVehicle) {
@@ -268,9 +330,45 @@ const handleMarkDone = async (item: Reminder) => {
     }
   };
 
-  const handleAddRepair = (entry: Omit<RepairEntry, "id">) => {
-    setRepairs((prev) => [...prev, { ...entry, id: `r${Date.now()}` }]);
-    setShowAddSheet(false);
+  const handleAddRepair = async (formData: any) => {
+    try {
+      // 1. Buat objek perbaikan untuk History
+      const newRepair: RepairEntry = {
+        id: `rep${Date.now()}`,
+        vehicleId: selectedVehicleId,
+        ...formData,
+        date: formData.date || new Date().toISOString().split('T')[0],
+      };
+
+      // 2. Simpan ke State Repairs (History)
+      setRepairs(prev => [newRepair, ...prev]);
+
+      // 3. Update State Reminders (Priority List)
+      setReminders(prev => prev.map(rem => {
+        // Cari pengingat yang namanya sama (misal: "Ganti Oli")
+        const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
+        
+        if (isMatch && rem.vehicleId === selectedVehicleId) {
+          return {
+            ...rem,
+            lastServiceOdometer: Number(formData.odometer),
+            dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
+            status: 'safe',
+            lastServiceDate: new Date().toISOString(),
+          };
+        }
+        return rem;
+      }));
+
+      // 4. Tutup Sheet & Reset
+      setShowAddSheet(false);
+      setEditingRepair(null);
+      setPrefillServiceType(undefined);
+      
+      alert(lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
+    } catch (error) {
+      console.error("Gagal menyimpan:", error);
+    }
   };
 
   const handleUpdateRepair = (id: string, entry: Omit<RepairEntry, "id">) => {
@@ -285,15 +383,17 @@ const handleMarkDone = async (item: Reminder) => {
     setFuelEntries((prev) => [...prev, { ...entry, id: `fe${Date.now()}` }]);
   };
 
-const handleDeleteFuel = (id: string) => {
-    setFuelEntries((prev) => prev.filter((f) => f.id !== id));
-    setShowFuelSheet(false);
-    setEditingFuel(null);
-  };
+const handleDelete = (id: string) => {
+    const confirmDelete = confirm(
+      lang === "id" 
+        ? "Hapus pengingat ini? Jadwal servis akan hilang." 
+        : "Delete this reminder? The service schedule will be lost."
+    );
 
-  const handleDelete = async (id: string) => {
-  console.log("Menghapus reminder ID:", id);
-};
+    if (confirmDelete) {
+      setReminders((prev) => prev.filter((r) => r.id !== id));
+    }
+  };
   
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
@@ -474,6 +574,7 @@ const handleDeleteFuel = (id: string) => {
               accentColor={selectedVehicle.color}
             />
             <UpcomingReminders
+              reminders={reminders}
               reminders={vehicleReminders}
               currentOdometer={selectedVehicle.currentOdometer}
               vehicle={selectedVehicle}
