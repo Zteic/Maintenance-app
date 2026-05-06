@@ -13,22 +13,33 @@ export default function MaintenanceStatusBar({
   currentOdometer,
   accentColor,
 }: MaintenanceStatusBarProps) {
-  const nextReminder = reminders
-    .filter((r) => r.status !== 'overdue')
-    .sort((a, b) => a.dueOdometer - b.dueOdometer)[0];
+  
+  // 1. URUTKAN BERDASARKAN PRIORITAS (Overdue paling atas, lalu Approaching, lalu sisa KM)
+  const nextReminder = [...reminders].sort((a, b) => {
+    const getScore = (item: Reminder) => {
+      if (item.status === 'overdue') return -100000;
+      if (item.status === 'approaching') return -50000;
+      return item.dueOdometer - currentOdometer;
+    };
+    return getScore(a) - getScore(b);
+  })[0];
 
   if (!nextReminder) return null;
 
+  // 2. HITUNG PROGRESS
+  // Jika sudah overdue, progress bar harus penuh (100%)
+  const isOverdue = nextReminder.status === 'overdue';
   const kmTraveled = currentOdometer - nextReminder.lastServiceOdometer;
-  const progress = Math.min(kmTraveled / nextReminder.intervalKm, 1);
+  const progress = isOverdue ? 1 : Math.min(kmTraveled / nextReminder.intervalKm, 1);
   const kmRemaining = Math.max(nextReminder.dueOdometer - currentOdometer, 0);
 
+  // 3. WARNA DINAMIS
   const barColor =
-    nextReminder.status === 'overdue'
-      ? '#FF6B6B'
+    isOverdue
+      ? '#FF6B6B' // Merah jika telat
       : nextReminder.status === 'approaching'
-      ? '#F5A623'
-      : '#4ECDC4';
+      ? '#F5A623' // Oranye jika mendekati
+      : '#4ECDC4'; // Hijau jika aman
 
   return (
     <View
@@ -38,14 +49,14 @@ export default function MaintenanceStatusBar({
         borderRadius: 16,
         padding: 18,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: isOverdue ? 'rgba(255,107,107,0.2)' : 'rgba(255,255,255,0.06)',
         gap: 12,
       }}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View>
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: 1.5 }}>
-            NEXT SERVICE
+          <Text style={{ color: isOverdue ? '#FF6B6B' : 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: 1.5, fontWeight: '800' }}>
+            {isOverdue ? 'SERVICE OVERDUE' : 'NEXT SERVICE'}
           </Text>
           <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700', marginTop: 2 }}>
             {nextReminder.serviceType}
@@ -60,9 +71,11 @@ export default function MaintenanceStatusBar({
               fontWeight: '700',
             }}
           >
-            {kmRemaining > 0 ? `${kmRemaining.toLocaleString()}` : '0'}
+            {isOverdue ? 'NOW' : `${kmRemaining.toLocaleString()}`}
           </Text>
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>km remaining</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
+            {isOverdue ? 'action required' : 'km remaining'}
+          </Text>
         </View>
       </View>
 
@@ -81,20 +94,16 @@ export default function MaintenanceStatusBar({
             width: `${progress * 100}%`,
             backgroundColor: barColor,
             borderRadius: 4,
-            shadowColor: barColor,
-            shadowOpacity: 0.6,
-            shadowRadius: 4,
-            shadowOffset: { width: 0, height: 0 },
           }}
         />
       </View>
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>
-          Last service at {nextReminder.lastServiceOdometer.toLocaleString()} km
+          Last {nextReminder.lastServiceOdometer.toLocaleString()} km
         </Text>
-        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>
-          Due at {nextReminder.dueOdometer.toLocaleString()} km
+        <Text style={{ color: isOverdue ? 'rgba(255,107,107,0.5)' : 'rgba(255,255,255,0.3)', fontSize: 11 }}>
+          {isOverdue ? 'Was due at' : 'Due at'} {nextReminder.dueOdometer.toLocaleString()} km
         </Text>
       </View>
     </View>

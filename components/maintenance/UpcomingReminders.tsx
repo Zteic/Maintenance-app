@@ -49,6 +49,8 @@ export default function UpcomingReminders({
   currentOdometer = 0,
   vehicle,
   onAddReminder,
+  onEditReminder,
+  onDeleteReminder,
 }: UpcomingRemindersProps) {
   const { t, lang } = useLanguage();
   const isId = lang === "id";
@@ -122,124 +124,126 @@ export default function UpcomingReminders({
 
       {/* Main List */}
       <View style={{ gap: 10, paddingHorizontal: 20 }}>
-  {sortedAll.map((item: any) => {
-    // Tetap tampilkan kartu dokumen (Pajak/STNK) secara normal
-    if (item.type === 'doc') {
-      return (
-        <DocReminderCard 
-          key={item.id} 
-          icon={item.icon} 
-          label={item.label} 
-          date={item.date} 
-          days={item.days} 
-          statusText={item.statusText} 
-          statusColor={item.statusColor} 
-        />
-      );
-    }
+        {sortedAll.map((item: any) => {
+          if (item.type === 'doc') {
+            return (
+              <DocReminderCard 
+                key={item.id} 
+                icon={item.icon} 
+                label={item.label} 
+                date={item.date} 
+                days={item.days} 
+                statusText={item.statusText} 
+                statusColor={item.statusColor} 
+              />
+            );
+          }
 
-    const isExpanded = expandedId === item.id;
-    const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.safe;
-    const kmRemaining = (item.dueOdometer || 0) - currentOdometer;
-    const isUrgent = item.status === "overdue" || item.status === "approaching";
+          const isExpanded = expandedId === item.id;
+          const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.safe;
+          const kmRemaining = (item.dueOdometer || 0) - currentOdometer;
+          const isUrgent = item.status === "overdue" || item.status === "approaching";
 
-    return (
-      <View 
-        key={item.id}
-        style={{ 
-          backgroundColor: "#1A2B3C", 
-          borderRadius: 16, 
-          padding: 16, 
-          borderWidth: 1, 
-          borderColor: isUrgent ? cfg.border : "rgba(255,255,255,0.05)" 
-        }}
-      >
-        {/* HEADER: Klik di sini untuk buka/tutup */}
-        <TouchableOpacity 
-          activeOpacity={0.7}
-          onPress={() => setExpandedId(isExpanded ? null : item.id)}
-          style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
-        >
-          <View style={{ 
-            width: 40, height: 40, borderRadius: 12, backgroundColor: cfg.bg, 
-            alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: cfg.border 
-          }}>
-            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: cfg.color }} />
-          </View>
+          return (
+            <View 
+              key={item.id}
+              style={{ 
+                backgroundColor: "#1A2B3C", 
+                borderRadius: 16, 
+                padding: 16, 
+                borderWidth: 1, 
+                borderColor: isUrgent ? cfg.border : "rgba(255,255,255,0.05)" 
+              }}
+            >
+              {/* HEADER: Klik untuk buka/tutup */}
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                onPress={() => setExpandedId(isExpanded ? null : item.id)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+              >
+                <View style={{ 
+                  width: 40, height: 40, borderRadius: 12, backgroundColor: cfg.bg, 
+                  alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: cfg.border 
+                }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: cfg.color }} />
+                </View>
 
-          <View style={{ flex: 1, gap: 2 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>{item.serviceType}</Text>
-              {isUrgent && (
-                <View style={{ backgroundColor: cfg.bg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                  <Text style={{ color: cfg.color, fontSize: 9, fontWeight: "900" }}>!</Text>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>{item.serviceType}</Text>
+                    {isUrgent && (
+                      <View style={{ backgroundColor: cfg.bg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <Text style={{ color: cfg.color, fontSize: 9, fontWeight: "900" }}>!</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
+                    Target: {item.dueOdometer?.toLocaleString()} km
+                  </Text>
+                </View>
+
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={{ color: cfg.color, fontSize: 15, fontWeight: "800", fontFamily: "SpaceMono" }}>
+                    {kmRemaining > 0 ? `+${kmRemaining.toLocaleString()}` : "PERBAIKI SEGERA"}
+                  </Text>
+                  <View style={{ marginTop: 4, opacity: 0.3 }}>
+                    <Text style={{ color: 'white', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              {/* DETAIL: Bagian Tombol Aksi */}
+              {isExpanded && (
+                <View style={{ 
+                  marginTop: 16, 
+                  paddingTop: 16, 
+                  borderTopWidth: 1, 
+                  borderTopColor: 'rgba(255,255,255,0.05)',
+                  gap: 12
+                }}>
+                  <View style={{ alignSelf: 'flex-start', backgroundColor: cfg.bg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                    <Text style={{ color: cfg.color, fontSize: 10, fontWeight: '800' }}>
+                      {cfg.label.toUpperCase()} {kmRemaining < 0 ? (isId ? 'BUTUH PERHATIAN SEGERA' : 'SERVICE REQUIRED IMMEDIATELY') : ''}
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <TouchableOpacity 
+                      onPress={() => onEditReminder?.(item)}
+                      activeOpacity={0.7}
+                      style={{ 
+                        flex: 1, height: 38, backgroundColor: 'rgba(78,205,196,0.1)', 
+                        borderRadius: 10, alignItems: 'center', justifyContent: 'center', 
+                        flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: 'rgba(78,205,196,0.3)' 
+                      }}
+                    >
+                      <Text style={{ fontSize: 14 }}>✅</Text>
+                      <Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 11 }}>
+                        {isId ? "SUDAH SERVIS" : "MARK DONE"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      onPress={() => onDeleteReminder?.(item.id)}
+                      activeOpacity={0.7}
+                      style={{ 
+                        flex: 1, height: 38, backgroundColor: 'rgba(255,82,82,0.1)', 
+                        borderRadius: 10, alignItems: 'center', justifyContent: 'center', 
+                        flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: 'rgba(255,82,82,0.2)' 
+                      }}
+                    >
+                      <Text style={{ fontSize: 14 }}>🗑️</Text>
+                      <Text style={{ color: '#FF5252', fontWeight: '700', fontSize: 11 }}>
+                        {isId ? "HAPUS" : "DELETE"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
             </View>
-            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
-              Target: {item.dueOdometer?.toLocaleString()} km
-            </Text>
-          </View>
-
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={{ color: cfg.color, fontSize: 15, fontWeight: "800", fontFamily: "SpaceMono" }}>
-              {kmRemaining > 0 ? `+${kmRemaining.toLocaleString()}` : "PERBAIKI SEGERA"}
-            </Text>
-            {/* Indikator Panah Toggle */}
-            <View style={{ marginTop: 4, opacity: 0.3 }}>
-              <Text style={{ color: 'white', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        {/* DETAIL: Hanya muncul jika kartu di-klik (Expanded) */}
-        {isExpanded && (
-          <View style={{ 
-            marginTop: 16, 
-            paddingTop: 16, 
-            borderTopWidth: 1, 
-            borderTopColor: 'rgba(255,255,255,0.05)',
-            gap: 12
-          }}>
-            {/* Badge Status */}
-            <View style={{ alignSelf: 'flex-start', backgroundColor: cfg.bg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-               <Text style={{ color: cfg.color, fontSize: 10, fontWeight: '800' }}>
-                 {cfg.label.toUpperCase()} {kmRemaining < 0 ? (isId ? 'BUTUH PERHATIAN SEGERA' : 'SERVICE REQUIRED IMMEDIATELY') : ''}
-               </Text>
-            </View>
-
-            {/* Tombol Aksi */}
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TouchableOpacity 
-                onPress={() => onEditReminder?.(item)}
-                style={{ 
-                  flex: 1, height: 38, backgroundColor: 'rgba(255,255,255,0.05)', 
-                  borderRadius: 10, alignItems: 'center', justifyContent: 'center', 
-                  flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' 
-                }}
-              >
-                <Text style={{ fontSize: 14 }}>✏️</Text>
-                <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 12 }}>{isId ? "Ubah" : "Edit"}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                onPress={() => onDeleteReminder?.(item.id)}
-                style={{ 
-                  flex: 1, height: 38, backgroundColor: 'rgba(255,82,82,0.1)', 
-                  borderRadius: 10, alignItems: 'center', justifyContent: 'center', 
-                  flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: 'rgba(255,82,82,0.2)' 
-                }}
-              >
-                <Text style={{ fontSize: 14 }}>🗑️</Text>
-                <Text style={{ color: '#FF5252', fontWeight: '700', fontSize: 12 }}>{isId ? "Hapus" : "Delete"}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+          );
+        })}
       </View>
-    );
-  })}
-</View>
     </View>
   );
 }

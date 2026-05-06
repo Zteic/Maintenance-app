@@ -187,6 +187,37 @@ function AppContent() {
     setShowAddSheet(true);
   };
 
+  const handleEdit = (item: Reminder) => {
+  // Opsi A: Jika ingin membuka modal edit yang sudah ada
+  if (typeof setSelectedReminder === 'function' && typeof setAddReminderVisible === 'function') {
+    setSelectedReminder(item);
+    setAddReminderVisible(true);
+  } else {
+    // Opsi B: Jika ingin langsung "Mark Done" otomatis tanpa modal
+    handleMarkDone(item); 
+  }
+};
+
+// Fungsi pendukung untuk reset Odometer servis
+const handleMarkDone = async (item: Reminder) => {
+  const currentOdo = selectedVehicle?.odometer || 0;
+  
+  const updatedReminder = {
+    ...item,
+    lastServiceOdometer: currentOdo,
+    dueOdometer: currentOdo + (item.intervalKm || 10000),
+    status: 'safe',
+    lastServiceDate: new Date().toISOString(),
+  };
+
+  try {
+    await handleUpdateReminder(updatedReminder); 
+    alert(`${item.serviceType} diperbarui ke target ${updatedReminder.dueOdometer} km`);
+  } catch (err) {
+    console.error("Gagal update reminder:", err);
+  }
+};
+
   const handleVehicleSave = (data: any) => {
     if (editingVehicle) {
       setVehicles((prev) =>
@@ -259,6 +290,10 @@ const handleDeleteFuel = (id: string) => {
     setShowFuelSheet(false);
     setEditingFuel(null);
   };
+
+  const handleDelete = async (id: string) => {
+  console.log("Menghapus reminder ID:", id);
+};
   
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
@@ -443,6 +478,9 @@ const handleDeleteFuel = (id: string) => {
               currentOdometer={selectedVehicle.currentOdometer}
               vehicle={selectedVehicle}
               onAddReminder={handleRecommendationTap}
+              onEditReminder={(item) => handleEdit(item)}
+              onEditReminder={handleEdit}
+              onDeleteReminder={handleDelete}
             />
           </>
         )}
