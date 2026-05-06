@@ -71,7 +71,7 @@ export default function MaintenanceStatusBar({
               fontWeight: '700',
             }}
           >
-            {isOverdue ? 'NOW' : `${kmRemaining.toLocaleString()}`}
+            {isOverdue ? 'REPAIR NOW' : `${kmRemaining.toLocaleString()}`}
           </Text>
           <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
             {isOverdue ? 'action required' : 'km remaining'}
