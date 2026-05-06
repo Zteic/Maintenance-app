@@ -114,45 +114,37 @@ function AppContent() {
     };
   }, []);
 
-  const selectedVehicle =
-    vehicles.find((v) => v.id === selectedVehicleId) ?? vehicles[0];
-  const vehicleRepairs = repairs.filter(
-    (r) => r.vehicleId === selectedVehicleId,
-  );
-  const vehicleReminders = reminders.filter(
-    (r) => r.vehicleId === selectedVehicleId,
-  );
-  const vehicleFuelEntries = fuelEntries.filter(
-    (f) => f.vehicleId === selectedVehicleId,
-  );
+  // 1. Deklarasi Data Utama (Semua filter ditaruh di sini agar variabel tersedia)
+  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId) ?? vehicles[0];
+  const vehicleRepairs = repairs.filter((r) => r.vehicleId === selectedVehicleId);
+  const vehicleReminders = reminders.filter((r) => r.vehicleId === selectedVehicleId);
+  const vehicleFuelEntries = fuelEntries.filter((f) => f.vehicleId === selectedVehicleId);
 
-const onAddRepairComplete = async (newRepair) => {
-  await saveRepairToHistory(newRepair);
-
-  const nextService = {
-    serviceType: newRepair.serviceType,
-    lastServiceOdometer: newRepair.odometer,
-    dueOdometer: newRepair.odometer + newRepair.nextIntervalKm,
-    status: 'safe'
-  };
-  
-  await updateReminder(nextService);
-};
-
-  // Monthly calculations (current month, day 1 to last day)
+  // 2. Waktu & Periode Bulan Berjalan
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const monthStart = new Date(currentYear, currentMonth, 1);
+  const monthEnd = new Date(currentYear, currentMonth + 1, 0);
 
+  // 3. Kalkulasi Rincian Biaya (Repair)
   const monthlyRepairs = vehicleRepairs.filter((r) => {
     const d = new Date(r.date);
-    return d >= monthStart && d <= monthEnd;
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   });
+  const totalRepairMonthly = monthlyRepairs.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
 
-  const monthlyCost = monthlyRepairs.reduce((sum, r) => sum + r.cost, 0);
+  // 4. Kalkulasi Rincian Biaya (Fuel)
+  const monthlyFuel = vehicleFuelEntries.filter((f) => {
+    const d = new Date(f.date);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+  const totalFuelMonthly = monthlyFuel.reduce((sum, f) => sum + (Number(f.totalCost) || 0), 0);
+
+  // 5. Kesimpulan Biaya Bulanan & Statistik
+  const monthlyCost = totalFuelMonthly + totalRepairMonthly;
   const monthlyServicesDone = monthlyRepairs.length;
-
-  const totalCost = vehicleRepairs.reduce((sum, r) => sum + r.cost, 0);
+  const totalCost = vehicleRepairs.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
 
   // Load Data
   useEffect(() => {
@@ -501,35 +493,60 @@ const handleMarkDone = async (item: Reminder) => {
               style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}
             >
               <View
+              style={{
+                flex: 1,
+                backgroundColor: "#1A2B3C",
+                borderRadius: 14,
+                padding: 14,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.05)",
+              }}
+            >
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>
+                {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
+              </Text>
+              
+              <Text
                 style={{
-                  flex: 1,
-                  backgroundColor: "#1A2B3C",
-                  borderRadius: 14,
-                  padding: 14,
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.05)",
+                  color: "#F5A623",
+                  fontSize: 16,
+                  fontWeight: "800",
+                  marginTop: 2,
+                  marginBottom: 8
                 }}
               >
-                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
-                  {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
-                </Text>
-                <Text
-                  style={{
-                    color: "#F5A623",
-                    fontSize: 14,
-                    fontWeight: "700",
-                  }}
-                >
-                  {new Intl.NumberFormat("id-ID", {
-                    style: "currency",
-                    currency: "IDR",
-                    maximumFractionDigits: 0,
-                  }).format(monthlyCost)}
-                </Text>
-                <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, marginTop: 2 }}>
-                  {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
-                </Text>
+                {new Intl.NumberFormat("id-ID", {
+                  style: "currency",
+                  currency: "IDR",
+                  maximumFractionDigits: 0,
+                }).format(monthlyCost)}
+              </Text>
+
+              {/* Rincian Terpisah (Fuel & Repair) */}
+              <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8, gap: 4 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+                    ⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}
+                  </Text>
+                  <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "600" }}>
+                    Rp {totalFuelMonthly.toLocaleString('id-ID')}
+                  </Text>
+                </View>
+                
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+                    🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}
+                  </Text>
+                  <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "600" }}>
+                    Rp {totalRepairMonthly.toLocaleString('id-ID')}
+                  </Text>
+                </View>
               </View>
+
+              <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: 'italic' }}>
+                {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
+              </Text>
+            </View>
               {/* KOTAK SERVICES DONE YANG BISA DIKLIK */}
               <TouchableOpacity
                 onPress={() => setShowCalendarModal(true)}
