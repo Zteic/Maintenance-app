@@ -85,30 +85,6 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
         {isId ? "Riwayat Perbaikan" : "Repair History"}
       </Text>
     </View>
-
-    <TouchableOpacity 
-      onPress={() => onAddRepair?.()} // Pastikan fungsi ini tersedia di props
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(78, 205, 196, 0.15)', // Warna hijau toska transparan
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(78, 205, 196, 0.3)',
-        gap: 6
-      }}
-    >
-      <Text style={{ color: '#4ECDC4', fontSize: 16, fontWeight: '700' }}>+</Text>
-      <Text style={{ 
-        color: '#4ECDC4', 
-        fontSize: 13, 
-        fontWeight: '700' 
-      }}>
-        {isId ? "Tambah Perbaikan" : "Add Repair"}
-      </Text>
-    </TouchableOpacity>
   </View>
 
   {/* ROW 2: Statistik Tanggal */}
