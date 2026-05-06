@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { RepairEntry, FuelEntry } from '@/types/maintenance';
+import { useLanguage } from "@/context/LanguageContext";
 
 interface MaintenanceCalendarProps {
   repairs: RepairEntry[];
@@ -19,6 +20,7 @@ export default function MaintenanceCalendar({ repairs, fuelEntries = [], onDayPr
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const { lang } = useLanguage();
 
   // 1. GABUNGKAN DATA KE DALAM MAP UNTUK TAMPILAN BAWAH
   const combinedMap = new Map<string, any[]>();
@@ -58,6 +60,18 @@ export default function MaintenanceCalendar({ repairs, fuelEntries = [], onDayPr
   
   // Ambil data gabungan berdasarkan tanggal yang dipilih
   const selectedRecords = selectedDate ? (combinedMap.get(selectedDate) || []) : [];
+
+  // 1. Pastikan fungsi format sudah ada
+const formatIDR = (amount: number) => {
+  return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
+
+const totalSpendingOnDate = selectedRecords.reduce((sum, item) => {
+  const costValue = Number(item.cost) || 0;
+  const fuelValue = Number(item.totalCost) || 0;
+  
+  return sum + costValue + fuelValue;
+}, 0);
 
   return (
     <View style={{ marginHorizontal: 20, backgroundColor: '#1A2B3C', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
@@ -127,12 +141,29 @@ export default function MaintenanceCalendar({ repairs, fuelEntries = [], onDayPr
             height: 280, // Memberikan tinggi tetap agar area ScrollView jelas
           }}
         >
-          {/* Header kecil untuk informasi tanggal yang dipilih */}
-          <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700' }}>
-              LOGS TANGGAL: {selectedDate}
-            </Text>
-          </View>
+          <View style={{ 
+  paddingHorizontal: 16, 
+  marginBottom: 12, 
+  flexDirection: 'row', 
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  backgroundColor: 'rgba(255,255,255,0.03)', // Tambahkan background tipis agar lebih manis
+  paddingVertical: 8,
+  borderRadius: 8
+}}>
+  <View>
+    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700' }}>
+      {lang === "id" ? "TOTAL PENGELUARAN" : "TOTAL SPENDING"}
+    </Text>
+    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>
+      {selectedDate}
+    </Text>
+  </View>
+  
+  <Text style={{ color: '#F5A623', fontSize: 16, fontWeight: '900' }}>
+    Rp {formatIDR(totalSpendingOnDate)}
+  </Text>
+</View>
 
           <ScrollView 
             nestedScrollEnabled={true} 
