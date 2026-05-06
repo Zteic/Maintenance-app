@@ -305,13 +305,13 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
   </Modal>
 
   {/* Modal Konfirmasi Hapus Riwayat Servis */}
-<Modal visible={!!deleteRepairId} transparent animationType="fade">
-  <View style={{ 
+  <Modal visible={!!deleteRepairId} transparent animationType="fade">
+    <View style={{ 
     flex: 1, 
     backgroundColor: 'rgba(7, 18, 28, 0.95)', 
     justifyContent: 'center', 
     alignItems: 'center' 
-  }}>
+    }}>
     <View style={{ 
       width: '85%', 
       backgroundColor: '#162431', 
