@@ -198,6 +198,12 @@ function AppContent() {
     );
   };
 
+  const handleAddReminderOnly = () => {
+    setPrefillServiceType(undefined); 
+    setEditingRepair(null); 
+    setShowAddSheet(true); 
+  };
+
   const handleRecommendationTap = (serviceType: string) => {
     setPrefillServiceType(serviceType);
     setEditingRepair(null);
@@ -622,7 +628,7 @@ const handleMarkDone = async (item: Reminder) => {
               reminders={vehicleReminders}
               currentOdometer={selectedVehicle.currentOdometer}
               vehicle={selectedVehicle}
-              onAddReminder={handleRecommendationTap}
+              onAddReminder={handleAddReminderOnly}
               onEditReminder={(item) => handleEdit(item)}
               onEditReminder={handleEdit}
               onDeleteReminder={handleDelete}
@@ -672,9 +678,25 @@ const handleMarkDone = async (item: Reminder) => {
         prefillServiceType={prefillServiceType}
         editEntry={editingRepair}
         onClose={() => { setShowAddSheet(false); setEditingRepair(null); }}
-        onSave={handleAddRepair}
-        onUpdate={handleUpdateRepair}
-      />
+        onSave={(formData) => {
+    // Jika kita ingin ini HANYA masuk ke Reminder (Priority)
+    const newReminder: Reminder = {
+      id: `rem-${Date.now()}`,
+      vehicleId: selectedVehicleId,
+      serviceType: formData.serviceType,
+      lastServiceOdometer: Number(formData.odometer),
+      dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
+      intervalKm: Number(formData.nextIntervalKm) || 10000,
+      status: 'safe',
+      lastServiceDate: new Date().toISOString(),
+    };
+
+    setReminders(prev => [...prev, newReminder]);
+    setShowAddSheet(false);
+        alert(lang === "id" ? "Reminder ditambahkan!" : "Reminder added!");
+  }}
+  onUpdate={handleUpdateRepair}
+/>
 
       {/* 2. Fuel Sheet */}
       <FuelSheet
