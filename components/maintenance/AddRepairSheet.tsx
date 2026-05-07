@@ -339,111 +339,88 @@ export default function AddRepairSheet({
                   showsVerticalScrollIndicator={false}
                 >
                   {/* Service Type Custom Input */}
-                  <View style={{ gap: 8 }}>
-                    <Text
-                      style={{
-                        color: "rgba(255,255,255,0.5)",
-                        fontSize: 11,
-                        letterSpacing: 1,
-                      }}
-                    >
-                      {t("serviceType")}
-                    </Text>
-                    <View>
-                      <TextInput
-                        value={serviceTypeInput}
-                        onChangeText={(v) => {
-                          setServiceTypeInput(v);
-                          setShowServicePicker(true);
-                        }}
-                        onFocus={() => setShowServicePicker(true)}
-                        onBlur={() => {
-                          saveNewCustomType(serviceTypeInput.trim());
-                        }}
-                        placeholder={
-                          isId
-                            ? "Ketik jenis servis..."
-                            : "Type service type..."
-                        }
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                        style={{ ...inputStyle, paddingRight: 44 }}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setShowServicePicker(!showServicePicker)}
-                        style={{
-                          position: "absolute",
-                          right: 12,
-                          top: 0,
-                          bottom: 0,
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: "rgba(255,255,255,0.4)",
-                            fontSize: 14,
-                          }}
-                        >
-                          {showServicePicker ? "▲" : "▼"}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                    {showServicePicker && filteredTypes.length > 0 && (
-                      <View
-                        style={{
-                          backgroundColor: "#0D1B2A",
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: "rgba(255,255,255,0.08)",
-                          overflow: "hidden",
-                          maxHeight: 200,
-                        }}
-                      >
-                        <ScrollView
-                          nestedScrollEnabled
-                          showsVerticalScrollIndicator={false}
-                        >
-                          {filteredTypes.map((type, idx) => (
-                            <TouchableOpacity
-                              key={type}
-                              onPress={() => selectServiceType(type)}
-                              style={{
-                                padding: 14,
-                                borderBottomWidth:
-                                  idx < filteredTypes.length - 1 ? 1 : 0,
-                                borderBottomColor: "rgba(255,255,255,0.04)",
-                                flexDirection: "row",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                              }}
-                              activeOpacity={0.7}
-                            >
-                              <Text
-                                style={{
-                                  color:
-                                    type === serviceType
-                                      ? "#F5A623"
-                                      : "#FFFFFF",
-                                  fontSize: 14,
-                                  fontWeight:
-                                    type === serviceType ? "600" : "400",
-                                }}
-                              >
-                                {type}
-                              </Text>
-                              {type === serviceType && (
-                                <Text
-                                  style={{ color: "#F5A623", fontSize: 14 }}
-                                >
-                                  ✓
-                                </Text>
-                              )}
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
-                      </View>
-                    )}
-                  </View>
+<View style={{ gap: 8 }}>
+  <Text
+    style={{
+      color: "rgba(255,255,255,0.5)",
+      fontSize: 11,
+      letterSpacing: 1,
+    }}
+  >
+    {t("serviceType")}
+  </Text>
+  <View>
+    <TextInput
+      value={serviceTypeInput}
+      onChangeText={(v) => {
+        setServiceTypeInput(v);
+        setShowServicePicker(true);
+      }}
+      // --- TAMBAHKAN 2 BARIS DI BAWAH INI ---
+      editable={!prefillServiceType} // Kunci input jika ada data kiriman (prefill)
+      selectTextOnFocus={!prefillServiceType} 
+      
+      onFocus={() => !prefillServiceType && setShowServicePicker(true)} // Hanya buka picker jika tidak dikunci
+      onBlur={() => {
+        saveNewCustomType(serviceTypeInput.trim());
+      }}
+      placeholder={
+        isId
+          ? "Ketik jenis servis..."
+          : "Type service type..."
+      }
+      placeholderTextColor="rgba(255,255,255,0.3)"
+      style={{ 
+        ...inputStyle, 
+        paddingRight: 44,
+        // --- TAMBAHKAN STYLE DI BAWAH INI ---
+        backgroundColor: prefillServiceType ? "rgba(255,255,255,0.03)" : inputStyle.backgroundColor,
+        color: prefillServiceType ? "rgba(255,255,255,0.3)" : "#FFF" 
+      }}
+    />
+    
+    {/* Tombol Dropdown Panah */}
+    <TouchableOpacity
+      // --- UBAH ONPRESS DI BAWAH INI ---
+      onPress={() => !prefillServiceType && setShowServicePicker(!showServicePicker)}
+      disabled={!!prefillServiceType} // Matikan tombol jika dikunci
+      style={{
+        position: "absolute",
+        right: 12,
+        top: 0,
+        bottom: 0,
+        justifyContent: "center",
+      }}
+    >
+      <Text
+        style={{
+          color: "rgba(255,255,255,0.4)",
+          fontSize: 14,
+          // --- TAMBAHKAN OPACITY ---
+          opacity: prefillServiceType ? 0 : 1 // Sembunyikan panah jika dikunci agar user tidak bingung
+        }}
+      >
+        {showServicePicker ? "▲" : "▼"}
+      </Text>
+    </TouchableOpacity>
+  </View>
+  
+  {/* Sisa kode Picker tetap sama, tapi pastikan hanya muncul jika tidak prefill */}
+  {!prefillServiceType && showServicePicker && filteredTypes.length > 0 && (
+    <View
+      style={{
+        backgroundColor: "#0D1B2A",
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.08)",
+        overflow: "hidden",
+        maxHeight: 200,
+      }}
+    >
+      {/* ... isi ScrollView picker ... */}
+    </View>
+  )}
+</View>
 
                   {/* Date & Odometer */}
                   <View style={{ flexDirection: "row", gap: 12 }}>
