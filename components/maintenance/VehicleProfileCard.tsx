@@ -25,8 +25,13 @@ export default function VehicleProfileCard({
 
   const handleConfirm = () => {
     const parsed = parseInt(inputValue.replace(/\D/g, ""), 10);
-    if (!isNaN(parsed) && parsed >= 0) {
-      onOdometerUpdate(parsed);
+    // Cek agar angka valid dan tidak lebih kecil dari yang sudah ada
+    if (!isNaN(parsed)) {
+      if (parsed < vehicle.currentOdometer) {
+        alert(lang === "id" ? "Odometer tidak boleh mundur!" : "Odometer cannot go backwards!");
+      } else {
+        onOdometerUpdate(parsed);
+      }
     }
     setEditing(false);
     setInputValue("");
@@ -194,7 +199,7 @@ export default function VehicleProfileCard({
                 value={inputValue}
                 onChangeText={setInputValue}
                 keyboardType="numeric"
-                placeholder={formatOdometer(vehicle.currentOdometer)}
+                placeholder={vehicle.currentOdometer.toString()}
                 placeholderTextColor="rgba(255,255,255,0.3)"
                 autoFocus
                 style={{
