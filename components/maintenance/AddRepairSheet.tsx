@@ -44,6 +44,7 @@ interface AddRepairSheetProps {
   vehicleType?: "car" | "motorcycle";
   prefillServiceType?: string;
   editEntry?: RepairEntry | null;
+  isHistoryMode?: boolean;
   onClose: () => void;
   onSave: (entry: Omit<RepairEntry, "id">) => void;
   onUpdate?: (id: string, entry: Omit<RepairEntry, "id">) => void;
@@ -53,6 +54,7 @@ export default function AddRepairSheet({
   visible,
   vehicleId,
   currentOdometer,
+  isHistoryMode,
   vehicleType,
   prefillServiceType,
   editEntry,
@@ -303,14 +305,16 @@ export default function AddRepairSheet({
                   }}
                 >
                   <Text
-                    style={{
-                      color: "#FFFFFF",
-                      fontSize: 20,
-                      fontWeight: "800",
-                    }}
-                  >
-                    {isEditing ? t("editRepair") : t("logRepair")}
-                  </Text>
+  style={{
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "800",
+  }}
+>
+  {isHistoryMode 
+    ? (isId ? "Update Perbaikan" : "Update Maintenance") 
+    : (isId ? "Tambah Pengingat Penting" : "Add Important Reminder")}
+</Text>
                   <TouchableOpacity
                     onPress={onClose}
                     style={{

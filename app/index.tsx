@@ -679,6 +679,7 @@ const handleMarkDone = async (item: Reminder) => {
   vehicleType={selectedVehicle.vehicleType}
   prefillServiceType={prefillServiceType}
   editEntry={editingRepair}
+  isHistoryMode={saveToHistoryOnly}
   onClose={() => { 
     setShowAddSheet(false); 
     setEditingRepair(null); 
