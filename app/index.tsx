@@ -96,6 +96,7 @@ function AppContent() {
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedDateRecords, setSelectedDateRecords] = useState<any[]>([]);
   const [editingFuel, setEditingFuel] = useState<FuelEntry | null>(null);
+  const [saveToHistoryOnly, setSaveToHistoryOnly] = useState(false);
 
   // 1. Sinkronisasi Tab dari URL (Penting!)
   useEffect(() => {
@@ -108,10 +109,11 @@ function AppContent() {
   useEffect(() => {
     openFuelSheet = () => setShowFuelSheet(true);
     openRepairSheet = () => {
-      setEditingRepair(null);
-      setPrefillServiceType(undefined);
-      setShowAddSheet(true);
-    };
+  setEditingRepair(null);
+  setPrefillServiceType(undefined);
+  setSaveToHistoryOnly(true);
+  setShowAddSheet(true);
+  };
   }, []);
 
   // 1. Deklarasi Data Utama (Semua filter ditaruh di sini agar variabel tersedia)
@@ -199,10 +201,11 @@ function AppContent() {
   };
 
   const handleAddReminderOnly = () => {
-    setPrefillServiceType(undefined); 
-    setEditingRepair(null); 
-    setShowAddSheet(true); 
-  };
+  setPrefillServiceType(undefined); 
+  setEditingRepair(null); 
+  setSaveToHistoryOnly(false);
+  setShowAddSheet(true); 
+};
 
   const handleRecommendationTap = (serviceType: string) => {
     setPrefillServiceType(serviceType);
@@ -211,10 +214,9 @@ function AppContent() {
   };
 
   const handleEdit = (item: Reminder) => {
-    // 1. Prefill tipe servis
     setPrefillServiceType(item.serviceType);
-
-    // 2. Buat objek perbaikan sementara
+    setSaveToHistoryOnly(false); // Pastikan false agar masuk logika update reminder + history
+    
     const mockRepair: RepairEntry = {
       id: `temp-${Date.now()}`,
       vehicleId: selectedVehicleId,
@@ -671,31 +673,77 @@ const handleMarkDone = async (item: Reminder) => {
 
       {/* 1. Add Repair Sheet */}
       <AddRepairSheet
-        visible={showAddSheet}
-        vehicleId={selectedVehicleId}
-        currentOdometer={selectedVehicle.currentOdometer}
-        vehicleType={selectedVehicle.vehicleType}
-        prefillServiceType={prefillServiceType}
-        editEntry={editingRepair}
-        onClose={() => { setShowAddSheet(false); setEditingRepair(null); }}
-        onSave={(formData) => {
-    // Jika kita ingin ini HANYA masuk ke Reminder (Priority)
-    const newReminder: Reminder = {
-      id: `rem-${Date.now()}`,
-      vehicleId: selectedVehicleId,
-      serviceType: formData.serviceType,
-      lastServiceOdometer: Number(formData.odometer),
-      dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
-      intervalKm: Number(formData.nextIntervalKm) || 10000,
-      status: 'safe',
-      lastServiceDate: new Date().toISOString(),
-    };
-
-    setReminders(prev => [...prev, newReminder]);
-    setShowAddSheet(false);
-        alert(lang === "id" ? "Reminder ditambahkan!" : "Reminder added!");
+  visible={showAddSheet}
+  vehicleId={selectedVehicleId}
+  currentOdometer={selectedVehicle.currentOdometer}
+  vehicleType={selectedVehicle.vehicleType}
+  prefillServiceType={prefillServiceType}
+  editEntry={editingRepair}
+  onClose={() => { 
+    setShowAddSheet(false); 
+    setEditingRepair(null); 
   }}
-  onUpdate={handleUpdateRepair}
+  onSave={(formData) => {
+    if (saveToHistoryOnly) {
+      // --- JALUR NAVBAR (Hanya History) ---
+      const newRepair: RepairEntry = {
+        id: `rep${Date.now()}`,
+        vehicleId: selectedVehicleId,
+        ...formData,
+        date: formData.date || new Date().toISOString().split('T')[0],
+      };
+      setRepairs(prev => [newRepair, ...prev]);
+      alert(lang === "id" ? "Masuk ke Riwayat Servis" : "Added to Service History");
+    } else {
+      // --- JALUR PRIORITY (Update Reminder DAN Tambah ke History) ---
+      
+      // 1. Tambahkan ke History (Agar tercatat di repairhistory)
+      const historyEntry: RepairEntry = {
+        id: `rep${Date.now()}`,
+        vehicleId: selectedVehicleId,
+        ...formData,
+        date: formData.date || new Date().toISOString().split('T')[0],
+        notes: formData.notes || "Completed from Priority List"
+      };
+      setRepairs(prev => [historyEntry, ...prev]);
+
+      // 2. Update Upcoming Reminders ke jadwal berikutnya
+      setReminders(prev => {
+        const exists = prev.find(r => 
+          r.serviceType.toLowerCase() === formData.serviceType.toLowerCase() && 
+          r.vehicleId === selectedVehicleId
+        );
+        
+        if (exists) {
+          return prev.map(rem => rem.id === exists.id ? {
+            ...rem,
+            lastServiceOdometer: Number(formData.odometer),
+            dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
+            intervalKm: Number(formData.nextIntervalKm) || 10000,
+            lastServiceDate: new Date().toISOString(),
+            status: 'safe', // Reset status jadi aman kembali
+          } : rem);
+        } else {
+          // Jika belum ada di list priority, buat baru
+          return [...prev, {
+            id: `rem-${Date.now()}`,
+            vehicleId: selectedVehicleId,
+            serviceType: formData.serviceType,
+            lastServiceOdometer: Number(formData.odometer),
+            dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
+            intervalKm: Number(formData.nextIntervalKm) || 10000,
+            status: 'safe',
+            lastServiceDate: new Date().toISOString(),
+          }];
+        }
+      });
+      
+      alert(lang === "id" ? "Reminder diperbarui & Riwayat dicatat!" : "Reminder updated & History recorded!");
+    }
+
+    setShowAddSheet(false);
+    setEditingRepair(null);
+  }}
 />
 
       {/* 2. Fuel Sheet */}
