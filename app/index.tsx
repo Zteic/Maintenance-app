@@ -544,19 +544,19 @@ const handleMarkDone = async (item: Reminder) => {
               {/* Rincian Terpisah (Fuel & Repair) */}
               <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8, gap: 4 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 8 }}>
-                    ⛽ {lang === "id" ? "Bensin" : "Fuel"}
+                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 14 }}>
+                    ⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}
                   </Text>
-                  <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>
+                  <Text style={{ color: "#F5A623", fontSize: 14, fontWeight: "600" }}>
                     Rp {totalFuelMonthly.toLocaleString('id-ID')}
                   </Text>
                 </View>
                 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>
-                    🛠️ {lang === "id" ? "Perbaikan" : "Repair"}
+                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 14 }}>
+                    🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}
                   </Text>
-                  <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>
+                  <Text style={{ color: "#F5A623", fontSize: 14, fontWeight: "600" }}>
                     Rp {totalRepairMonthly.toLocaleString('id-ID')}
                   </Text>
                 </View>
@@ -602,7 +602,7 @@ const handleMarkDone = async (item: Reminder) => {
                 <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8, marginTop: 8, gap: 4 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 14 }}>⛽ Total Liter</Text>
-                    <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>
+                    <Text style={{ color: "#4ECDC4", fontSize: 14, fontWeight: "700" }}>
                       {totalLitersMonthly.toFixed(1)} L
                     </Text>
                   </View>
