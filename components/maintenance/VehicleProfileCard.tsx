@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Image, TouchableOpacity, TextInput } from "react-native";
+import { View, Text, Image, TouchableOpacity, TextInput, Alert } from "react-native";
 import { Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -14,7 +14,7 @@ export default function VehicleProfileCard({
   onOdometerUpdate,
   onEditVehicle,
 }: VehicleProfileCardProps) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [editing, setEditing] = useState(false);
   const [inputValue, setInputValue] = useState("");
   if (!vehicle) return null;
@@ -25,14 +25,23 @@ export default function VehicleProfileCard({
 
   const handleConfirm = () => {
     const parsed = parseInt(inputValue.replace(/\D/g, ""), 10);
-    // Cek agar angka valid dan tidak lebih kecil dari yang sudah ada
+    
     if (!isNaN(parsed)) {
+      // Pengecekan: Jika input manual lebih kecil dari data yang sudah terekam
       if (parsed < vehicle.currentOdometer) {
-        alert(lang === "id" ? "Odometer tidak boleh mundur!" : "Odometer cannot go backwards!");
+        Alert.alert(
+          lang === "id" ? "Odometer Tidak Bisa Dikurangi" : "Cannot Reduce Odometer",
+          lang === "id" 
+            ? "Ubah atau hapus terlebih dahulu update-an terakhir yang ada di riwayat BBM atau perbaikan untuk menurunkan angka ini."
+            : "Please edit or delete the latest update in fuel or repair history first to reduce this number.",
+          [{ text: "OK" }]
+        );
       } else {
+        // Jika angka lebih besar atau sama, jalankan update
         onOdometerUpdate(parsed);
       }
     }
+    
     setEditing(false);
     setInputValue("");
   };
@@ -199,7 +208,7 @@ export default function VehicleProfileCard({
                 value={inputValue}
                 onChangeText={setInputValue}
                 keyboardType="numeric"
-                placeholder={vehicle.currentOdometer.toString()}
+                placeholder={vehicle?.currentOdometer ? vehicle.currentOdometer.toString() : "0"}
                 placeholderTextColor="rgba(255,255,255,0.3)"
                 autoFocus
                 style={{

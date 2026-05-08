@@ -159,6 +159,16 @@ function AppContent() {
     ? Math.max(...monthlyOdometers) - Math.min(...monthlyOdometers) 
     : 0;
 
+  // Ambil semua angka odometer dari riwayat servis, bensin, dan data awal kendaraan
+  const allOdometerValues = [
+    ...(vehicleRepairs.map(r => r.odometer)),
+    ...(vehicleFuelEntries.map(f => f.odometer)),
+    selectedVehicle?.currentOdometer || 0
+  ].filter(val => !isNaN(val));
+
+  // Ambil angka tertinggi sebagai odometer saat ini
+  const autoLatestOdometer = Math.max(...allOdometerValues);
+
   // Load Data
   useEffect(() => {
     (async () => {
@@ -295,7 +305,16 @@ const handleMarkDone = async (item: Reminder) => {
   const handleVehicleSave = (data: any) => {
     if (editingVehicle) {
       setVehicles((prev) =>
-        prev.map((v) => (v.id === editingVehicle.id ? { ...v, ...data } : v)),
+        prev.map((v) =>
+          v.id === editingVehicle.id
+            ? { 
+                ...v, 
+                ...data, 
+                // Jika data edit tidak punya odometer, gunakan angka yang sudah ada (v.currentOdometer)
+                currentOdometer: data.currentOdometer !== undefined ? data.currentOdometer : v.currentOdometer 
+              }
+            : v,
+        ),
       );
     } else {
       const newVehicle = {
@@ -501,13 +520,13 @@ const handleMarkDone = async (item: Reminder) => {
         {activeTab === "home" && (
           <>
             <VehicleProfileCard
-              vehicle={selectedVehicle}
-              onOdometerUpdate={handleOdometerUpdate}
-              onEditVehicle={() => {
-                setEditingVehicle(selectedVehicle);
-                setShowVehicleModal(true);
-              }}
-            />
+  vehicle={{ ...selectedVehicle, currentOdometer: autoLatestOdometer }}
+  onOdometerUpdate={handleOdometerUpdate}
+  onEditVehicle={() => {
+    setEditingVehicle(selectedVehicle);
+    setShowVehicleModal(true);
+  }}
+/>
             <View
               style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}
             >
