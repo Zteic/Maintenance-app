@@ -560,7 +560,6 @@ const handleMarkDone = async (item: Reminder) => {
           <>
             <VehicleProfileCard
   vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
-  onOdometerUpdate={handleOdometerUpdate}
   onEditVehicle={() => {
     setEditingVehicle(stats.selectedVehicle);
     setShowVehicleModal(true);
@@ -1160,8 +1159,8 @@ const handleMarkDone = async (item: Reminder) => {
     // theme={{ calendarBackground: 'transparent', ... }} agar menyatu
     onDayPress={(day: any) => {
       setSelectedDate(day.dateString);
-      const repairsOnDate = vehicleRepairs.filter((r) => r.date === day.dateString);
-      const fuelsOnDate = vehicleFuelEntries.filter((f) => {
+      const repairsOnDate = stats.vehicleRepairs.filter((r) => r.date === day.dateString);
+      const fuelsOnDate = stats.vehicleFuelEntries.filter((f) => {
         const fuelDate = typeof f.date === "string" ? f.date.split("T")[0] : f.date;
         return fuelDate === day.dateString;
       });

@@ -5,46 +5,19 @@ import { useLanguage } from "@/context/LanguageContext";
 
 interface VehicleProfileCardProps {
   vehicle: Vehicle;
-  onOdometerUpdate: (newValue: number) => void;
   onEditVehicle?: () => void;
 }
 
 export default function VehicleProfileCard({
   vehicle,
-  onOdometerUpdate,
   onEditVehicle,
 }: VehicleProfileCardProps) {
   const { t, lang } = useLanguage();
-  const [editing, setEditing] = useState(false);
-  const [inputValue, setInputValue] = useState("");
   if (!vehicle) return null;
 
   const daysSinceUpdate = Math.floor(
     (Date.now() - vehicle.lastOdometerUpdate.getTime()) / (1000 * 60 * 60 * 24),
   );
-
-  const handleConfirm = () => {
-    const parsed = parseInt(inputValue.replace(/\D/g, ""), 10);
-    
-    if (!isNaN(parsed)) {
-      // Pengecekan: Jika input manual lebih kecil dari data yang sudah terekam
-      if (parsed < vehicle.currentOdometer) {
-        Alert.alert(
-          lang === "id" ? "Odometer Tidak Bisa Dikurangi" : "Cannot Reduce Odometer",
-          lang === "id" 
-            ? "Ubah atau hapus terlebih dahulu update-an terakhir yang ada di riwayat BBM atau perbaikan untuk menurunkan angka ini."
-            : "Please edit or delete the latest update in fuel or repair history first to reduce this number.",
-          [{ text: "OK" }]
-        );
-      } else {
-        // Jika angka lebih besar atau sama, jalankan update
-        onOdometerUpdate(parsed);
-      }
-    }
-    
-    setEditing(false);
-    setInputValue("");
-  };
 
   const formatOdometer = (km: number) => {
     if (km === undefined || km === null) return "0";
@@ -181,134 +154,62 @@ export default function VehicleProfileCard({
 
         {/* Odometer Widget */}
         <View
-          style={{
-            backgroundColor: "rgba(13,27,42,0.6)",
-            borderRadius: 14,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.06)",
-          }}
-        >
-          <Text
-            style={{
-              color: "rgba(255,255,255,0.4)",
-              fontSize: 11,
-              letterSpacing: 1.5,
-              marginBottom: 8,
-            }}
-          >
-            ODOMETER
-          </Text>
+  style={{
+    backgroundColor: "rgba(13,27,42,0.6)",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12, // Tinggi kotak dikurangi
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    flexDirection: 'row', // Layout menyamping
+    justifyContent: 'space-between', // Judul di kiri, angka di kanan
+    alignItems: 'center'
+  }}
+>
+  {/* Sisi Kiri: Label & Info Terakhir */}
+  <View>
+    <Text
+      style={{
+        color: "rgba(255, 255, 255, 0.86))",
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 1,
+        marginBottom: 2,
+      }}
+    >
+      ODOMETER
+    </Text>
+    <Text
+      style={{
+        color: "rgba(218, 206, 206, 0.89)",
+        fontSize: 9,
+      }}
+    >
+      {t("lastUpdated")}{" "}
+      {daysSinceUpdate === 0
+        ? t("today")
+        : `${daysSinceUpdate} ${daysSinceUpdate > 1 ? t("daysAgo") : t("dayAgo")}`}
+    </Text>
+  </View>
 
-          {editing ? (
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
-            >
-              <TextInput
-                value={inputValue}
-                onChangeText={setInputValue}
-                keyboardType="numeric"
-                placeholder={vehicle?.currentOdometer ? vehicle.currentOdometer.toString() : "0"}
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                autoFocus
-                style={{
-                  flex: 1,
-                  color: "#FFFFFF",
-                  fontSize: 28,
-                  fontFamily: "SpaceMono",
-                  fontWeight: "700",
-                  borderBottomWidth: 2,
-                  borderBottomColor: vehicle.color,
-                  paddingBottom: 4,
-                }}
-              />
-              <TouchableOpacity
-                onPress={handleConfirm}
-                style={{
-                  backgroundColor: vehicle.color,
-                  borderRadius: 10,
-                  paddingVertical: 10,
-                  paddingHorizontal: 18,
-                }}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={{ color: "#0D1B2A", fontWeight: "700", fontSize: 13 }}
-                >
-                  {t("update")}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  setEditing(false);
-                  setInputValue("");
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>
-                  {t("cancel")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={() => setEditing(true)}
-              activeOpacity={0.9}
-            >
-              <View
-                style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}
-              >
-                <Text
-                  style={{
-                    color: "#FFFFFF",
-                    fontSize: 32,
-                    fontFamily: "SpaceMono",
-                    fontWeight: "700",
-                    letterSpacing: 2,
-                  }}
-                >
-                  {formatOdometer(vehicle.currentOdometer)}
-                </Text>
-                <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
-                  km
-                </Text>
-                <View
-                  style={{
-                    marginLeft: 8,
-                    backgroundColor: "rgba(245,166,35,0.15)",
-                    borderRadius: 6,
-                    paddingVertical: 3,
-                    paddingHorizontal: 8,
-                    borderWidth: 1,
-                    borderColor: "rgba(245,166,35,0.3)",
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: "#F5A623",
-                      fontSize: 10,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {t("tapToUpdate")}
-                  </Text>
-                </View>
-              </View>
-              <Text
-                style={{
-                  color: "rgba(255,255,255,0.3)",
-                  fontSize: 11,
-                  marginTop: 4,
-                }}
-              >
-                {t("lastUpdated")}{" "}
-                {daysSinceUpdate === 0
-                  ? t("today")
-                  : `${daysSinceUpdate} ${daysSinceUpdate > 1 ? t("daysAgo") : t("dayAgo")}`}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+  {/* Sisi Kanan: Angka Odometer */}
+  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
+    <Text
+      style={{
+        color: "#FFFFFF",
+        fontSize: 24, // Sedikit diperkecil agar proporsional
+        fontFamily: "SpaceMono",
+        fontWeight: "700",
+        letterSpacing: 1,
+      }}
+    >
+      {formatOdometer(vehicle.currentOdometer)}
+    </Text>
+    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: '600' }}>
+      km
+    </Text>
+  </View>
+</View>
       </View>
     </View>
   );
