@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   Platform,
   Animated,
+  TextInput,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router"; // Ditambahkan useLocalSearchParams
 import * as Notifications from "expo-notifications";
@@ -98,6 +99,9 @@ function AppContent() {
   const [selectedDateRecords, setSelectedDateRecords] = useState<any[]>([]);
   const [editingFuel, setEditingFuel] = useState<FuelEntry | null>(null);
   const [saveToHistoryOnly, setSaveToHistoryOnly] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [planName, setPlanName] = useState("");
+  const [planInterval, setPlanInterval] = useState("");
 
   // 1. Sinkronisasi Tab dari URL (Penting!)
   useEffect(() => {
@@ -169,10 +173,6 @@ function AppContent() {
     };
   }, [repairs, fuelEntries, reminders, selectedVehicleId, vehicles]);
 
-  // Ambil angka tertinggi sebagai odometer saat ini
-  const allOdometerValues = [0];
-  const autoLatestOdometer = Math.max(...allOdometerValues);
-
   // Load Data
   useEffect(() => {
     (async () => {
@@ -228,24 +228,59 @@ function AppContent() {
   };
 
   const handleEdit = (item: Reminder) => {
-    setPrefillServiceType(item.serviceType);
-    setSaveToHistoryOnly(false); // Pastikan false agar masuk logika update reminder + history
-    
-    const mockRepair: RepairEntry = {
-      id: `temp-${Date.now()}`,
-      vehicleId: selectedVehicleId,
-      serviceType: item.serviceType,
-      date: new Date().toISOString().split('T')[0],
-      odometer: stats.selectedVehicle.currentOdometer,
-      cost: 0,
-      workshop: "",
-      notes: "Service from Priority List",
-      nextIntervalKm: item.intervalKm
-    };
-
-    setEditingRepair(mockRepair);
-    setShowAddSheet(true); 
+  // 1. Kunci jenis servis agar tidak bisa diubah di form
+  setPrefillServiceType(item.serviceType);
+  
+  // 2. Set FALSE agar logika onSave tahu ini adalah update jadwal (Priority Path)
+  setSaveToHistoryOnly(false); 
+  
+  // 3. Siapkan data awal untuk Form
+  const mockRepair: RepairEntry = {
+    id: `temp-${Date.now()}`,
+    vehicleId: selectedVehicleId,
+    serviceType: item.serviceType,
+    date: new Date().toISOString().split('T')[0],
+    // Gunakan autoLatestOdometer dari stats agar lebih akurat
+    odometer: stats.autoLatestOdometer || 0, 
+    cost: 0,
+    workshop: "",
+    notes: "", // Kosongkan agar user bisa isi sendiri
+    nextIntervalKm: item.intervalKm || 10000
   };
+
+  setEditingRepair(mockRepair);
+  setShowAddSheet(true); 
+};
+
+const handleSaveNewPlan = () => {
+  if (!planName || !planInterval) {
+    alert(lang === "id" ? "Mohon isi nama dan interval!" : "Please fill name and interval!");
+    return;
+  }
+
+  const vId = selectedVehicleId;
+  const currentOdo = stats.autoLatestOdometer; // Odometer saat ini
+
+  const newPlan: Reminder = {
+    id: `rem-${Date.now()}`,
+    vehicleId: vId,
+    serviceType: planName,
+    intervalKm: Number(planInterval),
+    // Target KM = Odo sekarang + Interval
+    dueOdometer: currentOdo + Number(planInterval),
+    lastServiceOdometer: currentOdo,
+    status: 'safe',
+    lastServiceDate: new Date().toISOString(),
+  };
+
+  // Update state reminders SAJA
+  setReminders(prev => [...prev, newPlan]);
+
+  // Reset & Tutup
+  setPlanName("");
+  setPlanInterval("");
+  setShowPlanModal(false);
+};
 
 // Fungsi pendukung untuk reset Odometer servis
 const handleMarkDone = async (item: Reminder) => {
@@ -652,7 +687,7 @@ const handleMarkDone = async (item: Reminder) => {
   reminders={stats.vehicleReminders}
   currentOdometer={stats.autoLatestOdometer}
   vehicle={stats.selectedVehicle}
-  onAddReminder={handleAddReminderOnly}
+  onAddReminder={() => setShowPlanModal(true)}
   onEditReminder={handleEdit}
   onDeleteReminder={handleDelete}
 />
@@ -695,77 +730,60 @@ const handleMarkDone = async (item: Reminder) => {
       {/* 1. Add Repair Sheet */}
       <AddRepairSheet
   visible={showAddSheet}
-  vehicleId={stats.selectedVehicleId}
+  vehicleId={selectedVehicleId}
   currentOdometer={stats.selectedVehicle.currentOdometer}
   vehicleType={stats.selectedVehicle.vehicleType}
   prefillServiceType={prefillServiceType}
   editEntry={editingRepair}
   isHistoryMode={saveToHistoryOnly}
+  isServiceTypeLocked={!saveToHistoryOnly}
   onClose={() => { 
     setShowAddSheet(false); 
     setEditingRepair(null); 
   }}
   onSave={(formData) => {
-    if (saveToHistoryOnly) {
-      // --- JALUR NAVBAR (Hanya History) ---
-      const newRepair: RepairEntry = {
-        id: `rep${Date.now()}`,
-        vehicleId: selectedVehicleId,
-        ...formData,
-        date: formData.date || new Date().toISOString().split('T')[0],
-      };
-      setRepairs(prev => [newRepair, ...prev]);
-      alert(lang === "id" ? "Masuk ke Riwayat Servis" : "Added to Service History");
-    } else {
-      // --- JALUR PRIORITY (Update Reminder DAN Tambah ke History) ---
-      
-      // 1. Tambahkan ke History (Agar tercatat di repairhistory)
-      const historyEntry: RepairEntry = {
-        id: `rep${Date.now()}`,
-        vehicleId: selectedVehicleId,
-        ...formData,
-        date: formData.date || new Date().toISOString().split('T')[0],
-        notes: formData.notes || "Completed from Priority List"
-      };
-      setRepairs(prev => [historyEntry, ...prev]);
+  const vId = selectedVehicleId; // Ambil ID kendaraan aktif
 
-      // 2. Update Upcoming Reminders ke jadwal berikutnya
-      setReminders(prev => {
-        const exists = prev.find(r => 
-          r.serviceType.toLowerCase() === formData.serviceType.toLowerCase() && 
-          r.vehicleId === selectedVehicleId
-        );
-        
-        if (exists) {
-          return prev.map(rem => rem.id === exists.id ? {
-            ...rem,
-            lastServiceOdometer: Number(formData.odometer),
-            dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
-            intervalKm: Number(formData.nextIntervalKm) || 10000,
-            lastServiceDate: new Date().toISOString(),
-            status: 'safe', // Reset status jadi aman kembali
-          } : rem);
-        } else {
-          // Jika belum ada di list priority, buat baru
-          return [...prev, {
-            id: `rem-${Date.now()}`,
-            vehicleId: selectedVehicleId,
-            serviceType: formData.serviceType,
-            lastServiceOdometer: Number(formData.odometer),
-            dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
-            intervalKm: Number(formData.nextIntervalKm) || 10000,
-            status: 'safe',
-            lastServiceDate: new Date().toISOString(),
-          }];
-        }
-      });
-      
-      alert(lang === "id" ? "Reminder diperbarui & Riwayat dicatat!" : "Reminder updated & History recorded!");
-    }
+  // 1. Buat Objek Perbaikan (History)
+  const newRepair: RepairEntry = {
+    id: `rep${Date.now()}`,
+    vehicleId: vId,
+    ...formData,
+    date: formData.date || new Date().toISOString().split('T')[0],
+  };
 
-    setShowAddSheet(false);
-    setEditingRepair(null);
-  }}
+  // 2. Simpan ke State Repairs (Agar muncul di RepairHistory.tsx)
+  setRepairs(prev => [newRepair, ...prev]);
+
+  // 3. Jika ini dari jalur "Sudah Servis" (Bukan dari Navbar), Update Jadwalnya
+  if (!saveToHistoryOnly) {
+    setReminders(prev => prev.map(rem => {
+      // Cari reminder yang jenis servisnya sama
+      const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
+      
+      if (isMatch && rem.vehicleId === vId) {
+        return {
+          ...rem,
+          lastServiceOdometer: Number(formData.odometer),
+          // Target berikutnya = Odo sekarang + Interval
+          dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
+          intervalKm: Number(formData.nextIntervalKm) || 10000,
+          lastServiceDate: new Date().toISOString(),
+          status: 'safe', // Reset warna jadi Biru/Aman
+        };
+      }
+      return rem;
+    }));
+    alert(lang === "id" ? "Jadwal diperbarui & Riwayat dicatat!" : "Reminder updated & History recorded!");
+  } else {
+    alert(lang === "id" ? "Berhasil ditambah ke Riwayat" : "Added to History");
+  }
+
+  // 4. Tutup form dan bersihkan state
+  setShowAddSheet(false);
+  setEditingRepair(null);
+  setPrefillServiceType(undefined);
+}}
 />
 
       {/* 2. Fuel Sheet */}
@@ -810,6 +828,63 @@ const handleMarkDone = async (item: Reminder) => {
         onSave={handleVehicleSave}
         onDelete={handleVehicleDelete} // <--- TAMBAHKAN BARIS INI
       />
+
+      {/* MODAL TAMBAH RENCANA PERAWATAN (HANYA MUNCUL DI DASHBOARD) */}
+<Modal
+  visible={showPlanModal}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setShowPlanModal(false)}
+>
+  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ backgroundColor: '#1A2B3C', borderRadius: 24, padding: 25, width: '85%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+      <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '800', marginBottom: 20, textAlign: 'center' }}>
+        {lang === "id" ? "Tambah Rencana Perawatan" : "Add Maintenance Plan"}
+      </Text>
+
+      {/* Input Nama */}
+      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 8, fontWeight: '700' }}>
+        {lang === "id" ? "NAMA PERBAIKAN" : "SERVICE NAME"}
+      </Text>
+      <TextInput
+        style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 15, color: '#FFF', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
+        placeholder="Contoh: Ganti Aki, Radiator..."
+        placeholderTextColor="rgba(255,255,255,0.2)"
+        value={planName}
+        onChangeText={setPlanName}
+      />
+
+      {/* Input Interval */}
+      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 8, fontWeight: '700' }}>
+        {lang === "id" ? "INTERVAL (SETIAP BERAPA KM?)" : "INTERVAL (KM)"}
+      </Text>
+      <TextInput
+        style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 15, color: '#FFF', marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
+        placeholder="Contoh: 10000"
+        placeholderTextColor="rgba(255,255,255,0.2)"
+        keyboardType="numeric"
+        value={planInterval}
+        onChangeText={(text) => setPlanInterval(text)}
+      />
+
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <TouchableOpacity 
+          onPress={() => setShowPlanModal(false)}
+          style={{ flex: 1, paddingVertical: 15, alignItems: 'center' }}
+        >
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>{lang === "id" ? "Batal" : "Cancel"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          onPress={handleSaveNewPlan}
+          style={{ flex: 2, backgroundColor: '#4ECDC4', borderRadius: 14, paddingVertical: 15, alignItems: 'center' }}
+        >
+          <Text style={{ color: '#0D1B2A', fontWeight: '800' }}>{lang === "id" ? "Simpan Rencana" : "Save Plan"}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
 
       {/* 4. MODAL BAHASA (Sudah Diperbaiki Penutupnya) */}
       <Modal
@@ -979,6 +1054,7 @@ const handleMarkDone = async (item: Reminder) => {
           </View>
         </View>
       </Modal>
+      
 
       {/* 5. MODAL KALENDER (Sekarang Sejajar, Bukan di Dalam) */}
       <Modal
