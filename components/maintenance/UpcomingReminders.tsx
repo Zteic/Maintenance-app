@@ -62,10 +62,25 @@ export default function UpcomingReminders({
   const stnkDays = getDaysLeft(vehicle?.stnkDueDate);
 
   const STATUS_CONFIG: any = {
-    safe: { color: "#4ECDC4", bg: "rgba(78,205,196,0.1)", label: t("onTrack"), border: "rgba(78,205,196,0.2)" },
-    approaching: { color: "#F5A623", bg: "rgba(245,166,35,0.1)", label: t("approaching"), border: "rgba(245,166,35,0.2)" },
-    overdue: { color: "#FF6B6B", bg: "rgba(255,107,107,0.1)", label: t("overdue"), border: "rgba(255,107,107,0.2)" },
-  };
+  safe: { 
+    color: "#4ECDC4", 
+    bg: "rgba(78,205,196,0.1)", 
+    label: isId ? "AMAN" : "SAFE", 
+    border: "rgba(78,205,196,0.2)" 
+  },
+  approaching: { 
+    color: "#F5A623", 
+    bg: "rgba(245,166,35,0.1)", 
+    label: isId ? "BUTUH PERHATIAN" : "NEEDS ATTENTION", 
+    border: "rgba(245,166,35,0.2)" 
+  },
+  overdue: { 
+    color: "#FF5252", 
+    bg: "rgba(255,82,82,0.1)", 
+    label: isId ? "PERBAIKI SEGERA" : "REPAIR NOW", 
+    border: "rgba(255,82,82,0.2)" 
+  },
+};
 
   // 2. Gabungkan Dokumen & Servis ke satu Array
   const allReminders = [
@@ -183,9 +198,9 @@ export default function UpcomingReminders({
                 </View>
 
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ color: cfg.color, fontSize: 15, fontWeight: "800", fontFamily: "SpaceMono" }}>
-                    {kmRemaining > 0 ? `+${kmRemaining.toLocaleString()}` : "PERBAIKI SEGERA"}
-                  </Text>
+                  <Text style={{ color: cfg.color, fontSize: 13, fontWeight: "900", fontFamily: "SpaceMono" }}>
+  {kmRemaining > 0 ? `+${kmRemaining.toLocaleString()}` : cfg.label.toUpperCase()}
+</Text>
                   <View style={{ marginTop: 4, opacity: 0.3 }}>
                     <Text style={{ color: 'white', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
                   </View>

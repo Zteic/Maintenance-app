@@ -123,55 +123,74 @@ function AppContent() {
 
   // Gunakan useMemo untuk membungkus kalkulasi berat
   const stats = React.useMemo(() => {
-    const vRepairs = repairs.filter((r) => r.vehicleId === selectedVehicleId);
-    const vFuel = fuelEntries.filter((f) => f.vehicleId === selectedVehicleId);
-    const vReminders = reminders.filter((r) => r.vehicleId === selectedVehicleId);
+  // 1. Filter dasar
+  const vRepairs = repairs.filter((r) => r.vehicleId === selectedVehicleId);
+  const vFuel = fuelEntries.filter((f) => f.vehicleId === selectedVehicleId);
 
-    const now = new Date();
-    const cMonth = now.getMonth();
-    const cYear = now.getFullYear();
+  // 2. KALKULASI ODOMETER TERLEBIH DAHULU (PENTING!)
+  const allOdometers = [
+    ...vRepairs.map(r => r.odometer),
+    ...vFuel.map(f => f.odometer),
+    (selectedVehicleId ? vehicles.find(v => v.id === selectedVehicleId)?.currentOdometer : 0) || 0
+  ].filter(odo => !isNaN(odo) && odo > 0);
 
-    const mRepairs = vRepairs.filter((r) => {
-      const d = new Date(r.date);
-      return d.getMonth() === cMonth && d.getFullYear() === cYear;
-    });
+  const latestOdo = allOdometers.length > 0 ? Math.max(...allOdometers) : 0;
 
-    const mFuel = vFuel.filter((f) => {
-      const d = new Date(f.date);
-      return d.getMonth() === cMonth && d.getFullYear() === cYear;
-    });
+  // 3. HITUNG REMINDERS DENGAN STATUS WARNA (Menggunakan latestOdo yang sudah ada)
+  const vReminders = reminders.filter((r) => r.vehicleId === selectedVehicleId).map(rem => {
+    const distanceLeft = rem.dueOdometer - latestOdo;
+    
+    // Sesuaikan key status agar sinkron dengan STATUS_CONFIG di UpcomingReminders.tsx
+    let status: 'safe' | 'approaching' | 'overdue' = 'safe';
+    
+    if (distanceLeft <= 0) {
+      status = 'overdue';      // MERAH
+    } else if (distanceLeft <= 1000) {
+      status = 'approaching';  // KUNING
+    } else {
+      status = 'safe';         // BIRU
+    }
 
-    const totalRepairM = mRepairs.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
-    const totalFuelM = mFuel.reduce((sum, f) => sum + (Number(f.totalCost) || 0), 0);
-    const totalLitersM = mFuel.reduce((sum, f) => sum + (Number(f.liters) || 0), 0);
+    return { ...rem, status };
+  });
 
-    // Kalkulasi Odometer Otomatis
-    const allOdometers = [
-      ...vRepairs.map(r => r.odometer),
-      ...vFuel.map(f => f.odometer),
-      (selectedVehicleId ? vehicles.find(v => v.id === selectedVehicleId)?.currentOdometer : 0) || 0
-    ].filter(odo => !isNaN(odo) && odo > 0);
+  // 4. Kalkulasi Statistik Bulanan
+  const now = new Date();
+  const cMonth = now.getMonth();
+  const cYear = now.getFullYear();
 
-    const latestOdo = allOdometers.length > 0 ? Math.max(...allOdometers) : 0;
+  const mRepairs = vRepairs.filter((r) => {
+    const d = new Date(r.date);
+    return d.getMonth() === cMonth && d.getFullYear() === cYear;
+  });
 
-    // Kalkulasi Jarak Bulanan
-    const monthlyOdometers = [...mRepairs.map(r => r.odometer), ...mFuel.map(f => f.odometer)].filter(o => o > 0);
-    const distanceM = monthlyOdometers.length > 0 ? Math.max(...monthlyOdometers) - Math.min(...monthlyOdometers) : 0;
+  const mFuel = vFuel.filter((f) => {
+    const d = new Date(f.date);
+    return d.getMonth() === cMonth && d.getFullYear() === cYear;
+  });
 
-    return {
-      vehicleRepairs: vRepairs,
-      vehicleFuelEntries: vFuel,
-      vehicleReminders: vReminders,
-      selectedVehicle: vehicles.find(v => v.id === selectedVehicleId),
-      monthlyCost: totalRepairM + totalFuelM,
-      totalRepairMonthly: totalRepairM,
-      totalFuelMonthly: totalFuelM,
-      totalLitersMonthly: totalLitersM,
-      monthlyServicesDone: mRepairs.length,
-      monthlyDistance: distanceM,
-      autoLatestOdometer: latestOdo
-    };
-  }, [repairs, fuelEntries, reminders, selectedVehicleId, vehicles]);
+  const totalRepairM = mRepairs.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
+  const totalFuelM = mFuel.reduce((sum, f) => sum + (Number(f.totalCost) || 0), 0);
+  const totalLitersM = mFuel.reduce((sum, f) => sum + (Number(f.liters) || 0), 0);
+
+  // 5. Kalkulasi Jarak Bulanan
+  const monthlyOdometers = [...mRepairs.map(r => r.odometer), ...mFuel.map(f => f.odometer)].filter(o => o > 0);
+  const distanceM = monthlyOdometers.length > 0 ? Math.max(...monthlyOdometers) - Math.min(...monthlyOdometers) : 0;
+
+  return {
+    vehicleRepairs: vRepairs,
+    vehicleFuelEntries: vFuel,
+    vehicleReminders: vReminders,
+    selectedVehicle: vehicles.find(v => v.id === selectedVehicleId),
+    monthlyCost: totalRepairM + totalFuelM,
+    totalRepairMonthly: totalRepairM,
+    totalFuelMonthly: totalFuelM,
+    totalLitersMonthly: totalLitersM,
+    monthlyServicesDone: mRepairs.length,
+    monthlyDistance: distanceM,
+    autoLatestOdometer: latestOdo
+  };
+}, [repairs, fuelEntries, reminders, selectedVehicleId, vehicles]);
 
   // Load Data
   useEffect(() => {
