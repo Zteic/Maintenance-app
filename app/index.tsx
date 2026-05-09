@@ -742,48 +742,75 @@ const handleMarkDone = async (item: Reminder) => {
     setEditingRepair(null); 
   }}
   onSave={(formData) => {
-  const vId = selectedVehicleId; // Ambil ID kendaraan aktif
+    const vId = selectedVehicleId;
+    // --- PENENTUAN EDIT ATAU BARU ---
+    // Jika editingRepair ada dan ID-nya tidak mengandung 'temp', berarti sedang EDIT
+    const isEdit = editingRepair && editingRepair.id && !editingRepair.id.includes('temp');
 
-  // 1. Buat Objek Perbaikan (History)
-  const newRepair: RepairEntry = {
-    id: `rep${Date.now()}`,
-    vehicleId: vId,
-    ...formData,
-    date: formData.date || new Date().toISOString().split('T')[0],
-  };
+    if (isEdit) {
+      // --- LOGIKA UPDATE (Ganti data lama) ---
+      const updatedEntry = {
+        ...editingRepair,
+        ...formData,
+        vehicleId: vId,
+      };
 
-  // 2. Simpan ke State Repairs (Agar muncul di RepairHistory.tsx)
-  setRepairs(prev => [newRepair, ...prev]);
+      // Update di Riwayat (Repairs)
+      setRepairs(prev => prev.map(r => r.id === editingRepair.id ? updatedEntry : r));
 
-  // 3. Jika ini dari jalur "Sudah Servis" (Bukan dari Navbar), Update Jadwalnya
-  if (!saveToHistoryOnly) {
-    setReminders(prev => prev.map(rem => {
-      // Cari reminder yang jenis servisnya sama
-      const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
-      
-      if (isMatch && rem.vehicleId === vId) {
-        return {
-          ...rem,
-          lastServiceOdometer: Number(formData.odometer),
-          // Target berikutnya = Odo sekarang + Interval
-          dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
-          intervalKm: Number(formData.nextIntervalKm) || 10000,
-          lastServiceDate: new Date().toISOString(),
-          status: 'safe', // Reset warna jadi Biru/Aman
-        };
+      // Update di Dashboard (Reminders) agar target KM sinkron
+      setReminders(prev => prev.map(rem => {
+        const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
+        if (isMatch && rem.vehicleId === vId) {
+          const odo = Number(formData.odometer);
+          const interval = Number(formData.nextIntervalKm) || 10000;
+          return {
+            ...rem,
+            lastServiceOdometer: odo,
+            dueOdometer: odo + interval,
+            intervalKm: interval,
+            status: 'safe', // Reset status jadi aman kembali
+            lastServiceDate: new Date().toISOString(),
+          };
+        }
+        return rem;
+      }));
+
+      alert(lang === "id" ? "Data berhasil diperbarui!" : "Data updated successfully!");
+    } else {
+      // --- LOGIKA TAMBAH BARU (ID baru) ---
+      const newRepair: RepairEntry = {
+        id: `rep${Date.now()}`,
+        vehicleId: vId,
+        ...formData,
+        date: formData.date || new Date().toISOString().split('T')[0],
+      };
+
+      setRepairs(prev => [newRepair, ...prev]);
+
+      // Jika dari tombol "Sudah Servis" (Dashboard), update jadwalnya juga
+      if (!saveToHistoryOnly) {
+        setReminders(prev => prev.map(rem => {
+          const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
+          if (isMatch && rem.vehicleId === vId) {
+            return {
+              ...rem,
+              lastServiceOdometer: Number(formData.odometer),
+              dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
+              status: 'safe',
+            };
+          }
+          return rem;
+        }));
       }
-      return rem;
-    }));
-    alert(lang === "id" ? "Jadwal diperbarui & Riwayat dicatat!" : "Reminder updated & History recorded!");
-  } else {
-    alert(lang === "id" ? "Berhasil ditambah ke Riwayat" : "Added to History");
-  }
+      alert(lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
+    }
 
-  // 4. Tutup form dan bersihkan state
-  setShowAddSheet(false);
-  setEditingRepair(null);
-  setPrefillServiceType(undefined);
-}}
+    // Reset dan tutup modal
+    setShowAddSheet(false);
+    setEditingRepair(null);
+    setPrefillServiceType(undefined);
+  }}
 />
 
       {/* 2. Fuel Sheet */}

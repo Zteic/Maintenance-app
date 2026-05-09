@@ -92,43 +92,45 @@ export default function AddRepairSheet({
   }, []);
 
   useEffect(() => {
-    if (visible) {
-      if (editEntry) {
-        setServiceType(editEntry.serviceType);
-        setServiceTypeInput(editEntry.serviceType);
-        setDate(new Date(editEntry.date).toISOString().split("T")[0]);
-        setOdometer(editEntry.odometer.toString());
-        setCost(editEntry.cost.toString());
-        setWorkshop(editEntry.workshop);
-        const { cleanNotes, receipts } = extractReceipts(editEntry.notes || "");
-        setNotes(cleanNotes);
-        setReceiptImages(receipts);
-        setNextInterval(editEntry.nextIntervalKm.toString());
-        if (editEntry.tireInfo) {
-          setTirePosition(editEntry.tireInfo.position);
-          setTireBrand(editEntry.tireInfo.brand);
-          setTireSize(editEntry.tireInfo.size);
-          setTireDotCode(editEntry.tireInfo.productionCode);
-        }
-      } else {
-        const pre = prefillServiceType || "";
-        setServiceType(pre);
-        setServiceTypeInput(pre);
-        setDate(new Date().toISOString().split("T")[0]);
-        setOdometer(currentOdometer ? currentOdometer.toString() : "0");
-        setCost("");
-        setWorkshop("");
-        setNotes("");
-        setNextInterval("5000");
-        setReceiptImages([]);
-        setTirePosition("front");
-        setTireBrand("");
-        setTireSize("");
-        setTireDotCode("");
-      }
-      setShowServicePicker(false);
+  if (visible) {
+    if (editEntry) {
+      setServiceType(editEntry.serviceType);
+      setServiceTypeInput(editEntry.serviceType);
+      setDate(new Date(editEntry.date).toISOString().split("T")[0]);
+      setOdometer(editEntry.odometer.toString());
+      setCost(editEntry.cost.toString());
+      setWorkshop(editEntry.workshop);
+      
+      const { cleanNotes, receipts } = extractReceipts(editEntry.notes || "");
+      setNotes(cleanNotes);
+      setReceiptImages(receipts);
+      setNextInterval(editEntry.nextIntervalKm.toString());
+
+      // --- PERBAIKAN: Ambil data ban secara langsung (Flat) ---
+      setTirePosition(editEntry.tirePosition || "front");
+      setTireBrand(editEntry.tireBrand || "");
+      setTireSize(editEntry.tireSize || "");
+      setTireDotCode(editEntry.productionCode || ""); // Mengambil dari productionCode
+      
+    } else {
+      const pre = prefillServiceType || "";
+      setServiceType(pre);
+      setServiceTypeInput(pre);
+      setDate(new Date().toISOString().split("T")[0]);
+      setOdometer(currentOdometer ? currentOdometer.toString() : "0");
+      setCost("");
+      setWorkshop("");
+      setNotes("");
+      setNextInterval("5000");
+      setReceiptImages([]);
+      setTirePosition("front");
+      setTireBrand("");
+      setTireSize("");
+      setTireDotCode("");
     }
-  }, [prefillServiceType, visible, editEntry]);
+    setShowServicePicker(false);
+  }
+}, [visible, editEntry]); // PrefillServiceType opsional di sini agar tidak reset saat mengetik
 
   function extractReceipts(notes: string): {
     cleanNotes: string;
@@ -198,34 +200,39 @@ export default function AddRepairSheet({
 };
 
   const handleSave = () => {
-    const finalType =
-      serviceTypeInput.trim() || (isId ? "Servis Umum" : "General Service");
-    saveNewCustomType(finalType);
-    const entry: Omit<RepairEntry, "id"> = {
-      vehicleId,
-      serviceType: finalType,
-      date: new Date(date),
-      odometer: parseInt(odometer, 10) || currentOdometer,
-      cost: parseInt(cost.replace(/\D/g, ""), 10) || 0,
-      workshop: workshop || (isId ? "Bengkel" : "Workshop"),
-      notes:
-        receiptImages.length > 0
-          ? `${notes}\n[receipts:${receiptImages.join(",")}]`
-          : notes,
-      nextIntervalKm: parseInt(nextInterval, 10) || 5000,
-      tireInfo: showTireFields
-        ? {
-            position: tirePosition,
-            brand: tireBrand.trim(),
-            size: tireSize.trim(),
-            productionCode: tireDotCode.trim(),
-          }
-        : undefined,
-    };
-    if (isEditing && onUpdate && editEntry) onUpdate(editEntry.id, entry);
-    else onSave(entry);
-    onClose();
+  const finalType = serviceTypeInput.trim() || (isId ? "Servis Umum" : "General Service");
+  saveNewCustomType(finalType);
+
+  // Buat objek data yang "Flat" agar sesuai dengan RepairHistory.tsx
+  const entry: any = {
+    vehicleId,
+    serviceType: finalType,
+    date: new Date(date).toISOString(), // Pastikan format tanggal konsisten
+    odometer: parseInt(odometer, 10) || 0,
+    cost: parseInt(cost.replace(/\D/g, ""), 10) || 0,
+    workshop: workshop || (isId ? "Bengkel" : "Workshop"),
+    notes: receiptImages.length > 0
+      ? `${notes}\n[receipts:${receiptImages.join(",")}]`
+      : notes,
+    nextIntervalKm: parseInt(nextInterval, 10) || 5000,
+    
+    // Kirim data ban secara langsung (Flat), bukan di dalam objek tireInfo
+    tirePosition: showTireFields ? tirePosition : undefined,
+    tireBrand: showTireFields ? tireBrand.trim() : undefined,
+    tireSize: showTireFields ? tireSize.trim() : undefined,
+    productionCode: showTireFields ? tireDotCode.trim() : undefined,
   };
+
+  if (isEditing && editEntry) {
+    // Jika ada props onUpdate gunakan itu, jika tidak gunakan onSave 
+    // karena index.tsx kita sudah menghandle logika update di onSave
+    onSave({ ...entry, id: editEntry.id }); 
+  } else {
+    onSave(entry);
+  }
+  
+  onClose();
+};
 
   const allServiceTypes = [
     ...DEFAULT_SERVICE_TYPES,

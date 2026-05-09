@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Alert, Modal, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Alert, Modal, Dimensions, Platform } from 'react-native';
 import { RepairEntry } from '@/types/maintenance';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -10,8 +10,6 @@ function formatCurrency(amount: number): string {
     maximumFractionDigits: 0,
   }).format(amount);
 }
-
-
 
 function extractReceipts(notes: string): { cleanNotes: string; receipts: string[] } {
   const match = notes.match(/\[receipts:(.*?)\]/);
@@ -156,6 +154,91 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
                 <Text style={{ color: '#4ECDC4', fontSize: 13, fontWeight: '700' }}>+{repair.nextIntervalKm?.toLocaleString() || '0'} km</Text>
               </View>
             </View>
+
+            {/* KHUSUS INFO BAN (Hanya muncul jika ServiceType mengandung kata 'Ban') */}
+{repair.serviceType.toLowerCase().includes('ban') && (
+  <View style={{ 
+    backgroundColor: 'rgba(255,255,255,0.02)', // Background tipis transparan
+    borderRadius: 16, 
+    padding: 16, 
+    marginTop: 10,
+    borderWidth: 1, 
+    borderColor: 'rgba(78,205,196,0.2)' // Border teal halus
+  }}>
+    {/* Header: Info Ban */}
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+      <Text style={{ fontSize: 14 }}>⚙️</Text>
+      <Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 12, letterSpacing: 0.5 }}>
+        {isId ? "Info Ban" : "Tire Info"}
+      </Text>
+    </View>
+
+    <View style={{ gap: 16 }}>
+      {/* 1. Posisi Ban */}
+      <View>
+        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>
+          POSISI BAN
+        </Text>
+        <View style={{ 
+          alignSelf: 'flex-start', 
+          backgroundColor: 'rgba(78,205,196,0.15)', 
+          paddingHorizontal: 30, // Dibuat lebar seperti tombol
+          paddingVertical: 10, 
+          borderRadius: 12, 
+          borderWidth: 1.5, 
+          borderColor: '#4ECDC4' 
+        }}>
+          <Text style={{ color: '#4ECDC4', fontSize: 14, fontWeight: '800' }}>
+            {isId 
+        ? (repair.tirePosition === 'front' ? 'Depan' : 'Belakang') 
+        : (repair.tirePosition === 'front' ? 'Front' : 'Rear')}
+          </Text>
+        </View>
+      </View>
+
+      {/* 2. Merek & Ukuran (Dibuat Bersebelahan) */}
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>
+            MEREK BAN
+          </Text>
+          <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 10 }}>
+             <Text style={{ color: '#FFF', fontSize: 14 }}>{repair.tireBrand || '-'}</Text>
+          </View>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>
+            UKURAN
+          </Text>
+          <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 10 }}>
+            <Text style={{ color: '#FFF', fontSize: 14 }}>{repair.tireSize || '-'}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* 3. DOT / Kode Produksi */}
+      <View>
+        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>
+          DOT / KODE PRODUKSI
+        </Text>
+        <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: 15, borderRadius: 12 }}>
+          <Text style={{ 
+            color: '#4ECDC4', 
+            fontSize: 16, 
+            fontWeight: '800', 
+            fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+            letterSpacing: 2
+          }}>
+            {repair.productionCode || 'N/A'}
+          </Text>
+        </View>
+        <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 9, marginTop: 6 }}>
+          mis. 2423 = minggu 24, tahun 2023
+        </Text>
+      </View>
+    </View>
+  </View>
+)}
 
             {/* Catatan */}
             <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
