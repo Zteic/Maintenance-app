@@ -70,6 +70,7 @@ function AppContent() {
   const router = useRouter();
   const params = useLocalSearchParams(); // Mengambil parameter dari URL
   const { t, lang, setLang } = useLanguage();
+  const now = new Date();
   const insets = useSafeAreaInsets();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
@@ -116,57 +117,60 @@ function AppContent() {
   };
   }, []);
 
-  // 1. Deklarasi Data Utama (Semua filter ditaruh di sini agar variabel tersedia)
-  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId) ?? vehicles[0];
-  const vehicleRepairs = repairs.filter((r) => r.vehicleId === selectedVehicleId);
-  const vehicleReminders = reminders.filter((r) => r.vehicleId === selectedVehicleId);
-  const vehicleFuelEntries = fuelEntries.filter((f) => f.vehicleId === selectedVehicleId);
+  // Gunakan useMemo untuk membungkus kalkulasi berat
+  const stats = React.useMemo(() => {
+    const vRepairs = repairs.filter((r) => r.vehicleId === selectedVehicleId);
+    const vFuel = fuelEntries.filter((f) => f.vehicleId === selectedVehicleId);
+    const vReminders = reminders.filter((r) => r.vehicleId === selectedVehicleId);
 
-  // 2. Waktu & Periode Bulan Berjalan
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-  const monthStart = new Date(currentYear, currentMonth, 1);
-  const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+    const now = new Date();
+    const cMonth = now.getMonth();
+    const cYear = now.getFullYear();
 
-  // 3. Kalkulasi Rincian Biaya (Repair)
-  const monthlyRepairs = vehicleRepairs.filter((r) => {
-    const d = new Date(r.date);
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-  });
-  const totalRepairMonthly = monthlyRepairs.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
+    const mRepairs = vRepairs.filter((r) => {
+      const d = new Date(r.date);
+      return d.getMonth() === cMonth && d.getFullYear() === cYear;
+    });
 
-  // 4. Kalkulasi Rincian Biaya (Fuel)
-  const monthlyFuel = vehicleFuelEntries.filter((f) => {
-    const d = new Date(f.date);
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-  });
-  const totalFuelMonthly = monthlyFuel.reduce((sum, f) => sum + (Number(f.totalCost) || 0), 0);
+    const mFuel = vFuel.filter((f) => {
+      const d = new Date(f.date);
+      return d.getMonth() === cMonth && d.getFullYear() === cYear;
+    });
 
-  // Kesimpulan Biaya Bulanan & Statistik
-  const monthlyCost = totalFuelMonthly + totalRepairMonthly;
-  const monthlyServicesDone = monthlyRepairs.length;
-  const totalCost = vehicleRepairs.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
-  const totalLitersMonthly = monthlyFuel.reduce((sum, f) => sum + (Number(f.liters) || 0), 0);
+    const totalRepairM = mRepairs.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
+    const totalFuelM = mFuel.reduce((sum, f) => sum + (Number(f.totalCost) || 0), 0);
+    const totalLitersM = mFuel.reduce((sum, f) => sum + (Number(f.liters) || 0), 0);
 
-  // Hitung Jarak Tempuh Bulan Ini (Odometer tertinggi - Odometer terendah bulan ini)
-  const monthlyOdometers = [
-    ...monthlyRepairs.map(r => r.odometer),
-    ...monthlyFuel.map(f => f.odometer)
-  ].filter(odo => odo > 0);
+    // Kalkulasi Odometer Otomatis
+    const allOdometers = [
+      ...vRepairs.map(r => r.odometer),
+      ...vFuel.map(f => f.odometer),
+      (selectedVehicleId ? vehicles.find(v => v.id === selectedVehicleId)?.currentOdometer : 0) || 0
+    ].filter(odo => !isNaN(odo) && odo > 0);
 
-  const monthlyDistance = monthlyOdometers.length > 0 
-    ? Math.max(...monthlyOdometers) - Math.min(...monthlyOdometers) 
-    : 0;
+    const latestOdo = allOdometers.length > 0 ? Math.max(...allOdometers) : 0;
 
-  // Ambil semua angka odometer dari riwayat servis, bensin, dan data awal kendaraan
-  const allOdometerValues = [
-    ...(vehicleRepairs.map(r => r.odometer)),
-    ...(vehicleFuelEntries.map(f => f.odometer)),
-    selectedVehicle?.currentOdometer || 0
-  ].filter(val => !isNaN(val));
+    // Kalkulasi Jarak Bulanan
+    const monthlyOdometers = [...mRepairs.map(r => r.odometer), ...mFuel.map(f => f.odometer)].filter(o => o > 0);
+    const distanceM = monthlyOdometers.length > 0 ? Math.max(...monthlyOdometers) - Math.min(...monthlyOdometers) : 0;
+
+    return {
+      vehicleRepairs: vRepairs,
+      vehicleFuelEntries: vFuel,
+      vehicleReminders: vReminders,
+      selectedVehicle: vehicles.find(v => v.id === selectedVehicleId),
+      monthlyCost: totalRepairM + totalFuelM,
+      totalRepairMonthly: totalRepairM,
+      totalFuelMonthly: totalFuelM,
+      totalLitersMonthly: totalLitersM,
+      monthlyServicesDone: mRepairs.length,
+      monthlyDistance: distanceM,
+      autoLatestOdometer: latestOdo
+    };
+  }, [repairs, fuelEntries, reminders, selectedVehicleId, vehicles]);
 
   // Ambil angka tertinggi sebagai odometer saat ini
+  const allOdometerValues = [0];
   const autoLatestOdometer = Math.max(...allOdometerValues);
 
   // Load Data
@@ -232,7 +236,7 @@ function AppContent() {
       vehicleId: selectedVehicleId,
       serviceType: item.serviceType,
       date: new Date().toISOString().split('T')[0],
-      odometer: selectedVehicle.currentOdometer,
+      odometer: stats.selectedVehicle.currentOdometer,
       cost: 0,
       workshop: "",
       notes: "Service from Priority List",
@@ -305,16 +309,13 @@ const handleMarkDone = async (item: Reminder) => {
   const handleVehicleSave = (data: any) => {
     if (editingVehicle) {
       setVehicles((prev) =>
-        prev.map((v) =>
-          v.id === editingVehicle.id
-            ? { 
-                ...v, 
-                ...data, 
-                // Jika data edit tidak punya odometer, gunakan angka yang sudah ada (v.currentOdometer)
-                currentOdometer: data.currentOdometer !== undefined ? data.currentOdometer : v.currentOdometer 
-              }
-            : v,
-        ),
+        prev.map((v) => (v.id === editingVehicle.id 
+          ? { 
+              ...v, 
+              ...data, 
+              currentOdometer: data.currentOdometer ?? v.currentOdometer 
+            } 
+          : v)),
       );
     } else {
       const newVehicle = {
@@ -510,7 +511,10 @@ const handleMarkDone = async (item: Reminder) => {
 
       {/* BODY CONTENT */}
       <ScrollView
+        overScrollMode="never"
+        removeClippedSubviews={true}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
         contentContainerStyle={{
           gap: 20,
           paddingBottom: 150, // Ruang untuk Navbar Bawah & FAB
@@ -520,10 +524,10 @@ const handleMarkDone = async (item: Reminder) => {
         {activeTab === "home" && (
           <>
             <VehicleProfileCard
-  vehicle={{ ...selectedVehicle, currentOdometer: autoLatestOdometer }}
+  vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
   onOdometerUpdate={handleOdometerUpdate}
   onEditVehicle={() => {
-    setEditingVehicle(selectedVehicle);
+    setEditingVehicle(stats.selectedVehicle);
     setShowVehicleModal(true);
   }}
 />
@@ -557,26 +561,26 @@ const handleMarkDone = async (item: Reminder) => {
                   style: "currency",
                   currency: "IDR",
                   maximumFractionDigits: 0,
-                }).format(monthlyCost)}
+                }).format(stats.monthlyCost)}
               </Text>
 
               {/* Rincian Terpisah (Fuel & Repair) */}
               <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8, gap: 4 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 14 }}>
+                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>
                     ⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}
                   </Text>
-                  <Text style={{ color: "#F5A623", fontSize: 14, fontWeight: "600" }}>
-                    Rp {totalFuelMonthly.toLocaleString('id-ID')}
+                  <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>
+                    Rp {stats.totalFuelMonthly.toLocaleString('id-ID')}
                   </Text>
                 </View>
                 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 14 }}>
+                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>
                     🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}
                   </Text>
-                  <Text style={{ color: "#F5A623", fontSize: 14, fontWeight: "600" }}>
-                    Rp {totalRepairMonthly.toLocaleString('id-ID')}
+                  <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>
+                    Rp {stats.totalRepairMonthly.toLocaleString('id-ID')}
                   </Text>
                 </View>
               </View>
@@ -613,23 +617,23 @@ const handleMarkDone = async (item: Reminder) => {
                     marginTop: 2,
                   }}
                 >
-                  {monthlyServicesDone} <Text style={{ fontSize: 16, fontWeight: '600',marginTop: 2,
+                  {stats.monthlyServicesDone} <Text style={{ fontSize: 16, fontWeight: '600',marginTop: 2,
                   marginBottom: 8 }}>{t("records")}</Text>
                 </Text>
 
                 {/* STATS TAMBAHAN UNTUK MENGISI RUANG KOSONG */}
                 <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8, marginTop: 8, gap: 4 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 14 }}>⛽ Total Liter</Text>
-                    <Text style={{ color: "#4ECDC4", fontSize: 14, fontWeight: "700" }}>
-                      {totalLitersMonthly.toFixed(1)} L
+                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ Total Liter</Text>
+                    <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>
+                      {stats.totalLitersMonthly.toFixed(1)} L
                     </Text>
                   </View>
                   
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 14 }}>🛣️ {lang === "id" ? "Jarak" : "Distance"}</Text>
-                    <Text style={{ color: "#4ECDC4", fontSize: 14, fontWeight: "700" }}>
-                      +{monthlyDistance.toLocaleString('id-ID')} km
+                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛣️ {lang === "id" ? "Jarak" : "Distance"}</Text>
+                    <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>
+                      +{stats.monthlyDistance.toLocaleString('id-ID')} km
                     </Text>
                   </View>
                 </View>
@@ -640,39 +644,37 @@ const handleMarkDone = async (item: Reminder) => {
               </TouchableOpacity>
             </View>
             <MaintenanceStatusBar
-              reminders={vehicleReminders}
-              currentOdometer={selectedVehicle.currentOdometer}
-              accentColor={selectedVehicle.color}
-            />
+  reminders={stats.vehicleReminders}
+  currentOdometer={stats.autoLatestOdometer}
+  accentColor={stats.selectedVehicle?.color}
+/>
             <UpcomingReminders
-              reminders={reminders}
-              reminders={vehicleReminders}
-              currentOdometer={selectedVehicle.currentOdometer}
-              vehicle={selectedVehicle}
-              onAddReminder={handleAddReminderOnly}
-              onEditReminder={(item) => handleEdit(item)}
-              onEditReminder={handleEdit}
-              onDeleteReminder={handleDelete}
-            />
+  reminders={stats.vehicleReminders}
+  currentOdometer={stats.autoLatestOdometer}
+  vehicle={stats.selectedVehicle}
+  onAddReminder={handleAddReminderOnly}
+  onEditReminder={handleEdit}
+  onDeleteReminder={handleDelete}
+/>
           </>
         )}
 
         {activeTab === "history" && (
   <RepairHistory
-    repairs={vehicleRepairs}
-    onEdit={(r) => {
-      setEditingRepair(r);
-      setShowAddSheet(true);
-    }}
-    onDelete={(id) => {
-      setRepairs((prev) => prev.filter((r) => r.id !== id));
-    }}
-  />
+  repairs={stats.vehicleRepairs}
+  onEdit={(r) => {
+    setEditingRepair(r);
+    setShowAddSheet(true);
+  }}
+  onDelete={(id) => {
+    setRepairs((prev) => prev.filter((r) => r.id !== id));
+  }}
+/>
 )}
 
         {activeTab === "fuel" && (
           <FuelLog
-            fuelEntries={vehicleFuelEntries}
+  fuelEntries={stats.vehicleFuelEntries}
             onAdd={() => {
               setEditingFuel(null);
               setShowFuelSheet(true);
@@ -693,9 +695,9 @@ const handleMarkDone = async (item: Reminder) => {
       {/* 1. Add Repair Sheet */}
       <AddRepairSheet
   visible={showAddSheet}
-  vehicleId={selectedVehicleId}
-  currentOdometer={selectedVehicle.currentOdometer}
-  vehicleType={selectedVehicle.vehicleType}
+  vehicleId={stats.selectedVehicleId}
+  currentOdometer={stats.selectedVehicle.currentOdometer}
+  vehicleType={stats.selectedVehicle.vehicleType}
   prefillServiceType={prefillServiceType}
   editEntry={editingRepair}
   isHistoryMode={saveToHistoryOnly}
@@ -770,8 +772,8 @@ const handleMarkDone = async (item: Reminder) => {
       <FuelSheet
         visible={showFuelSheet}
         vehicleId={selectedVehicleId}
-        currentOdometer={selectedVehicle?.currentOdometer || 0}
-        tankCapacity={selectedVehicle?.tankCapacity}
+        currentOdometer={stats.selectedVehicle?.currentOdometer || 0}
+        tankCapacity={stats.selectedVehicle?.tankCapacity}
         editEntry={editingFuel}
         onClose={() => {
           setShowFuelSheet(false);
@@ -1049,8 +1051,8 @@ const handleMarkDone = async (item: Reminder) => {
   marginHorizontal: 10
 }}>
   <MaintenanceCalendar
-    repairs={vehicleRepairs}
-    fuelEntries={vehicleFuelEntries}
+    repairs={stats.vehicleRepairs}
+    fuelEntries={stats.vehicleFuelEntries}
     // Pastikan di dalam komponen MaintenanceCalendar kamu mengatur 
     // theme={{ calendarBackground: 'transparent', ... }} agar menyatu
     onDayPress={(day: any) => {
