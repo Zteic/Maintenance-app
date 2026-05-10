@@ -412,23 +412,42 @@ function ProfileContent() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setShowBackupModal(true)}
-            style={{
-              backgroundColor: "#1A2B3C",
-              borderRadius: 16,
-              padding: 20,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 16,
-              borderWidth: 1,
-              borderColor: "rgba(78,205,196,0.2)",
-            }}
-          >
-            <Text style={{ fontSize: 22 }}>☁️</Text>
-            <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>
-              Backup & Sync
-            </Text>
-          </TouchableOpacity>
+  onPress={() => router.push('/export')} // Navigasi ke halaman export
+  style={{
+    backgroundColor: "#1A2B3C",
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    borderWidth: 1,
+    borderColor: "rgba(78,205,196,0.3)", // Neon teal border
+    shadowColor: "#4ECDC4",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  }}
+>
+  <View style={{
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "rgba(78,205,196,0.1)",
+    alignItems: "center",
+    justifyContent: "center"
+  }}>
+    <Text style={{ fontSize: 22 }}>📊</Text>
+  </View>
+  <View style={{ flex: 1 }}>
+    <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>
+      Export Riwayat Service
+    </Text>
+    <Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>
+      Backup seluruh data kendaraan ke .vhdb
+    </Text>
+  </View>
+  <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
+</TouchableOpacity>
         </View>
       </ScrollView>
 
