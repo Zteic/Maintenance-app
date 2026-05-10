@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   View,
   Text,
@@ -193,23 +194,28 @@ function AppContent() {
 }, [repairs, fuelEntries, reminders, selectedVehicleId, vehicles]);
 
   // Load Data
-  useEffect(() => {
-    (async () => {
-      const [sv, sr, srm, ssv, sfe] = await Promise.all([
-        loadVehicles(),
-        loadRepairs(),
-        loadReminders(),
-        loadSelectedVehicleId(),
-        loadFuelEntries(),
-      ]);
-      if (sv) setVehicles(sv);
-      if (sr) setRepairs(sr);
-      if (srm) setReminders(srm);
-      if (ssv) setSelectedVehicleId(ssv);
-      if (sfe) setFuelEntries(sfe);
-      setDataLoaded(true);
-    })();
+  const refreshData = useCallback(async () => {
+    const [sv, sr, srm, ssv, sfe] = await Promise.all([
+      loadVehicles(),
+      loadRepairs(),
+      loadReminders(),
+      loadSelectedVehicleId(),
+      loadFuelEntries(),
+    ]);
+    if (sv) setVehicles(sv);
+    if (sr) setRepairs(sr);
+    if (srm) setReminders(srm);
+    if (ssv) setSelectedVehicleId(ssv);
+    if (sfe) setFuelEntries(sfe);
+    setDataLoaded(true);
   }, []);
+
+  // --- 2. PANGGIL FUNGSI REFRESH SETIAP KALI HALAMAN DILIHAT ---
+  useFocusEffect(
+    useCallback(() => {
+      refreshData();
+    }, [refreshData])
+  );
 
   // Save Data
   useEffect(() => {

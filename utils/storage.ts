@@ -48,12 +48,48 @@ function deserializeReminder(r: any): Reminder {
 }
 
 // Vehicles
+// Cari fungsi loadVehicles dan ganti isinya menjadi seperti ini:
 export async function loadVehicles(): Promise<Vehicle[] | null> {
   try {
-    const raw = await AsyncStorage.getItem(KEYS.VEHICLES);
-    if (!raw) return null;
-    return JSON.parse(raw).map(deserializeVehicle);
-  } catch { return null; }
+    const rawVehicles = await AsyncStorage.getItem(KEYS.VEHICLES);
+    if (!rawVehicles) return null;
+    
+    let vehicles = JSON.parse(rawVehicles).map(deserializeVehicle);
+
+    // Ambil data pendukung untuk sinkronisasi Odometer
+    const rawRepairs = await AsyncStorage.getItem(KEYS.REPAIRS);
+    const rawFuel = await AsyncStorage.getItem(KEYS.FUEL_ENTRIES);
+    
+    const repairs = rawRepairs ? JSON.parse(rawRepairs) : [];
+    const fuel = rawFuel ? JSON.parse(rawFuel) : [];
+
+    // Lakukan pembaruan Odometer untuk setiap kendaraan
+    return vehicles.map((v: Vehicle) => {
+      // Kumpulkan semua inputan odometer dari riwayat servis dan BBM untuk kendaraan ini
+      const repairOdos = repairs
+        .filter((r: any) => r.vehicleId === v.id)
+        .map((r: any) => r.odometer || 0);
+
+      const fuelOdos = fuel
+        .filter((f: any) => f.vehicleId === v.id)
+        .map((f: any) => f.odometer || 0);
+
+      // Cari angka tertinggi antara odometer kendaraan saat ini, data servis, dan data BBM
+      const maxOdometer = Math.max(
+        v.currentOdometer,
+        ...repairOdos,
+        ...fuelOdos
+      );
+
+      return {
+        ...v,
+        currentOdometer: maxOdometer
+      };
+    });
+  } catch (error) {
+    console.error("Error syncing odometer:", error);
+    return null;
+  }
 }
 
 export async function saveVehicles(vehicles: Vehicle[]): Promise<void> {
@@ -198,4 +234,11 @@ export async function saveFuelStatsResetDate(date: string | null): Promise<void>
       await AsyncStorage.setItem(KEYS.FUEL_STATS_RESET_DATE, date);
     }
   } catch {}
+}
+
+export async function syncVehicleOdometer(vehicleId: string): Promise<void> {
+  const vehicles = await loadVehicles();
+  if (vehicles) {
+    await saveVehicles(vehicles);
+  }
 }
