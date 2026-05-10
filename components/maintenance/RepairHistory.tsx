@@ -25,6 +25,43 @@ function extractReceipts(notes: string): { cleanNotes: string; receipts: string[
 const MONTH_NAMES_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const MONTH_NAMES_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const REPAIR_ICONS: any = {
+  airFilter: require('../../assets/images/air-filter.png'),
+  battery: require('../../assets/images/battery.png'),
+  sparkPlug: require('../../assets/images/spark-plug.png'),
+  brakePad: require('../../assets/images/brake-pad.png'),
+  coolant: require('../../assets/images/Coolant.png'),
+  engineOil: require('../../assets/images/engine-oil.png'),
+  tire: require('../../assets/images/Tire.png'),
+  caliper: require('../../assets/images/caliper.png'),
+  gearOil: require('../../assets/images/gear-oil.png'),
+  shock: require('../../assets/images/Shockbreaker.png'),
+  vanbelt: require('../../assets/images/vanbelt.png'),
+};
+
+const getRepairIcon = (serviceType: string) => {
+  if (!serviceType) return null;
+  const type = serviceType.toLowerCase();
+
+  if (type.includes('oli gardan') || type.includes('gear oil')) return REPAIR_ICONS.gearOil;
+  if (type.includes('oli') || type.includes('oil')) return REPAIR_ICONS.engineOil;
+
+  if (type.includes('ban') || type.includes('tire')) return REPAIR_ICONS.tire;
+
+  if (type.includes('kaliper') || type.includes('pala babi') || type.includes('caliper')) return REPAIR_ICONS.caliper;
+  if (type.includes('rem') || type.includes('brake') || type.includes('kampas')) return REPAIR_ICONS.brakePad;
+
+  if (type.includes('skok') || type.includes('shock') || type.includes('skok') || type.includes('absorber')) return REPAIR_ICONS.shock;
+
+  if (type.includes('vanbelt') || type.includes('v-belt') || type.includes('belt') || type.includes('timing belt')) return REPAIR_ICONS.vanbelt;
+
+  if (type.includes('aki') || type.includes('battery')) return REPAIR_ICONS.battery;
+  if (type.includes('busi') || type.includes('spark')) return REPAIR_ICONS.sparkPlug;
+  if (type.includes('filter') || type.includes('air filter')) return REPAIR_ICONS.airFilter;
+  if (type.includes('radiator') || type.includes('coolant')) return REPAIR_ICONS.coolant;
+
+  return null; 
+};
 
 interface RepairHistoryProps {
   repairs: RepairEntry[];
@@ -99,7 +136,8 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
   </View>
   {sorted.map((repair) => {
     const { cleanNotes, receipts } = extractReceipts(repair.notes || '');
-  const isExpanded = expandedId === repair.id;
+    const isExpanded = expandedId === repair.id;
+    const customIcon = getRepairIcon(repair.serviceType);
     const actualDate = repair.date instanceof Date ? repair.date : new Date(repair.date);
     const dateStr = actualDate.toLocaleDateString('id-ID', {
       day: 'numeric', month: 'short', year: 'numeric'
@@ -118,9 +156,26 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
           }}
         >
           {/* Ikon Box */}
-          <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-            <Text style={{ fontSize: 20 }}>🔧</Text>
-          </View>
+          <View style={{ 
+  width: 45, // Ukuran sedikit diperbesar agar PNG terlihat jelas
+  height: 45, 
+  borderRadius: 12, 
+  backgroundColor: 'rgba(255,255,255,0.03)', 
+  alignItems: 'center', 
+  justifyContent: 'center', 
+  borderWidth: 1, 
+  borderColor: 'rgba(255,255,255,0.05)' 
+}}>
+  {customIcon ? (
+    <Image 
+      source={customIcon} 
+      style={{ width: 26, height: 26 }} 
+      resizeMode="contain" 
+    />
+  ) : (
+    <Text style={{ fontSize: 20 }}>🔧</Text>
+  )}
+</View>
 
           {/* Judul & Meta */}
           <View style={{ flex: 1, marginLeft: 15 }}>
