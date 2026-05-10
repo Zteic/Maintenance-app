@@ -35,6 +35,23 @@ function formatCurrency(n: number) {
   }).format(n);
 }
 
+const BRAND_LOGOS: any = {
+  pertamina: require('@/assets/images/Pertamina.png'),
+  shell: require('@/assets/images/Shell.png'),
+  bp: require('@/assets/images/BP.png'),
+  vivo: require('@/assets/images/Vivo.png'),
+};
+
+// --- 2. FUNGSI HELPER UNTUK MENDAPATKAN LOGO ---
+const getFuelLogo = (providerName: string) => {
+  const name = providerName?.toLowerCase() || '';
+  if (name.includes('pertamina')) return BRAND_LOGOS.pertamina;
+  if (name.includes('shell')) return BRAND_LOGOS.shell;
+  if (name.includes('bp')) return BRAND_LOGOS.bp;
+  if (name.includes('vivo')) return BRAND_LOGOS.vivo;
+  return null; // Balik ke ikon standar jika tidak cocok
+};
+
 export default function FuelLog({
   fuelEntries,
   onAdd,
@@ -291,8 +308,10 @@ export default function FuelLog({
       {/* List View */}
       <View style={{ gap: 8, paddingHorizontal: 20 }}>
         {sorted.map((entry) => {
-          const eff = efficiencies.find((e) => e.entryId === entry.id);
+          const providerName = entry.provider || entry.notes || ""; 
+          const logo = getFuelLogo(providerName);
           const isExpanded = expandedId === entry.id;
+          const eff = efficiencies.find((e) => e.entryId === entry.id);
           const receiptUrl = entry.notes?.match(/\[receipt:(.*?)\]/)?.[1] || entry.receiptPhoto || null;
           let baseText = entry.notes ? entry.notes.replace(/\[receipt:.*?\]/g, "").trim() : "";
           let fuelInfo = isId ? "Bensin" : "Fuel";
@@ -317,20 +336,34 @@ export default function FuelLog({
       onPress={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
       style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}
     >
+      {/* Container Sisi Kiri (Ikon + Teks Utama) */}
       <View style={{ flexDirection: "row", gap: 10, flex: 1 }}>
-        <View style={styles.iconBox}><Text style={{ fontSize: 18 }}>⛽</Text></View>
+        <View style={styles.iconBox}>
+          {logo ? (
+            <Image 
+              source={logo} 
+              style={{ width: 24, height: 24 }} 
+              resizeMode="contain" 
+            />
+          ) : (
+            <Text style={{ fontSize: 18 }}>⛽</Text>
+          )}
+        </View>
+
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "800" }}>{entry.liters.toFixed(1)} L</Text>
             <Text style={{ color: "#F5A623", fontSize: 12, fontWeight: "700" }}>• {fuelInfo}</Text>
           </View>
-          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{entry.date} · {entry.odometer.toLocaleString()} km</Text>
+          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>
+            {entry.date} · {entry.odometer.toLocaleString()} km
+          </Text>
         </View>
       </View>
-      
+
+      {/* Container Sisi Kanan (Harga & Indikator Panah) */}
       <View style={{ alignItems: 'flex-end', gap: 4 }}>
         <Text style={styles.totalPriceText}>{formatCurrency(entry.totalCost)}</Text>
-        {/* Indikator Panah */}
         <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>
           {expandedId === entry.id ? '▲' : '▼'}
         </Text>

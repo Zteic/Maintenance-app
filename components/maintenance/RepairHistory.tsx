@@ -73,7 +73,7 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
     marginTop: 10
   }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Text style={{ fontSize: 20 }}>🔧</Text>
+      <Text style={{ fontSize: 20 }}>🛠️</Text>
       <Text style={{ 
         color: '#FFFFFF', 
         fontSize: 18, 
