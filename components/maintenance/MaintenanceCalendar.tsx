@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { RepairEntry, FuelEntry } from '@/types/maintenance';
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -14,6 +14,51 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 const DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const ALL_ICONS: any = {
+  // Brand BBM
+  pertamina: require('../../assets/images/Pertamina.png'),
+  shell: require('../../assets/images/Shell.png'),
+  bp: require('../../assets/images/BP.png'),
+  vivo: require('../../assets/images/Vivo.png'),
+  // Perbaikan
+  airFilter: require('../../assets/images/air-filter.png'),
+  battery: require('../../assets/images/battery.png'),
+  brakePad: require('../../assets/images/brake-pad.png'),
+  coolant: require('../../assets/images/Coolant.png'),
+  engineOil: require('../../assets/images/engine-oil.png'),
+  sparkPlug: require('../../assets/images/spark-plug.png'),
+  tire: require('../../assets/images/Tire.png'),
+  shock: require('../../assets/images/Shockbreaker.png'),
+  vanbelt: require('../../assets/images/vanbelt.png'),
+  caliper: require('../../assets/images/caliper.png'),
+  gearOil: require('../../assets/images/gear-oil.png'),
+};
+
+const getMaintenanceIcon = (type: string, title: string) => {
+  const search = (title || '').toLowerCase();
+  
+  if (type === 'fuel') {
+    if (search.includes('pertamina')) return ALL_ICONS.pertamina;
+    if (search.includes('shell')) return ALL_ICONS.shell;
+    if (search.includes('bp')) return ALL_ICONS.bp;
+    if (search.includes('vivo')) return ALL_ICONS.vivo;
+    return null;
+  }
+
+  if (search.includes('oli gardan') || search.includes('gear oil')) return ALL_ICONS.gearOil;
+  if (search.includes('oli') || search.includes('oil')) return ALL_ICONS.engineOil;
+  if (search.includes('ban') || search.includes('tire')) return ALL_ICONS.tire;
+  if (search.includes('rem') || search.includes('brake') || search.includes('kampas')) return ALL_ICONS.brakePad;
+  if (search.includes('kaliper') || search.includes('pala babi') || search.includes('caliper')) return ALL_ICONS.caliper;
+  if (search.includes('skok') || search.includes('shock') || search.includes('absorber')) return ALL_ICONS.shock;
+  if (search.includes('aki') || search.includes('battery')) return ALL_ICONS.battery;
+  if (search.includes('busi') || search.includes('spark')) return ALL_ICONS.sparkPlug;
+  if (search.includes('filter')) return ALL_ICONS.airFilter;
+  if (search.includes('radiator') || search.includes('coolant')) return ALL_ICONS.coolant;
+  if (search.includes('belt') || search.includes('vanbelt')) return ALL_ICONS.vanbelt;
+
+  return null;
+};
 
 export default function MaintenanceCalendar({ repairs, fuelEntries = [], onDayPress }: MaintenanceCalendarProps) {
   const today = new Date();
@@ -185,17 +230,29 @@ const totalSpendingOnDate = selectedRecords.reduce((sum, item) => {
                 }}
               >
                 <View style={{ 
-                  width: 36, 
-                  height: 36, 
-                  borderRadius: 10, 
-                  backgroundColor: item.category === 'fuel' ? 'rgba(78,205,196,0.1)' : 'rgba(245,166,35,0.1)',
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }}>
-                  <Text style={{ fontSize: 18 }}>
-                    {item.category === 'fuel' ? '⛽' : '🔧'}
-                  </Text>
-                </View>
+  width: 36, 
+  height: 36, 
+  borderRadius: 10, 
+  backgroundColor: 'rgba(255,255,255,0.03)', // Pakai warna netral agar PNG terlihat jelas
+  justifyContent: 'center',
+  alignItems: 'center',
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.05)'
+}}>
+  {/* Logika pemanggilan Ikon PNG */}
+  {getMaintenanceIcon(item.category, item.category === 'fuel' ? (item.provider || item.notes) : item.serviceType) ? (
+    <Image 
+      source={getMaintenanceIcon(item.category, item.category === 'fuel' ? (item.provider || item.notes) : item.serviceType)} 
+      style={{ width: 22, height: 22 }} 
+      resizeMode="contain" 
+    />
+  ) : (
+    /* Fallback jika tidak ada ikon yang cocok */
+    <Text style={{ fontSize: 18 }}>
+      {item.category === 'fuel' ? '⛽' : '🔧'}
+    </Text>
+  )}
+</View>
 
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }} numberOfLines={1}>
