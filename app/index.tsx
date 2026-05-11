@@ -12,6 +12,7 @@ import {
   Platform,
   Animated,
   TextInput,
+  Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router"; // Ditambahkan useLocalSearchParams
 import * as Notifications from "expo-notifications";
@@ -76,10 +77,11 @@ function AppContent() {
   const insets = useSafeAreaInsets();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
+
   // State
-  const [vehicles, setVehicles] = useState<Vehicle[]>(MOCK_VEHICLES);
-  const [repairs, setRepairs] = useState<RepairEntry[]>(MOCK_REPAIRS);
-  const [reminders, setReminders] = useState<Reminder[]>(MOCK_REMINDERS);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]); 
+  const [repairs, setRepairs] = useState<RepairEntry[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [fuelEntries, setFuelEntries] = useState<FuelEntry[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState(
     MOCK_VEHICLES[0].id,
@@ -195,6 +197,7 @@ function AppContent() {
 
   // Load Data
   const refreshData = useCallback(async () => {
+  try {
     const [sv, sr, srm, ssv, sfe] = await Promise.all([
       loadVehicles(),
       loadRepairs(),
@@ -202,13 +205,25 @@ function AppContent() {
       loadSelectedVehicleId(),
       loadFuelEntries(),
     ]);
-    if (sv) setVehicles(sv);
-    if (sr) setRepairs(sr);
-    if (srm) setReminders(srm);
-    if (ssv) setSelectedVehicleId(ssv);
-    if (sfe) setFuelEntries(sfe);
+
+    setVehicles(sv && sv.length > 0 ? sv : MOCK_VEHICLES);
+    setRepairs(sr && sr.length > 0 ? sr : MOCK_REPAIRS);
+    setReminders(srm && srm.length > 0 ? srm : MOCK_REMINDERS);
+    setFuelEntries(sfe && sfe.length > 0 ? sfe : []);
+    
+    if (ssv) {
+      setSelectedVehicleId(ssv);
+    } else if (sv && sv.length > 0) {
+      setSelectedVehicleId(sv[0].id);
+    } else {
+      setSelectedVehicleId(MOCK_VEHICLES[0].id);
+    }
+
     setDataLoaded(true);
-  }, []);
+  } catch (e) {
+    console.error("Gagal load data", e);
+  }
+}, []);
 
   // --- 2. PANGGIL FUNGSI REFRESH SETIAP KALI HALAMAN DILIHAT ---
   useFocusEffect(
@@ -227,6 +242,11 @@ function AppContent() {
   useEffect(() => {
     if (dataLoaded) saveFuelEntries(fuelEntries);
   }, [fuelEntries, dataLoaded]);
+  useEffect(() => {
+    if (dataLoaded && selectedVehicleId) {
+      saveSelectedVehicleId(selectedVehicleId);
+    }
+  }, [selectedVehicleId, dataLoaded]);
 
   // Handlers
   const handleOdometerUpdate = (newValue: number) => {
@@ -390,37 +410,41 @@ const handleMarkDone = async (item: Reminder) => {
     setShowVehicleModal(false);
   };
 
-  const handleVehicleDelete = (id: string) => {
-    // Validasi: Minimal harus ada 1 kendaraan
-    if (vehicles.length <= 1) {
-      alert(
-        lang === "id"
-          ? "Minimal harus ada satu kendaraan."
-          : "At least one vehicle is required.",
-      );
-      return;
-    }
-
-    const confirmDelete = confirm(
-      lang === "id"
-        ? "Hapus kendaraan ini? Semua data servis dan bensin akan hilang."
-        : "Delete this vehicle? All service and fuel data will be lost.",
+const handleVehicleDelete = (id: string) => {
+  if (vehicles.length <= 1) {
+    Alert.alert(
+      lang === "id" ? "Peringatan" : "Warning",
+      lang === "id" ? "Minimal harus ada satu kendaraan." : "At least one vehicle is required."
     );
+    return;
+  }
 
-    if (confirmDelete) {
-      const newVehicles = vehicles.filter((v) => v.id !== id);
-      setVehicles(newVehicles);
+  // GANTI confirm() dengan Alert.alert agar tidak crash di Android
+  Alert.alert(
+    lang === "id" ? "Hapus Kendaraan" : "Delete Vehicle",
+    lang === "id" 
+      ? "Hapus kendaraan ini? Semua data riwayat akan hilang." 
+      : "Delete this vehicle? All history will be lost.",
+    [
+      { text: lang === "id" ? "Batal" : "Cancel", style: "cancel" },
+      { 
+        text: lang === "id" ? "Hapus" : "Delete", 
+        style: "destructive", 
+        onPress: () => {
+          const newVehicles = vehicles.filter((v) => v.id !== id);
+          setVehicles(newVehicles);
 
-      // Jika kendaraan yang dihapus adalah yang sedang dipilih, alihkan ke kendaraan pertama
-      if (selectedVehicleId === id) {
-        const nextVehicleId = newVehicles[0].id;
-        setSelectedVehicleId(nextVehicleId);
-        saveSelectedVehicleId(nextVehicleId);
+          if (selectedVehicleId === id) {
+            const nextVehicleId = newVehicles[0].id;
+            setSelectedVehicleId(nextVehicleId);
+            saveSelectedVehicleId(nextVehicleId);
+          }
+          setShowVehicleModal(false);
+        }
       }
-
-      setShowVehicleModal(false);
-    }
-  };
+    ]
+  );
+};
 
   const handleAddRepair = async (formData: any) => {
     try {
@@ -581,15 +605,18 @@ const handleMarkDone = async (item: Reminder) => {
           paddingTop: 10,
         }}
       >
-        {activeTab === "home" && (
-          <>
-            <VehicleProfileCard
-  vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
-  onEditVehicle={() => {
-    setEditingVehicle(stats.selectedVehicle);
-    setShowVehicleModal(true);
-  }}
-/>
+        {activeTab === "home" && stats.selectedVehicle ? (
+    <>
+      <VehicleProfileCard
+        vehicle={{ 
+          ...stats.selectedVehicle, 
+          currentOdometer: stats.autoLatestOdometer 
+        }}
+        onEditVehicle={() => {
+          setEditingVehicle(stats.selectedVehicle!);
+          setShowVehicleModal(true);
+        }}
+      />
             <View
               style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}
             >
@@ -716,7 +743,7 @@ const handleMarkDone = async (item: Reminder) => {
   onDeleteReminder={handleDelete}
 />
           </>
-        )}
+        ) : null}
 
         {activeTab === "history" && (
   <RepairHistory
@@ -755,8 +782,8 @@ const handleMarkDone = async (item: Reminder) => {
       <AddRepairSheet
   visible={showAddSheet}
   vehicleId={selectedVehicleId}
-  currentOdometer={stats.selectedVehicle.currentOdometer}
-  vehicleType={stats.selectedVehicle.vehicleType}
+  currentOdometer={stats.selectedVehicle?.currentOdometer || 0} 
+  vehicleType={stats.selectedVehicle?.vehicleType || "motorcycle"}
   prefillServiceType={prefillServiceType}
   editEntry={editingRepair}
   isHistoryMode={saveToHistoryOnly}

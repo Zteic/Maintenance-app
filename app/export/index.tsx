@@ -15,9 +15,8 @@ import {
 
 const { width } = Dimensions.get('window');
 
-// Helper Enkripsi Sederhana (Base64) - Ganti dengan AES-256 jika ingin lebih pro
-const encrypt = (data: string) => btoa(data);
-const decrypt = (data: string) => atob(data);
+const encrypt = (data: string) => Buffer.from(data, 'utf-8').toString('base64');
+const decrypt = (data: string) => Buffer.from(data, 'base64').toString('utf-8');
 
 export default function ExportScreen() {
   const router = useRouter();
