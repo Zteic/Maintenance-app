@@ -16,7 +16,8 @@ const KEYS = {
 
 // Helpers to serialize/deserialize dates
 function serializeVehicle(v: Vehicle): any {
-  return { ...v, lastOdometerUpdate: v.lastOdometerUpdate.toISOString() };
+  const lastOdoDate = v.lastOdometerUpdate instanceof Date ? v.lastOdometerUpdate : new Date(v.lastOdometerUpdate);
+  return { ...v, lastOdometerUpdate: lastOdoDate.toISOString() };
 }
 
 function deserializeVehicle(v: any): Vehicle {
@@ -24,10 +25,16 @@ function deserializeVehicle(v: any): Vehicle {
 }
 
 function serializeRepair(r: RepairEntry): any {
+  // Pastikan dikonversi ke objek Date terlebih dahulu sebelum diubah ke ISOString
+  const actualDate = r.date instanceof Date ? r.date : new Date(r.date);
+  const actualNextDate = r.nextServiceDate 
+    ? (r.nextServiceDate instanceof Date ? r.nextServiceDate : new Date(r.nextServiceDate)) 
+    : undefined;
+
   return {
     ...r,
-    date: r.date.toISOString(),
-    nextServiceDate: r.nextServiceDate ? r.nextServiceDate.toISOString() : undefined,
+    date: actualDate.toISOString(),
+    nextServiceDate: actualNextDate ? actualNextDate.toISOString() : undefined,
   };
 }
 
@@ -40,7 +47,8 @@ function deserializeRepair(r: any): RepairEntry {
 }
 
 function serializeReminder(r: Reminder): any {
-  return { ...r, dueDate: r.dueDate.toISOString() };
+  const dueDateObj = r.dueDate instanceof Date ? r.dueDate : new Date(r.dueDate);
+  return { ...r, dueDate: dueDateObj.toISOString() };
 }
 
 function deserializeReminder(r: any): Reminder {

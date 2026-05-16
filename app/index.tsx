@@ -96,7 +96,7 @@ function AppContent() {
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [showLangModal, setShowLangModal] = useState(false);
-  const [dataLoaded, setDataLoaded] = useState(false);
+  const [isFetchingFromServer, setIsFetchingFromServer] = useState(true);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedDateRecords, setSelectedDateRecords] = useState<any[]>([]);
@@ -218,10 +218,11 @@ function AppContent() {
     } else {
       setSelectedVehicleId(MOCK_VEHICLES[0].id);
     }
-
-    setDataLoaded(true);
   } catch (e) {
     console.error("Gagal load data", e);
+  } finally {
+    // Dipastikan berjalan setelah setRepairs dll selesai diproses di atas
+    setIsFetchingFromServer(false); 
   }
 }, []);
 
@@ -234,19 +235,22 @@ function AppContent() {
 
   // Save Data
   useEffect(() => {
-    if (dataLoaded) saveVehicles(vehicles);
-  }, [vehicles, dataLoaded]);
-  useEffect(() => {
-    if (dataLoaded) saveRepairs(repairs);
-  }, [repairs, dataLoaded]);
-  useEffect(() => {
-    if (dataLoaded) saveFuelEntries(fuelEntries);
-  }, [fuelEntries, dataLoaded]);
-  useEffect(() => {
-    if (dataLoaded && selectedVehicleId) {
-      saveSelectedVehicleId(selectedVehicleId);
+    if (!isFetchingFromServer && vehicles.length > 0) {
+      saveVehicles(vehicles);
     }
-  }, [selectedVehicleId, dataLoaded]);
+  }, [vehicles, isFetchingFromServer]);
+
+  useEffect(() => {
+    if (!isFetchingFromServer && repairs.length > 0) {
+      saveRepairs(repairs);
+    }
+  }, [repairs, isFetchingFromServer]);
+
+  useEffect(() => {
+    if (!isFetchingFromServer && fuelEntries.length > 0) {
+      saveFuelEntries(fuelEntries);
+    }
+  }, [fuelEntries, isFetchingFromServer]);
 
   // Handlers
   const handleOdometerUpdate = (newValue: number) => {

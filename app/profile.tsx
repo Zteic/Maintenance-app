@@ -52,18 +52,25 @@ function buildExportText(
     text += `Odometer: ${v.currentOdometer.toLocaleString()} km | Total: ${formatCurrency(total)}\n`;
 
     if (vRepairs.length === 0) {
-      text += `  ${isId ? "Belum ada catatan." : "No records."}\n`;
-    } else {
-      const sorted = [...vRepairs].sort(
-        (a, b) => b.date.getTime() - a.date.getTime(),
-      );
-      for (const r of sorted) {
-        const notes = r.notes.replace(/\n?\[receipts:.*?\]/g, "").trim();
-        text += `  • ${r.date.toLocaleDateString()} - ${r.serviceType} - ${formatCurrency(r.cost)} - ${r.workshop}`;
-        if (notes) text += `\n    📝 ${notes}`;
-        text += "\n";
-      }
-    }
+  text += `  ${isId ? "Belum ada catatan." : "No records."}\n`;
+} else {
+  // Amankan sorting dengan mengonversinya ke objek Date terlebih dahulu jika berupa string
+  const sorted = [...vRepairs].sort((a, b) => {
+    const dateA = a.date instanceof Date ? a.date : new Date(a.date);
+    const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+    return dateB.getTime() - dateA.getTime();
+  });
+
+  for (const r of sorted) {
+    // Pastikan pemanggilan .toLocaleDateString() juga aman dari string
+    const actualDate = r.date instanceof Date ? r.date : new Date(r.date);
+    const notes = r.notes.replace(/\n?\[receipts:.*?\]/g, "").trim();
+    
+    text += `  • ${actualDate.toLocaleDateString()} - ${r.serviceType} - ${formatCurrency(r.cost)} - ${r.workshop}`;
+    if (notes) text += `\n    📝 ${notes}`;
+    text += "\n";
+  }
+}
     text += "\n";
   }
   return text;
