@@ -76,9 +76,14 @@ export interface FuelEntry {
 export interface NotificationItem {
   id: string;
   vehicleId?: string | null;
+  vehicleName?: string; // Menyimpan nama kendaraan untuk notif global
   type: 'system' | 'vehicle';
+  badge?: 'ADD' | 'UPDATE' | 'DELETE' | 'ROLLBACK' | 'SYSTEM';
   title: string;
   message: string;
+  oldOdometer?: number;
+  newOdometer?: number;
+  source?: string;
   isRead: boolean;
   timestamp: Date;
 }

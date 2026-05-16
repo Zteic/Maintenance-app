@@ -103,6 +103,7 @@ function AppContent() {
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [planName, setPlanName] = useState("");
   const [planInterval, setPlanInterval] = useState("");
+  const [showOdoHistory, setShowOdoHistory] = useState(false);
 
   // Notif State
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -130,10 +131,9 @@ function AppContent() {
     const vFuel = fuelEntries.filter((f) => f.vehicleId === selectedVehicleId);
 
     const allOdometers = [
-      ...vRepairs.map((r) => r.odometer),
-      ...vFuel.map((f) => f.odometer),
-      (selectedVehicleId ? vehicles.find((v) => v.id === selectedVehicleId)?.currentOdometer : 0) || 0,
-    ].filter((odo) => !isNaN(odo) && odo > 0);
+    ...vRepairs.map(r => r.odometer),
+    ...vFuel.map(f => f.odometer)
+  ].filter(odo => !isNaN(odo) && odo > 0);
 
     const latestOdo = allOdometers.length > 0 ? Math.max(...allOdometers) : 0;
 
@@ -283,18 +283,45 @@ function AppContent() {
     ]).start();
   };
 
-  const addNotification = (title: string, message: string, type: "system" | "vehicle", vId?: string) => {
+  const addNotification = (
+    badge: NotificationItem['badge'],
+    title: string, 
+    message: string, 
+    type: "system" | "vehicle", 
+    vId?: string,
+    oldOdo?: number,
+    newOdo?: number,
+    source?: string
+  ) => {
+    const vehicleName = vehicles.find(v => v.id === vId)?.name || 'Kendaraan';
     const newNotif: NotificationItem = {
       id: `notif_${Date.now()}`,
-      title,
-      message,
-      type,
-      vehicleId: vId,
-      isRead: false,
-      timestamp: new Date(),
+      badge, title, message, type, vehicleId: vId, vehicleName, oldOdometer: oldOdo, newOdometer: newOdo, source,
+      isRead: false, timestamp: new Date(),
     };
     setNotifications((prev) => [newNotif, ...prev]);
     triggerBellAnimation();
+  };
+
+  // Logika Evaluasi Rollback Odometer saat Hapus Data
+  const evaluateOdometerRollback = (deletedOdo: number, deletedId: string, sourceName: string) => {
+    const currentOdo = stats.autoLatestOdometer;
+    
+    // Cari Max Odo baru tanpa item yang dihapus
+    const remainingRepairs = repairs.filter(r => r.vehicleId === selectedVehicleId && r.id !== deletedId);
+    const remainingFuels = fuelEntries.filter(f => f.vehicleId === selectedVehicleId && f.id !== deletedId);
+    
+    const allRemainingOdos = [...remainingRepairs.map(r=>r.odometer), ...remainingFuels.map(f=>f.odometer)];
+    const newMaxOdo = allRemainingOdos.length > 0 ? Math.max(...allRemainingOdos) : 0;
+
+    if (newMaxOdo < currentOdo) {
+      addNotification(
+        'ROLLBACK',
+        'Odometer Rollback',
+        `Odometer kendaraan dikembalikan ke ${newMaxOdo.toLocaleString('id-ID')} km berdasarkan histori sebelumnya.`,
+        'vehicle', selectedVehicleId, currentOdo, newMaxOdo, sourceName
+      );
+    }
   };
 
   const handleEdit = (item: Reminder) => {
@@ -339,12 +366,7 @@ function AppContent() {
 
     setReminders((prev) => [...prev, newPlan]);
 
-    addNotification(
-      lang === "id" ? "Rencana Perawatan Baru" : "New Maintenance Plan",
-      `Rencana baru untuk ${planName} setiap ${planInterval} km berhasil dijadwalkan.`,
-      "vehicle",
-      selectedVehicleId
-    );
+    addNotification('ADD', lang === "id" ? "Rencana Perawatan Baru" : "New Plan", `Jadwal baru ${planName} setiap ${planInterval} km.`, "vehicle", selectedVehicleId);
 
     setPlanName("");
     setPlanInterval("");
@@ -421,12 +443,7 @@ function AppContent() {
             : v
         )
       );
-      addNotification(
-        lang === "id" ? "Profil Kendaraan Diperbarui" : "Vehicle Profile Updated",
-        `Data kendaraan ${data.name || editingVehicle.name} telah berhasil diperbarui.`,
-        "vehicle",
-        editingVehicle.id
-      );
+      addNotification('UPDATE', lang === "id" ? "Kendaraan Diperbarui" : "Vehicle Updated", `Data kendaraan ${data.name} diperbarui.`, "vehicle", editingVehicle.id);
     } else {
       const newVehicle = {
         id: `v${Date.now()}`,
@@ -437,12 +454,7 @@ function AppContent() {
       setVehicles((prev) => [...prev, newVehicle]);
       setSelectedVehicleId(newVehicle.id);
 
-      addNotification(
-        lang === "id" ? "Kendaraan Ditambahkan" : "Vehicle Added",
-        `Kendaraan baru ${newVehicle.name} berhasil terdaftar di garasi.`,
-        "vehicle",
-        newVehicle.id
-      );
+      addNotification('ADD', lang === "id" ? "Kendaraan Ditambahkan" : "Vehicle Added", `Kendaraan baru terdaftar di garasi.`, "vehicle", newVehicle.id);
     }
 
     setShowVehicleModal(false);
@@ -551,9 +563,7 @@ function AppContent() {
     }
   };
 
-  const unreadNotifsCount = notifications.filter(
-    (n) => !n.isRead && (n.type === "system" || n.vehicleId === selectedVehicleId)
-  ).length;
+  const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
@@ -695,6 +705,32 @@ function AppContent() {
                 setShowVehicleModal(true);
               }}
             />
+
+            <TouchableOpacity
+              onPress={() => setShowOdoHistory(true)}
+              style={{
+                marginHorizontal: 20,
+                backgroundColor: "rgba(78,205,196,0.1)",
+                borderWidth: 1,
+                borderColor: "rgba(78,205,196,0.3)",
+                padding: 15,
+                borderRadius: 14,
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Text style={{ fontSize: 18 }}>⏱️</Text>
+                <Text style={{ color: "#4ECDC4", fontWeight: "700" }}>
+                  Riwayat Odometer (Auto)
+                </Text>
+              </View>
+              <Text style={{ color: "white", fontWeight: "bold" }}>
+                {stats.autoLatestOdometer.toLocaleString("id-ID")} km ›
+              </Text>
+            </TouchableOpacity>
+
             <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
               <View
                 style={{
@@ -835,14 +871,8 @@ function AppContent() {
               setRepairs((prev) => prev.filter((r) => r.id !== id));
 
               if (deletedItem) {
-                addNotification(
-                  lang === "id" ? "Riwayat Dihapus" : "History Deleted",
-                  `Menghapus riwayat [${deletedItem.serviceType}] (Odo Terakhir: ${deletedItem.odometer.toLocaleString(
-                    "id-ID"
-                  )} km).`,
-                  "vehicle",
-                  selectedVehicleId
-                );
+                addNotification('DELETE', "Riwayat Dihapus", `Menghapus riwayat [${deletedItem.serviceType}].`, "vehicle", selectedVehicleId, deletedItem.odometer, undefined, 'Perbaikan Kendaraan');
+                evaluateOdometerRollback(deletedItem.odometer, id, 'Perbaikan Kendaraan');
               }
             }}
           />
@@ -864,14 +894,8 @@ function AppContent() {
               setFuelEntries((prev) => prev.filter((f) => f.id !== id));
 
               if (deletedFuel) {
-                addNotification(
-                  lang === "id" ? "Catatan Bensin Dihapus" : "Fuel Record Deleted",
-                  `Menghapus data bensin ${deletedFuel.liters}L pada Odo: ${deletedFuel.odometer.toLocaleString(
-                    "id-ID"
-                  )} km.`,
-                  "vehicle",
-                  selectedVehicleId
-                );
+                addNotification('DELETE', "Catatan Bensin Dihapus", `Menghapus data bensin ${deletedFuel.liters}L.`, "vehicle", selectedVehicleId, deletedFuel.odometer, undefined, 'Pengisian Bensin');
+                evaluateOdometerRollback(deletedFuel.odometer, id, 'Pengisian Bensin');
               }
 
               setShowFuelSheet(false);
@@ -1049,6 +1073,41 @@ function AppContent() {
         onSave={handleVehicleSave}
         onDelete={handleVehicleDelete}
       />
+
+      <Modal 
+        visible={showOdoHistory} 
+        transparent 
+        animationType="slide" 
+        onRequestClose={() => setShowOdoHistory(false)}
+       >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" }}>
+          <View style={{ height: "70%", backgroundColor: "#0D1B2A", borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <Text style={{ color: "#FFF", fontSize: 20, fontWeight: "800" }}>Riwayat Odometer</Text>
+              <TouchableOpacity 
+                onPress={() => setShowOdoHistory(false)} 
+                style={{ backgroundColor: "rgba(255,255,255,0.1)", padding: 10, borderRadius: 15 }}
+              >
+                <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "bold" }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {[...stats.vehicleRepairs.map(r => ({...r, source: 'Perbaikan', icon: '🛠️'})), ...stats.vehicleFuelEntries.map(f => ({...f, source: 'Bensin', icon: '⛽'}))]
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map((item, idx) => (
+                  <View key={idx} style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 15, marginBottom: 10, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 20, marginRight: 15 }}>{item.icon}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{item.source === 'Perbaikan' ? item.serviceType : `Isi ${item.liters} Liter`}</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>{new Date(item.date).toLocaleDateString('id-ID')}</Text>
+                    </View>
+                    <Text style={{ color: '#4ECDC4', fontWeight: '900', fontSize: 16 }}>{item.odometer.toLocaleString('id-ID')} km</Text>
+                  </View>
+                ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={showPlanModal} transparent animationType="fade" onRequestClose={() => setShowPlanModal(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.9)", justifyContent: "center", alignItems: "center" }}>
@@ -1391,7 +1450,6 @@ function AppContent() {
         visible={showNotifModal}
         onClose={() => setShowNotifModal(false)}
         notifications={notifications}
-        selectedVehicleId={selectedVehicleId}
         onMarkAsRead={(id) =>
           setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
         }
