@@ -14,7 +14,7 @@ import {
   TextInput,
   Alert,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router"; // Ditambahkan useLocalSearchParams
+import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Notifications from "expo-notifications";
 import {
   Vehicle,
@@ -39,6 +39,7 @@ import {
   loadFuelEntries,
   saveFuelEntries,
   loadNotifications,
+  saveNotifications,
 } from "@/utils/storage";
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
 import VehicleSwitcher from "@/components/maintenance/VehicleSwitcher";
@@ -52,6 +53,7 @@ import FuelLog from "@/components/maintenance/FuelLog";
 import FuelSheet from "@/components/maintenance/FuelSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaintenanceCalendar from "../components/maintenance/MaintenanceCalendar";
+import NotifCenter from '@/components/maintenance/NotifCenter';
 
 type TabType = "home" | "service" | "fuel";
 
@@ -71,7 +73,7 @@ Notifications.setNotificationHandler({
 
 function AppContent() {
   const router = useRouter();
-  const params = useLocalSearchParams(); // Mengambil parameter dari URL
+  const params = useLocalSearchParams();
   const { t, lang, setLang } = useLanguage();
   const now = new Date();
   const insets = useSafeAreaInsets();
@@ -79,20 +81,16 @@ function AppContent() {
   const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
   // State
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]); 
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [repairs, setRepairs] = useState<RepairEntry[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [fuelEntries, setFuelEntries] = useState<FuelEntry[]>([]);
-  const [selectedVehicleId, setSelectedVehicleId] = useState(
-    MOCK_VEHICLES[0].id,
-  );
+  const [selectedVehicleId, setSelectedVehicleId] = useState(MOCK_VEHICLES[0].id);
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showFuelSheet, setShowFuelSheet] = useState(false);
   const [editingRepair, setEditingRepair] = useState<RepairEntry | null>(null);
-  const [prefillServiceType, setPrefillServiceType] = useState<
-    string | undefined
-  >();
+  const [prefillServiceType, setPrefillServiceType] = useState<string | undefined>();
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [showLangModal, setShowLangModal] = useState(false);
@@ -106,134 +104,131 @@ function AppContent() {
   const [planName, setPlanName] = useState("");
   const [planInterval, setPlanInterval] = useState("");
 
-  // 1. Sinkronisasi Tab dari URL (Penting!)
+  // Notif State
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [showNotifModal, setShowNotifModal] = useState(false);
+  const bellScale = React.useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     if (params.tab) {
       setActiveTab(params.tab as TabType);
     }
   }, [params.tab]);
 
-  // 2. Registrasi Fungsi untuk FAB di Layout
   useEffect(() => {
     openFuelSheet = () => setShowFuelSheet(true);
     openRepairSheet = () => {
-  setEditingRepair(null);
-  setPrefillServiceType(undefined);
-  setSaveToHistoryOnly(true);
-  setShowAddSheet(true);
-  };
+      setEditingRepair(null);
+      setPrefillServiceType(undefined);
+      setSaveToHistoryOnly(true);
+      setShowAddSheet(true);
+    };
   }, []);
 
-  // Gunakan useMemo untuk membungkus kalkulasi berat
   const stats = React.useMemo(() => {
-  // 1. Filter dasar
-  const vRepairs = repairs.filter((r) => r.vehicleId === selectedVehicleId);
-  const vFuel = fuelEntries.filter((f) => f.vehicleId === selectedVehicleId);
+    const vRepairs = repairs.filter((r) => r.vehicleId === selectedVehicleId);
+    const vFuel = fuelEntries.filter((f) => f.vehicleId === selectedVehicleId);
 
-  // 2. KALKULASI ODOMETER TERLEBIH DAHULU (PENTING!)
-  const allOdometers = [
-    ...vRepairs.map(r => r.odometer),
-    ...vFuel.map(f => f.odometer),
-    (selectedVehicleId ? vehicles.find(v => v.id === selectedVehicleId)?.currentOdometer : 0) || 0
-  ].filter(odo => !isNaN(odo) && odo > 0);
+    const allOdometers = [
+      ...vRepairs.map((r) => r.odometer),
+      ...vFuel.map((f) => f.odometer),
+      (selectedVehicleId ? vehicles.find((v) => v.id === selectedVehicleId)?.currentOdometer : 0) || 0,
+    ].filter((odo) => !isNaN(odo) && odo > 0);
 
-  const latestOdo = allOdometers.length > 0 ? Math.max(...allOdometers) : 0;
+    const latestOdo = allOdometers.length > 0 ? Math.max(...allOdometers) : 0;
 
-  // 3. HITUNG REMINDERS DENGAN STATUS WARNA (Menggunakan latestOdo yang sudah ada)
-  const vReminders = reminders.filter((r) => r.vehicleId === selectedVehicleId).map(rem => {
-    const distanceLeft = rem.dueOdometer - latestOdo;
-    
-    // Sesuaikan key status agar sinkron dengan STATUS_CONFIG di UpcomingReminders.tsx
-    let status: 'safe' | 'approaching' | 'overdue' = 'safe';
-    
-    if (distanceLeft <= 0) {
-      status = 'overdue';      // MERAH
-    } else if (distanceLeft <= 1000) {
-      status = 'approaching';  // KUNING
-    } else {
-      status = 'safe';         // BIRU
-    }
+    const vReminders = reminders
+      .filter((r) => r.vehicleId === selectedVehicleId)
+      .map((rem) => {
+        const distanceLeft = rem.dueOdometer - latestOdo;
+        let status: "safe" | "approaching" | "overdue" = "safe";
 
-    return { ...rem, status };
-  });
+        if (distanceLeft <= 0) {
+          status = "overdue";
+        } else if (distanceLeft <= 1000) {
+          status = "approaching";
+        } else {
+          status = "safe";
+        }
 
-  // 4. Kalkulasi Statistik Bulanan
-  const now = new Date();
-  const cMonth = now.getMonth();
-  const cYear = now.getFullYear();
+        return { ...rem, status };
+      });
 
-  const mRepairs = vRepairs.filter((r) => {
-    const d = new Date(r.date);
-    return d.getMonth() === cMonth && d.getFullYear() === cYear;
-  });
+    const now = new Date();
+    const cMonth = now.getMonth();
+    const cYear = now.getFullYear();
 
-  const mFuel = vFuel.filter((f) => {
-    const d = new Date(f.date);
-    return d.getMonth() === cMonth && d.getFullYear() === cYear;
-  });
+    const mRepairs = vRepairs.filter((r) => {
+      const d = new Date(r.date);
+      return d.getMonth() === cMonth && d.getFullYear() === cYear;
+    });
 
-  const totalRepairM = mRepairs.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
-  const totalFuelM = mFuel.reduce((sum, f) => sum + (Number(f.totalCost) || 0), 0);
-  const totalLitersM = mFuel.reduce((sum, f) => sum + (Number(f.liters) || 0), 0);
+    const mFuel = vFuel.filter((f) => {
+      const d = new Date(f.date);
+      return d.getMonth() === cMonth && d.getFullYear() === cYear;
+    });
 
-  // 5. Kalkulasi Jarak Bulanan
-  const monthlyOdometers = [...mRepairs.map(r => r.odometer), ...mFuel.map(f => f.odometer)].filter(o => o > 0);
-  const distanceM = monthlyOdometers.length > 0 ? Math.max(...monthlyOdometers) - Math.min(...monthlyOdometers) : 0;
+    const totalRepairM = mRepairs.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
+    const totalFuelM = mFuel.reduce((sum, f) => sum + (Number(f.totalCost) || 0), 0);
+    const totalLitersM = mFuel.reduce((sum, f) => sum + (Number(f.liters) || 0), 0);
 
-  return {
-    vehicleRepairs: vRepairs,
-    vehicleFuelEntries: vFuel,
-    vehicleReminders: vReminders,
-    selectedVehicle: vehicles.find(v => v.id === selectedVehicleId),
-    monthlyCost: totalRepairM + totalFuelM,
-    totalRepairMonthly: totalRepairM,
-    totalFuelMonthly: totalFuelM,
-    totalLitersMonthly: totalLitersM,
-    monthlyServicesDone: mRepairs.length,
-    monthlyDistance: distanceM,
-    autoLatestOdometer: latestOdo
-  };
-}, [repairs, fuelEntries, reminders, selectedVehicleId, vehicles]);
+    const monthlyOdometers = [...mRepairs.map((r) => r.odometer), ...mFuel.map((f) => f.odometer)].filter(
+      (o) => o > 0
+    );
+    const distanceM =
+      monthlyOdometers.length > 0 ? Math.max(...monthlyOdometers) - Math.min(...monthlyOdometers) : 0;
 
-  // Load Data
+    return {
+      vehicleRepairs: vRepairs,
+      vehicleFuelEntries: vFuel,
+      vehicleReminders: vReminders,
+      selectedVehicle: vehicles.find((v) => v.id === selectedVehicleId),
+      monthlyCost: totalRepairM + totalFuelM,
+      totalRepairMonthly: totalRepairM,
+      totalFuelMonthly: totalFuelM,
+      totalLitersMonthly: totalLitersM,
+      monthlyServicesDone: mRepairs.length,
+      monthlyDistance: distanceM,
+      autoLatestOdometer: latestOdo,
+    };
+  }, [repairs, fuelEntries, reminders, selectedVehicleId, vehicles]);
+
   const refreshData = useCallback(async () => {
-  try {
-    const [sv, sr, srm, ssv, sfe] = await Promise.all([
-      loadVehicles(),
-      loadRepairs(),
-      loadReminders(),
-      loadSelectedVehicleId(),
-      loadFuelEntries(),
-    ]);
+    try {
+      const [sv, sr, srm, ssv, sfe, sn] = await Promise.all([
+        loadVehicles(),
+        loadRepairs(),
+        loadReminders(),
+        loadSelectedVehicleId(),
+        loadFuelEntries(),
+        loadNotifications(),
+      ]);
+      setNotifications(sn && sn.length > 0 ? sn : []);
+      setVehicles(sv && sv.length > 0 ? sv : MOCK_VEHICLES);
+      setRepairs(sr && sr.length > 0 ? sr : MOCK_REPAIRS);
+      setReminders(srm && srm.length > 0 ? srm : MOCK_REMINDERS);
+      setFuelEntries(sfe && sfe.length > 0 ? sfe : []);
 
-    setVehicles(sv && sv.length > 0 ? sv : MOCK_VEHICLES);
-    setRepairs(sr && sr.length > 0 ? sr : MOCK_REPAIRS);
-    setReminders(srm && srm.length > 0 ? srm : MOCK_REMINDERS);
-    setFuelEntries(sfe && sfe.length > 0 ? sfe : []);
-    
-    if (ssv) {
-      setSelectedVehicleId(ssv);
-    } else if (sv && sv.length > 0) {
-      setSelectedVehicleId(sv[0].id);
-    } else {
-      setSelectedVehicleId(MOCK_VEHICLES[0].id);
+      if (ssv) {
+        setSelectedVehicleId(ssv);
+      } else if (sv && sv.length > 0) {
+        setSelectedVehicleId(sv[0].id);
+      } else {
+        setSelectedVehicleId(MOCK_VEHICLES[0].id);
+      }
+    } catch (e) {
+      console.error("Gagal load data", e);
+    } finally {
+      setIsFetchingFromServer(false);
     }
-  } catch (e) {
-    console.error("Gagal load data", e);
-  } finally {
-    // Dipastikan berjalan setelah setRepairs dll selesai diproses di atas
-    setIsFetchingFromServer(false); 
-  }
-}, []);
+  }, []);
 
-  // --- 2. PANGGIL FUNGSI REFRESH SETIAP KALI HALAMAN DILIHAT ---
   useFocusEffect(
     useCallback(() => {
       refreshData();
     }, [refreshData])
   );
 
-  // Save Data
   useEffect(() => {
     if (!isFetchingFromServer) {
       saveVehicles(vehicles);
@@ -252,23 +247,28 @@ function AppContent() {
     }
   }, [fuelEntries, isFetchingFromServer]);
 
-  // Handlers
+  useEffect(() => {
+    if (!isFetchingFromServer) {
+      saveNotifications(notifications);
+    }
+  }, [notifications, isFetchingFromServer]);
+
   const handleOdometerUpdate = (newValue: number) => {
     setVehicles((prev) =>
       prev.map((v) =>
         v.id === selectedVehicleId
           ? { ...v, currentOdometer: newValue, lastOdometerUpdate: new Date() }
-          : v,
-      ),
+          : v
+      )
     );
   };
 
   const handleAddReminderOnly = () => {
-  setPrefillServiceType(undefined); 
-  setEditingRepair(null); 
-  setSaveToHistoryOnly(false);
-  setShowAddSheet(true); 
-};
+    setPrefillServiceType(undefined);
+    setEditingRepair(null);
+    setSaveToHistoryOnly(false);
+    setShowAddSheet(true);
+  };
 
   const handleRecommendationTap = (serviceType: string) => {
     setPrefillServiceType(serviceType);
@@ -276,130 +276,156 @@ function AppContent() {
     setShowAddSheet(true);
   };
 
+  const triggerBellAnimation = () => {
+    Animated.sequence([
+      Animated.timing(bellScale, { toValue: 1.3, duration: 150, useNativeDriver: true }),
+      Animated.spring(bellScale, { toValue: 1, friction: 3, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const addNotification = (title: string, message: string, type: "system" | "vehicle", vId?: string) => {
+    const newNotif: NotificationItem = {
+      id: `notif_${Date.now()}`,
+      title,
+      message,
+      type,
+      vehicleId: vId,
+      isRead: false,
+      timestamp: new Date(),
+    };
+    setNotifications((prev) => [newNotif, ...prev]);
+    triggerBellAnimation();
+  };
+
   const handleEdit = (item: Reminder) => {
-  // 1. Kunci jenis servis agar tidak bisa diubah di form
-  setPrefillServiceType(item.serviceType);
-  
-  // 2. Set FALSE agar logika onSave tahu ini adalah update jadwal (Priority Path)
-  setSaveToHistoryOnly(false); 
-  
-  // 3. Siapkan data awal untuk Form
-  const mockRepair: RepairEntry = {
-    id: `temp-${Date.now()}`,
-    vehicleId: selectedVehicleId,
-    serviceType: item.serviceType,
-    date: new Date().toISOString().split('T')[0],
-    // Gunakan autoLatestOdometer dari stats agar lebih akurat
-    odometer: stats.autoLatestOdometer || 0, 
-    cost: 0,
-    workshop: "",
-    notes: "", // Kosongkan agar user bisa isi sendiri
-    nextIntervalKm: item.intervalKm || 10000
-  };
+    setPrefillServiceType(item.serviceType);
+    setSaveToHistoryOnly(false);
 
-  setEditingRepair(mockRepair);
-  setShowAddSheet(true); 
-};
-
-const handleSaveNewPlan = () => {
-  if (!planName || !planInterval) {
-    alert(lang === "id" ? "Mohon isi nama dan interval!" : "Please fill name and interval!");
-    return;
-  }
-
-  const vId = selectedVehicleId;
-  const currentOdo = stats.autoLatestOdometer; // Odometer saat ini
-
-  const newPlan: Reminder = {
-    id: `rem-${Date.now()}`,
-    vehicleId: vId,
-    serviceType: planName,
-    intervalKm: Number(planInterval),
-    // Target KM = Odo sekarang + Interval
-    dueOdometer: currentOdo + Number(planInterval),
-    lastServiceOdometer: currentOdo,
-    status: 'safe',
-    lastServiceDate: new Date().toISOString(),
-  };
-
-  // Update state reminders SAJA
-  setReminders(prev => [...prev, newPlan]);
-
-  // Reset & Tutup
-  setPlanName("");
-  setPlanInterval("");
-  setShowPlanModal(false);
-};
-
-// Fungsi pendukung untuk reset Odometer servis
-const handleMarkDone = async (item: Reminder) => {
-    const currentOdo = selectedVehicle?.currentOdometer || 0;
-  
-  const newHistoryEntry: RepairEntry = {
-      id: `rep${Date.now()}`,
+    const mockRepair: RepairEntry = {
+      id: `temp-${Date.now()}`,
       vehicleId: selectedVehicleId,
       serviceType: item.serviceType,
-      date: new Date().toISOString().split('T')[0],
-      odometer: currentOdo,
-      cost: 0, // Bisa diedit nanti di history
+      date: new Date().toISOString().split("T")[0],
+      odometer: stats.autoLatestOdometer || 0,
+      cost: 0,
       workshop: "",
-      notes: "Auto-generated from Priority Maintenance",
-      nextIntervalKm: item.intervalKm
+      notes: "",
+      nextIntervalKm: item.intervalKm || 10000,
     };
-  
-  const updatedReminder: Reminder = {
-      ...item,
+
+    setEditingRepair(mockRepair);
+    setShowAddSheet(true);
+  };
+
+  const handleSaveNewPlan = () => {
+    if (!planName || !planInterval) {
+      alert(lang === "id" ? "Mohon isi nama dan interval!" : "Please fill name and interval!");
+      return;
+    }
+
+    const vId = selectedVehicleId;
+    const currentOdo = stats.autoLatestOdometer;
+
+    const newPlan: Reminder = {
+      id: `rem-${Date.now()}`,
+      vehicleId: vId,
+      serviceType: planName,
+      intervalKm: Number(planInterval),
+      dueOdometer: currentOdo + Number(planInterval),
       lastServiceOdometer: currentOdo,
-      dueOdometer: currentOdo + (item.intervalKm || 10000),
-      status: 'safe',
+      status: "safe",
       lastServiceDate: new Date().toISOString(),
     };
 
-  try {
-      // 1. Tambahkan ke History
+    setReminders((prev) => [...prev, newPlan]);
+
+    addNotification(
+      lang === "id" ? "Rencana Perawatan Baru" : "New Maintenance Plan",
+      `Rencana baru untuk ${planName} setiap ${planInterval} km berhasil dijadwalkan.`,
+      "vehicle",
+      selectedVehicleId
+    );
+
+    setPlanName("");
+    setPlanInterval("");
+    setShowPlanModal(false);
+  };
+
+  const handleMarkDone = async (item: Reminder) => {
+    const currentOdo = stats.selectedVehicle?.currentOdometer || 0;
+
+    const newHistoryEntry: RepairEntry = {
+      id: `rep${Date.now()}`,
+      vehicleId: selectedVehicleId,
+      serviceType: item.serviceType,
+      date: new Date().toISOString().split("T")[0],
+      odometer: currentOdo,
+      cost: 0,
+      workshop: "",
+      notes: "Auto-generated from Priority Maintenance",
+      nextIntervalKm: item.intervalKm,
+    };
+
+    const updatedReminder: Reminder = {
+      ...item,
+      lastServiceOdometer: currentOdo,
+      dueOdometer: currentOdo + (item.intervalKm || 10000),
+      status: "safe",
+      lastServiceDate: new Date().toISOString(),
+    };
+
+    try {
       const newRepair: RepairEntry = {
         id: `rep${Date.now()}`,
         vehicleId: selectedVehicleId,
-        ...formData,
+        serviceType: item.serviceType,
+        date: new Date().toISOString().split("T")[0],
+        odometer: currentOdo,
+        cost: 0,
+        workshop: "",
+        notes: "Auto-generated from Priority Maintenance",
+        nextIntervalKm: item.intervalKm,
       };
-      setRepairs(prev => [newRepair, ...prev]);
+      setRepairs((prev) => [newRepair, ...prev]);
 
-      setReminders(prev => prev.map(rem => {
-        const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
-        
-        if (isMatch && rem.vehicleId === selectedVehicleId) {
-          return {
-            ...rem,
-            lastServiceOdometer: Number(formData.odometer),
-            dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
-            status: 'safe',
-            lastServiceDate: new Date().toISOString(),
-          };
-        }
-        return rem;
-      }));
+      setReminders((prev) =>
+        prev.map((rem) => {
+          const isMatch = rem.serviceType.toLowerCase() === item.serviceType.toLowerCase();
+          if (isMatch && rem.vehicleId === selectedVehicleId) {
+            return updatedReminder;
+          }
+          return rem;
+        })
+      );
 
       setShowAddSheet(false);
       setEditingRepair(null);
       setPrefillServiceType(undefined);
-      
+
       alert(lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
     } catch (error) {
       console.error("Gagal menyimpan:", error);
     }
   };
-  
 
   const handleVehicleSave = (data: any) => {
     if (editingVehicle) {
       setVehicles((prev) =>
-        prev.map((v) => (v.id === editingVehicle.id 
-          ? { 
-              ...v, 
-              ...data, 
-              currentOdometer: data.currentOdometer ?? v.currentOdometer 
-            } 
-          : v)),
+        prev.map((v) =>
+          v.id === editingVehicle.id
+            ? {
+                ...v,
+                ...data,
+                currentOdometer: data.currentOdometer ?? v.currentOdometer,
+              }
+            : v
+        )
+      );
+      addNotification(
+        lang === "id" ? "Profil Kendaraan Diperbarui" : "Vehicle Profile Updated",
+        `Data kendaraan ${data.name || editingVehicle.name} telah berhasil diperbarui.`,
+        "vehicle",
+        editingVehicle.id
       );
     } else {
       const newVehicle = {
@@ -410,81 +436,92 @@ const handleMarkDone = async (item: Reminder) => {
       };
       setVehicles((prev) => [...prev, newVehicle]);
       setSelectedVehicleId(newVehicle.id);
+
+      addNotification(
+        lang === "id" ? "Kendaraan Ditambahkan" : "Vehicle Added",
+        `Kendaraan baru ${newVehicle.name} berhasil terdaftar di garasi.`,
+        "vehicle",
+        newVehicle.id
+      );
     }
+
     setShowVehicleModal(false);
   };
 
-const handleVehicleDelete = (id: string) => {
-  if (vehicles.length <= 1) {
+  const handleVehicleDelete = (id: string) => {
+    if (vehicles.length <= 1) {
+      Alert.alert(
+        lang === "id" ? "Peringatan" : "Warning",
+        lang === "id" ? "Minimal harus ada satu kendaraan." : "At least one vehicle is required."
+      );
+      return;
+    }
+
     Alert.alert(
-      lang === "id" ? "Peringatan" : "Warning",
-      lang === "id" ? "Minimal harus ada satu kendaraan." : "At least one vehicle is required."
+      lang === "id" ? "Hapus Kendaraan" : "Delete Vehicle",
+      lang === "id"
+        ? "Hapus kendaraan ini? Semua data riwayat akan hilang."
+        : "Delete this vehicle? All history will be lost.",
+      [
+        { text: lang === "id" ? "Batal" : "Cancel", style: "cancel" },
+        {
+          text: lang === "id" ? "Hapus" : "Delete",
+          style: "destructive",
+          onPress: () => {
+            const newVehicles = vehicles.filter((v) => v.id !== id);
+            setVehicles(newVehicles);
+
+            if (selectedVehicleId === id) {
+              const nextVehicleId = newVehicles[0].id;
+              setSelectedVehicleId(nextVehicleId);
+              saveSelectedVehicleId(nextVehicleId);
+            }
+            setShowVehicleModal(false);
+          },
+        },
+      ]
     );
-    return;
-  }
-
-  // GANTI confirm() dengan Alert.alert agar tidak crash di Android
-  Alert.alert(
-    lang === "id" ? "Hapus Kendaraan" : "Delete Vehicle",
-    lang === "id" 
-      ? "Hapus kendaraan ini? Semua data riwayat akan hilang." 
-      : "Delete this vehicle? All history will be lost.",
-    [
-      { text: lang === "id" ? "Batal" : "Cancel", style: "cancel" },
-      { 
-        text: lang === "id" ? "Hapus" : "Delete", 
-        style: "destructive", 
-        onPress: () => {
-          const newVehicles = vehicles.filter((v) => v.id !== id);
-          setVehicles(newVehicles);
-
-          if (selectedVehicleId === id) {
-            const nextVehicleId = newVehicles[0].id;
-            setSelectedVehicleId(nextVehicleId);
-            saveSelectedVehicleId(nextVehicleId);
-          }
-          setShowVehicleModal(false);
-        }
-      }
-    ]
-  );
-};
+  };
 
   const handleAddRepair = async (formData: any) => {
     try {
-      // 1. Buat objek perbaikan untuk History
       const newRepair: RepairEntry = {
         id: `rep${Date.now()}`,
         vehicleId: selectedVehicleId,
         ...formData,
-        date: formData.date || new Date().toISOString().split('T')[0],
+        date: formData.date || new Date().toISOString().split("T")[0],
       };
 
-      // 2. Simpan ke State Repairs (History)
-      setRepairs(prev => [newRepair, ...prev]);
+      setRepairs((prev) => [newRepair, ...prev]);
 
-      // 3. Update State Reminders (Priority List)
-      setReminders(prev => prev.map(rem => {
-        // Cari pengingat yang namanya sama (misal: "Ganti Oli")
-        const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
-        
-        if (isMatch && rem.vehicleId === selectedVehicleId) {
-          return {
-            ...rem,
-            lastServiceOdometer: Number(formData.odometer),
-            dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
-            status: 'safe',
-            lastServiceDate: new Date().toISOString(),
-          };
-        }
-        return rem;
-      }));
+      setReminders((prev) =>
+        prev.map((rem) => {
+          const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
 
-      // 4. Tutup Sheet & Reset
+          if (isMatch && rem.vehicleId === selectedVehicleId) {
+            return {
+              ...rem,
+              lastServiceOdometer: Number(formData.odometer),
+              dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
+              status: "safe",
+              lastServiceDate: new Date().toISOString(),
+            };
+          }
+          return rem;
+        })
+      );
+
       setShowAddSheet(false);
       setEditingRepair(null);
       setPrefillServiceType(undefined);
-      
+
+      addNotification(
+        lang === "id" ? "Servis Ditambahkan" : "Service Added",
+        `Data perbaikan/servis ${formData.serviceType} berhasil dicatat ke riwayat kendaraan.`,
+        "vehicle",
+        selectedVehicleId
+      );
+
       alert(lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
     } catch (error) {
       console.error("Gagal menyimpan:", error);
@@ -492,9 +529,7 @@ const handleVehicleDelete = (id: string) => {
   };
 
   const handleUpdateRepair = (id: string, entry: Omit<RepairEntry, "id">) => {
-    setRepairs((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, ...entry, id } : r))
-    );
+    setRepairs((prev) => prev.map((r) => (r.id === id ? { ...r, ...entry, id } : r)));
     setShowAddSheet(false);
     setEditingRepair(null);
   };
@@ -503,26 +538,29 @@ const handleVehicleDelete = (id: string) => {
     setFuelEntries((prev) => [...prev, { ...entry, id: `fe${Date.now()}` }]);
   };
 
-    const handleDelete = (id: string) => {
+  const handleDelete = (id: string) => {
     setItemToDeleteId(id);
     setShowDeleteConfirm(true);
-    };
+  };
 
-    const confirmDeleteAction = () => {
+  const confirmDeleteAction = () => {
     if (itemToDeleteId) {
       setReminders((prev) => prev.filter((r) => r.id !== itemToDeleteId));
       setShowDeleteConfirm(false);
       setItemToDeleteId(null);
-      }
-    };
-  
+    }
+  };
+
+  const unreadNotifsCount = notifications.filter(
+    (n) => !n.isRead && (n.type === "system" || n.vehicleId === selectedVehicleId)
+  ).length;
+
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
       <StatusBar barStyle="light-content" />
 
       {/* HEADER & TOP NAVIGATION SECTION */}
       <View style={{ paddingTop: insets.top, backgroundColor: "#0D1B2A" }}>
-        {/* Container untuk Logo & Bahasa */}
         <View
           style={{
             flexDirection: "row",
@@ -560,40 +598,76 @@ const handleVehicleDelete = (id: string) => {
               >
                 {t("appTagline").toUpperCase()}
               </Text>
-              <Text
-                style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}
-              >
+              <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}>
                 {t("appName")}
               </Text>
             </View>
           </View>
 
-          <TouchableOpacity
-            onPress={() => setShowLangModal(true)} // Pastikan ini memanggil modal
-            activeOpacity={0.7}
-            style={{
-              backgroundColor: "#1A2B3C",
-              borderRadius: 12,
-              padding: 10,
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.1)",
-            }}
-          >
-            <Text style={{ fontSize: 18 }}>{lang === "id" ? "🇮🇩" : "🇬🇧"}</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <TouchableOpacity onPress={() => setShowNotifModal(true)} activeOpacity={0.7}>
+              <Animated.View
+                style={{
+                  backgroundColor: "#1A2B3C",
+                  borderRadius: 12,
+                  padding: 10,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.1)",
+                  position: "relative",
+                  transform: [{ scale: bellScale }],
+                }}
+              >
+                <Text style={{ fontSize: 18 }}>🔔</Text>
+                {unreadNotifsCount > 0 && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: -5,
+                      right: -5,
+                      backgroundColor: "#FF5252",
+                      borderRadius: 10,
+                      width: 20,
+                      height: 20,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderWidth: 2,
+                      borderColor: "#0D1B2A",
+                    }}
+                  >
+                    <Text style={{ color: "#FFF", fontSize: 10, fontWeight: "bold" }}>
+                      {unreadNotifsCount > 9 ? "9+" : unreadNotifsCount}
+                    </Text>
+                  </View>
+                )}
+              </Animated.View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowLangModal(true)}
+              activeOpacity={0.7}
+              style={{
+                backgroundColor: "#1A2B3C",
+                borderRadius: 12,
+                padding: 10,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.1)",
+              }}
+            >
+              <Text style={{ fontSize: 18 }}>{lang === "id" ? "🇮🇩" : "🇬🇧"}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Baris Switcher Kendaraan */}
         <View style={{ paddingBottom: 8 }}>
           <VehicleSwitcher
-  vehicles={vehicles}
-  selectedId={selectedVehicleId}
-  onSelect={setSelectedVehicleId}
-  onAddVehicle={() => {
-    setEditingVehicle(null); 
-    setShowVehicleModal(true);
-  }}
-/>
+            vehicles={vehicles}
+            selectedId={selectedVehicleId}
+            onSelect={setSelectedVehicleId}
+            onAddVehicle={() => {
+              setEditingVehicle(null);
+              setShowVehicleModal(true);
+            }}
+          />
         </View>
       </View>
 
@@ -605,81 +679,78 @@ const handleVehicleDelete = (id: string) => {
         scrollEventThrottle={16}
         contentContainerStyle={{
           gap: 20,
-          paddingBottom: 150, // Ruang untuk Navbar Bawah & FAB
+          paddingBottom: 150,
           paddingTop: 10,
         }}
       >
         {activeTab === "home" && stats.selectedVehicle ? (
-    <>
-      <VehicleProfileCard
-        vehicle={{ 
-          ...stats.selectedVehicle, 
-          currentOdometer: stats.autoLatestOdometer 
-        }}
-        onEditVehicle={() => {
-          setEditingVehicle(stats.selectedVehicle!);
-          setShowVehicleModal(true);
-        }}
-      />
-            <View
-              style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}
-            >
-              <View
-              style={{
-                flex: 1,
-                backgroundColor: "#1A2B3C",
-                borderRadius: 14,
-                padding: 14,
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.05)",
+          <>
+            <VehicleProfileCard
+              vehicle={{
+                ...stats.selectedVehicle,
+                currentOdometer: stats.autoLatestOdometer,
               }}
-            >
-              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>
-                {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
-              </Text>
-              
-              <Text
+              onEditVehicle={() => {
+                setEditingVehicle(stats.selectedVehicle!);
+                setShowVehicleModal(true);
+              }}
+            />
+            <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
+              <View
                 style={{
-                  color: "#F5A623",
-                  fontSize: 16,
-                  fontWeight: "600",
-                  marginTop: 2,
-                  marginBottom: 8
+                  flex: 1,
+                  backgroundColor: "#1A2B3C",
+                  borderRadius: 14,
+                  padding: 14,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.05)",
                 }}
               >
-                {new Intl.NumberFormat("id-ID", {
-                  style: "currency",
-                  currency: "IDR",
-                  maximumFractionDigits: 0,
-                }).format(stats.monthlyCost)}
-              </Text>
+                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>
+                  {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
+                </Text>
 
-              {/* Rincian Terpisah (Fuel & Repair) */}
-              <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8, gap: 4 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>
-                    ⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}
-                  </Text>
-                  <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>
-                    Rp {stats.totalFuelMonthly.toLocaleString('id-ID')}
-                  </Text>
+                <Text
+                  style={{
+                    color: "#F5A623",
+                    fontSize: 16,
+                    fontWeight: "600",
+                    marginTop: 2,
+                    marginBottom: 8,
+                  }}
+                >
+                  {new Intl.NumberFormat("id-ID", {
+                    style: "currency",
+                    currency: "IDR",
+                    maximumFractionDigits: 0,
+                  }).format(stats.monthlyCost)}
+                </Text>
+
+                <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, gap: 4 }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>
+                      ⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}
+                    </Text>
+                    <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>
+                      Rp {stats.totalFuelMonthly.toLocaleString("id-ID")}
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>
+                      🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}
+                    </Text>
+                    <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>
+                      Rp {stats.totalRepairMonthly.toLocaleString("id-ID")}
+                    </Text>
+                  </View>
                 </View>
-                
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>
-                    🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}
-                  </Text>
-                  <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>
-                    Rp {stats.totalRepairMonthly.toLocaleString('id-ID')}
-                  </Text>
-                </View>
+
+                <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: "italic" }}>
+                  {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
+                </Text>
               </View>
 
-              <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: 'italic' }}>
-                {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
-              </Text>
-            </View>
-              {/* KOTAK SERVICES DONE YANG BISA DIKLIK */}
               <TouchableOpacity
                 onPress={() => setShowCalendarModal(true)}
                 activeOpacity={0.7}
@@ -692,8 +763,8 @@ const handleVehicleDelete = (id: string) => {
                   borderColor: "rgba(255,255,255,0.05)",
                 }}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: '600' }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600" }}>
                     {t("servicesDone")}
                   </Text>
                   <Text style={{ fontSize: 14 }}>📅</Text>
@@ -707,23 +778,26 @@ const handleVehicleDelete = (id: string) => {
                     marginTop: 2,
                   }}
                 >
-                  {stats.monthlyServicesDone} <Text style={{ fontSize: 16, fontWeight: '600',marginTop: 2,
-                  marginBottom: 8 }}>{t("records")}</Text>
+                  {stats.monthlyServicesDone}{" "}
+                  <Text style={{ fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>
+                    {t("records")}
+                  </Text>
                 </Text>
 
-                {/* STATS TAMBAHAN UNTUK MENGISI RUANG KOSONG */}
-                <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8, marginTop: 8, gap: 4 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, marginTop: 8, gap: 4 }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ Total Liter</Text>
                     <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>
                       {stats.totalLitersMonthly.toFixed(1)} L
                     </Text>
                   </View>
-                  
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛣️ {lang === "id" ? "Jarak" : "Distance"}</Text>
+
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>
+                      🛣️ {lang === "id" ? "Jarak" : "Distance"}
+                    </Text>
                     <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>
-                      +{stats.monthlyDistance.toLocaleString('id-ID')} km
+                      +{stats.monthlyDistance.toLocaleString("id-ID")} km
                     </Text>
                   </View>
                 </View>
@@ -734,37 +808,49 @@ const handleVehicleDelete = (id: string) => {
               </TouchableOpacity>
             </View>
             <MaintenanceStatusBar
-  reminders={stats.vehicleReminders}
-  currentOdometer={stats.autoLatestOdometer}
-  accentColor={stats.selectedVehicle?.color}
-/>
+              reminders={stats.vehicleReminders}
+              currentOdometer={stats.autoLatestOdometer}
+              accentColor={stats.selectedVehicle?.color}
+            />
             <UpcomingReminders
-  reminders={stats.vehicleReminders}
-  currentOdometer={stats.autoLatestOdometer}
-  vehicle={stats.selectedVehicle}
-  onAddReminder={() => setShowPlanModal(true)}
-  onEditReminder={handleEdit}
-  onDeleteReminder={handleDelete}
-/>
+              reminders={stats.vehicleReminders}
+              currentOdometer={stats.autoLatestOdometer}
+              vehicle={stats.selectedVehicle}
+              onAddReminder={() => setShowPlanModal(true)}
+              onEditReminder={handleEdit}
+              onDeleteReminder={handleDelete}
+            />
           </>
         ) : null}
 
         {activeTab === "history" && (
-  <RepairHistory
-  repairs={stats.vehicleRepairs}
-  onEdit={(r) => {
-    setEditingRepair(r);
-    setShowAddSheet(true);
-  }}
-  onDelete={(id) => {
-    setRepairs((prev) => prev.filter((r) => r.id !== id));
-  }}
-/>
-)}
+          <RepairHistory
+            repairs={stats.vehicleRepairs}
+            onEdit={(r) => {
+              setEditingRepair(r);
+              setShowAddSheet(true);
+            }}
+            onDelete={(id) => {
+              const deletedItem = stats.vehicleRepairs.find((r) => r.id === id);
+              setRepairs((prev) => prev.filter((r) => r.id !== id));
+
+              if (deletedItem) {
+                addNotification(
+                  lang === "id" ? "Riwayat Dihapus" : "History Deleted",
+                  `Menghapus riwayat [${deletedItem.serviceType}] (Odo Terakhir: ${deletedItem.odometer.toLocaleString(
+                    "id-ID"
+                  )} km).`,
+                  "vehicle",
+                  selectedVehicleId
+                );
+              }
+            }}
+          />
+        )}
 
         {activeTab === "fuel" && (
           <FuelLog
-  fuelEntries={stats.vehicleFuelEntries}
+            fuelEntries={stats.vehicleFuelEntries}
             onAdd={() => {
               setEditingFuel(null);
               setShowFuelSheet(true);
@@ -774,101 +860,131 @@ const handleVehicleDelete = (id: string) => {
               setShowFuelSheet(true);
             }}
             onDelete={(id) => {
-      setFuelEntries((prev) => prev.filter((f) => f.id !== id));
-    }}
-  />
-)}
+              const deletedFuel = stats.vehicleFuelEntries.find((f) => f.id === id);
+              setFuelEntries((prev) => prev.filter((f) => f.id !== id));
+
+              if (deletedFuel) {
+                addNotification(
+                  lang === "id" ? "Catatan Bensin Dihapus" : "Fuel Record Deleted",
+                  `Menghapus data bensin ${deletedFuel.liters}L pada Odo: ${deletedFuel.odometer.toLocaleString(
+                    "id-ID"
+                  )} km.`,
+                  "vehicle",
+                  selectedVehicleId
+                );
+              }
+
+              setShowFuelSheet(false);
+              setEditingFuel(null);
+            }}
+          />
+        )}
       </ScrollView>
 
       {/* MODALS SECTION */}
-
-      {/* 1. Add Repair Sheet */}
       <AddRepairSheet
-  visible={showAddSheet}
-  vehicleId={selectedVehicleId}
-  currentOdometer={stats.selectedVehicle?.currentOdometer || 0} 
-  vehicleType={stats.selectedVehicle?.vehicleType || "motorcycle"}
-  prefillServiceType={prefillServiceType}
-  editEntry={editingRepair}
-  isHistoryMode={saveToHistoryOnly}
-  isServiceTypeLocked={!saveToHistoryOnly}
-  onClose={() => { 
-    setShowAddSheet(false); 
-    setEditingRepair(null); 
-  }}
-  onSave={(formData) => {
-    const vId = selectedVehicleId;
-    // --- PENENTUAN EDIT ATAU BARU ---
-    // Jika editingRepair ada dan ID-nya tidak mengandung 'temp', berarti sedang EDIT
-    const isEdit = editingRepair && editingRepair.id && !editingRepair.id.includes('temp');
+        visible={showAddSheet}
+        vehicleId={selectedVehicleId}
+        currentOdometer={stats.selectedVehicle?.currentOdometer || 0}
+        vehicleType={stats.selectedVehicle?.vehicleType || "motorcycle"}
+        prefillServiceType={prefillServiceType}
+        editEntry={editingRepair}
+        isHistoryMode={saveToHistoryOnly}
+        isServiceTypeLocked={!saveToHistoryOnly}
+        onClose={() => {
+          setShowAddSheet(false);
+          setEditingRepair(null);
+        }}
+        onSave={(formData) => {
+          const vId = selectedVehicleId;
+          const isEdit = editingRepair && editingRepair.id && !editingRepair.id.includes("temp");
 
-    if (isEdit) {
-      // --- LOGIKA UPDATE (Ganti data lama) ---
-      const updatedEntry = {
-        ...editingRepair,
-        ...formData,
-        vehicleId: vId,
-      };
-
-      // Update di Riwayat (Repairs)
-      setRepairs(prev => prev.map(r => r.id === editingRepair.id ? updatedEntry : r));
-
-      // Update di Dashboard (Reminders) agar target KM sinkron
-      setReminders(prev => prev.map(rem => {
-        const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
-        if (isMatch && rem.vehicleId === vId) {
-          const odo = Number(formData.odometer);
-          const interval = Number(formData.nextIntervalKm) || 10000;
-          return {
-            ...rem,
-            lastServiceOdometer: odo,
-            dueOdometer: odo + interval,
-            intervalKm: interval,
-            status: 'safe', // Reset status jadi aman kembali
-            lastServiceDate: new Date().toISOString(),
-          };
-        }
-        return rem;
-      }));
-
-      alert(lang === "id" ? "Data berhasil diperbarui!" : "Data updated successfully!");
-    } else {
-      // --- LOGIKA TAMBAH BARU (ID baru) ---
-      const newRepair: RepairEntry = {
-        id: `rep${Date.now()}`,
-        vehicleId: vId,
-        ...formData,
-        date: formData.date || new Date().toISOString().split('T')[0],
-      };
-
-      setRepairs(prev => [newRepair, ...prev]);
-
-      // Jika dari tombol "Sudah Servis" (Dashboard), update jadwalnya juga
-      if (!saveToHistoryOnly) {
-        setReminders(prev => prev.map(rem => {
-          const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
-          if (isMatch && rem.vehicleId === vId) {
-            return {
-              ...rem,
-              lastServiceOdometer: Number(formData.odometer),
-              dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
-              status: 'safe',
+          if (isEdit) {
+            const updatedEntry = {
+              ...editingRepair,
+              ...formData,
+              vehicleId: vId,
             };
+
+            setRepairs((prev) => prev.map((r) => (r.id === editingRepair.id ? updatedEntry : r)));
+
+            setReminders((prev) =>
+              prev.map((rem) => {
+                const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
+                if (isMatch && rem.vehicleId === vId) {
+                  const odo = Number(formData.odometer);
+                  const interval = Number(formData.nextIntervalKm) || 10000;
+                  return {
+                    ...rem,
+                    lastServiceOdometer: odo,
+                    dueOdometer: odo + interval,
+                    intervalKm: interval,
+                    status: "safe",
+                    lastServiceDate: new Date().toISOString(),
+                  };
+                }
+                return rem;
+              })
+            );
+
+            const oldOdo = editingRepair.odometer?.toLocaleString("id-ID") || 0;
+            const newOdo = Number(formData.odometer).toLocaleString("id-ID");
+            const oldCost = editingRepair.cost?.toLocaleString("id-ID") || 0;
+            const newCost = Number(formData.cost).toLocaleString("id-ID");
+
+            addNotification(
+              lang === "id" ? "Servis Diperbarui" : "Service Updated",
+              `Update [${formData.serviceType}]: Odo ${oldOdo}km ➔ ${newOdo}km | Biaya Rp${oldCost} ➔ Rp${newCost}.`,
+              "vehicle",
+              vId
+            );
+
+            alert(lang === "id" ? "Data berhasil diperbarui!" : "Data updated successfully!");
+          } else {
+            const newRepair: RepairEntry = {
+              id: `rep${Date.now()}`,
+              vehicleId: vId,
+              ...formData,
+              date: formData.date || new Date().toISOString().split("T")[0],
+            };
+
+            setRepairs((prev) => [newRepair, ...prev]);
+
+            if (!saveToHistoryOnly) {
+              setReminders((prev) =>
+                prev.map((rem) => {
+                  const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
+                  if (isMatch && rem.vehicleId === vId) {
+                    return {
+                      ...rem,
+                      lastServiceOdometer: Number(formData.odometer),
+                      dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
+                      status: "safe",
+                    };
+                  }
+                  return rem;
+                })
+              );
+            }
+
+            addNotification(
+              lang === "id" ? "Servis Ditambahkan" : "Service Added",
+              `Mencatat [${formData.serviceType}] pada Odo: ${Number(formData.odometer).toLocaleString(
+                "id-ID"
+              )} km (Biaya: Rp${Number(formData.cost).toLocaleString("id-ID")}).`,
+              "vehicle",
+              vId
+            );
+
+            alert(lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
           }
-          return rem;
-        }));
-      }
-      alert(lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
-    }
 
-    // Reset dan tutup modal
-    setShowAddSheet(false);
-    setEditingRepair(null);
-    setPrefillServiceType(undefined);
-  }}
-/>
+          setShowAddSheet(false);
+          setEditingRepair(null);
+          setPrefillServiceType(undefined);
+        }}
+      />
 
-      {/* 2. Fuel Sheet */}
       <FuelSheet
         visible={showFuelSheet}
         vehicleId={selectedVehicleId}
@@ -879,102 +995,146 @@ const handleVehicleDelete = (id: string) => {
           setShowFuelSheet(false);
           setEditingFuel(null);
         }}
-        // TAMBAHKAN LOGIKA HAPUS DI SINI
         onDelete={(id) => {
+          const deletedFuel = stats.vehicleFuelEntries.find((f) => f.id === id);
           setFuelEntries((prev) => prev.filter((f) => f.id !== id));
+
+          if (deletedFuel) {
+            addNotification(
+              lang === "id" ? "Catatan Bensin Dihapus" : "Fuel Record Deleted",
+              `Menghapus data bensin ${deletedFuel.liters}L pada Odo: ${deletedFuel.odometer.toLocaleString(
+                "id-ID"
+              )} km.`,
+              "vehicle",
+              selectedVehicleId
+            );
+          }
+
           setShowFuelSheet(false);
           setEditingFuel(null);
         }}
         onSave={(entry) => {
           if (editingFuel) {
-            // Logika Update data lama
-            setFuelEntries((prev) =>
-              prev.map((f) =>
-                f.id === editingFuel.id ? { ...f, ...entry } : f,
-              ),
+            setFuelEntries((prev) => prev.map((f) => (f.id === editingFuel.id ? { ...f, ...entry } : f)));
+
+            const oldOdoF = editingFuel.odometer?.toLocaleString("id-ID") || 0;
+            const newOdoF = Number(entry.odometer).toLocaleString("id-ID");
+            addNotification(
+              lang === "id" ? "Catatan Bensin Diperbarui" : "Fuel Record Updated",
+              `Update Bensin: Odo ${oldOdoF}km ➔ ${newOdoF}km | Liter: ${editingFuel.liters}L ➔ ${entry.liters}L.`,
+              "vehicle",
+              selectedVehicleId
             );
           } else {
-            // Logika Tambah data baru
             handleAddFuel(entry);
+
+            addNotification(
+              lang === "id" ? "Bensin Ditambahkan" : "Fuel Added",
+              `Mengisi ${entry.liters}L pada Odo: ${Number(entry.odometer).toLocaleString(
+                "id-ID"
+              )} km (Rp${Number(entry.totalCost).toLocaleString("id-ID")}).`,
+              "vehicle",
+              selectedVehicleId
+            );
           }
           setShowFuelSheet(false);
           setEditingFuel(null);
         }}
       />
 
-      {/* 3. Vehicle Edit */}
       <VehicleEditModal
         visible={showVehicleModal}
         vehicle={editingVehicle}
         onClose={() => setShowVehicleModal(false)}
         onSave={handleVehicleSave}
-        onDelete={handleVehicleDelete} // <--- TAMBAHKAN BARIS INI
+        onDelete={handleVehicleDelete}
       />
 
-      {/* MODAL TAMBAH RENCANA PERAWATAN (HANYA MUNCUL DI DASHBOARD) */}
-<Modal
-  visible={showPlanModal}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setShowPlanModal(false)}
->
-  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
-    <View style={{ backgroundColor: '#1A2B3C', borderRadius: 24, padding: 25, width: '85%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-      <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '800', marginBottom: 20, textAlign: 'center' }}>
-        {lang === "id" ? "Tambah Rencana Perawatan" : "Add Maintenance Plan"}
-      </Text>
+      <Modal visible={showPlanModal} transparent animationType="fade" onRequestClose={() => setShowPlanModal(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.9)", justifyContent: "center", alignItems: "center" }}>
+          <View
+            style={{
+              backgroundColor: "#1A2B3C",
+              borderRadius: 24,
+              padding: 25,
+              width: "85%",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.1)",
+            }}
+          >
+            <Text style={{ color: "#FFF", fontSize: 18, fontWeight: "800", marginBottom: 20, textAlign: "center" }}>
+              {lang === "id" ? "Tambah Rencana Perawatan" : "Add Maintenance Plan"}
+            </Text>
 
-      {/* Input Nama */}
-      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 8, fontWeight: '700' }}>
-        {lang === "id" ? "NAMA PERBAIKAN" : "SERVICE NAME"}
-      </Text>
-      <TextInput
-        style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 15, color: '#FFF', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
-        placeholder="Contoh: Ganti Aki, Radiator..."
-        placeholderTextColor="rgba(255,255,255,0.2)"
-        value={planName}
-        onChangeText={setPlanName}
-      />
+            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 8, fontWeight: "700" }}>
+              {lang === "id" ? "NAMA PERBAIKAN" : "SERVICE NAME"}
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: "rgba(0,0,0,0.2)",
+                borderRadius: 12,
+                padding: 15,
+                color: "#FFF",
+                marginBottom: 20,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.05)",
+              }}
+              placeholder="Contoh: Ganti Aki, Radiator..."
+              placeholderTextColor="rgba(255,255,255,0.2)"
+              value={planName}
+              onChangeText={setPlanName}
+            />
 
-      {/* Input Interval */}
-      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 8, fontWeight: '700' }}>
-        {lang === "id" ? "INTERVAL (SETIAP BERAPA KM?)" : "INTERVAL (KM)"}
-      </Text>
-      <TextInput
-        style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 15, color: '#FFF', marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
-        placeholder="Contoh: 10000"
-        placeholderTextColor="rgba(255,255,255,0.2)"
-        keyboardType="numeric"
-        value={planInterval}
-        onChangeText={(text) => setPlanInterval(text)}
-      />
+            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 8, fontWeight: "700" }}>
+              {lang === "id" ? "INTERVAL (SETIAP BERAPA KM?)" : "INTERVAL (KM)"}
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: "rgba(0,0,0,0.2)",
+                borderRadius: 12,
+                padding: 15,
+                color: "#FFF",
+                marginBottom: 25,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.05)",
+              }}
+              placeholder="Contoh: 10000"
+              placeholderTextColor="rgba(255,255,255,0.2)"
+              keyboardType="numeric"
+              value={planInterval}
+              onChangeText={(text) => setPlanInterval(text)}
+            />
 
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <TouchableOpacity 
-          onPress={() => setShowPlanModal(false)}
-          style={{ flex: 1, paddingVertical: 15, alignItems: 'center' }}
-        >
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>{lang === "id" ? "Batal" : "Cancel"}</Text>
-        </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setShowPlanModal(false)}
+                style={{ flex: 1, paddingVertical: 15, alignItems: "center" }}
+              >
+                <Text style={{ color: "rgba(255,255,255,0.4)", fontWeight: "700" }}>
+                  {lang === "id" ? "Batal" : "Cancel"}
+                </Text>
+              </TouchableOpacity>
 
-        <TouchableOpacity 
-          onPress={handleSaveNewPlan}
-          style={{ flex: 2, backgroundColor: '#4ECDC4', borderRadius: 14, paddingVertical: 15, alignItems: 'center' }}
-        >
-          <Text style={{ color: '#0D1B2A', fontWeight: '800' }}>{lang === "id" ? "Simpan Rencana" : "Save Plan"}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-</Modal>
+              <TouchableOpacity
+                onPress={handleSaveNewPlan}
+                style={{
+                  flex: 2,
+                  backgroundColor: "#4ECDC4",
+                  borderRadius: 14,
+                  paddingVertical: 15,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: "#0D1B2A", fontWeight: "800" }}>
+                  {lang === "id" ? "Simpan Rencana" : "Save Plan"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
-      {/* 4. MODAL BAHASA (Sudah Diperbaiki Penutupnya) */}
-      <Modal
-        visible={showLangModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLangModal(false)}
-      >
+      <Modal visible={showLangModal} transparent animationType="fade" onRequestClose={() => setShowLangModal(false)}>
         <TouchableWithoutFeedback onPress={() => setShowLangModal(false)}>
           <View
             style={{
@@ -1019,15 +1179,12 @@ const handleVehicleDelete = (id: string) => {
                       flexDirection: "row",
                       justifyContent: "center",
                       alignItems: "center",
-                      backgroundColor:
-                        lang === l ? "#F5A623" : "rgba(255,255,255,0.03)",
+                      backgroundColor: lang === l ? "#F5A623" : "rgba(255,255,255,0.03)",
                       borderRadius: 16,
                       marginBottom: 12,
                     }}
                   >
-                    <Text style={{ fontSize: 22, marginRight: 12 }}>
-                      {l === "id" ? "🇮🇩" : "🇬🇧"}
-                    </Text>
+                    <Text style={{ fontSize: 22, marginRight: 12 }}>{l === "id" ? "🇮🇩" : "🇬🇧"}</Text>
                     <Text
                       style={{
                         color: lang === l ? "#0D1B2A" : "#FFFFFF",
@@ -1044,91 +1201,94 @@ const handleVehicleDelete = (id: string) => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-      
-      {/* Custom Delete Confirmation Modal */}
-      <Modal 
-        visible={showDeleteConfirm} 
-        transparent 
-        animationType="fade"
-        onRequestClose={() => setShowDeleteConfirm(false)}
-      >
-        <View style={{ 
-          flex: 1, 
-          backgroundColor: 'rgba(7, 18, 28, 0.95)', // Background overlay lebih gelap sesuai referensi
-          justifyContent: 'center', 
-          alignItems: 'center' 
-        }}>
-          <View style={{ 
-            width: '85%', // Lebar disesuaikan menjadi 85%
-            backgroundColor: '#162431', // Warna kartu disesuaikan
-            borderRadius: 32, // Border radius lebih membulat (32)
-            padding: 30, // Padding disesuaikan
-            alignItems: 'center'
-          }}>
-            {/* Visual Indicator (Garis Handle di atas) */}
-            <View style={{ 
-              width: 40, 
-              height: 4, 
-              backgroundColor: 'rgba(255,255,255,0.1)', 
-              borderRadius: 2, 
-              marginBottom: 25 
-            }} />
 
-            <Text style={{ 
-              color: '#FFF', 
-              fontSize: 20, // Font size disesuaikan
-              fontWeight: '800', 
-              marginBottom: 10 
-            }}>
+      <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(7, 18, 28, 0.95)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "85%",
+              backgroundColor: "#162431",
+              borderRadius: 32,
+              padding: 30,
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 4,
+                backgroundColor: "rgba(255,255,255,0.1)",
+                borderRadius: 2,
+                marginBottom: 25,
+              }}
+            />
+
+            <Text
+              style={{
+                color: "#FFF",
+                fontSize: 20,
+                fontWeight: "800",
+                marginBottom: 10,
+              }}
+            >
               {lang === "id" ? "Hapus Riwayat?" : "Delete History?"}
             </Text>
-            
-            <Text style={{ 
-              color: 'rgba(255,255,255,0.4)', // Warna teks deskripsi disesuaikan
-              textAlign: 'center', 
-              fontSize: 14, 
-              lineHeight: 22, 
-              marginBottom: 35 
-            }}>
-              {lang === "id" 
-                ? "Catatan pemeliharaan ini akan dihapus secara permanen dari riwayat kendaraan Anda." 
+
+            <Text
+              style={{
+                color: "rgba(255,255,255,0.4)",
+                textAlign: "center",
+                fontSize: 14,
+                lineHeight: 22,
+                marginBottom: 35,
+              }}
+            >
+              {lang === "id"
+                ? "Catatan pemeliharaan ini akan dihapus secara permanen dari riwayat kendaraan Anda."
                 : "This maintenance record will be permanently removed from your vehicle history."}
             </Text>
 
-            <View style={{ width: '100%', gap: 12 }}>
-              {/* Tombol Hapus (Confirm) */}
-              <TouchableOpacity 
+            <View style={{ width: "100%", gap: 12 }}>
+              <TouchableOpacity
                 onPress={confirmDeleteAction}
                 activeOpacity={0.8}
-                style={{ 
-                  width: '100%', 
-                  paddingVertical: 16, 
-                  borderRadius: 20, // Border radius tombol disesuaikan
-                  backgroundColor: '#FF5252',
-                  alignItems: 'center'
+                style={{
+                  width: "100%",
+                  paddingVertical: 16,
+                  borderRadius: 20,
+                  backgroundColor: "#FF5252",
+                  alignItems: "center",
                 }}
               >
-                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 16 }}>
+                <Text style={{ color: "#FFF", fontWeight: "800", fontSize: 16 }}>
                   {lang === "id" ? "Ya, Hapus Riwayat" : "Yes, Delete History"}
                 </Text>
               </TouchableOpacity>
 
-              {/* Tombol Batal (Cancel) */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => setShowDeleteConfirm(false)}
                 activeOpacity={0.6}
-                style={{ 
-                  width: '100%', 
-                  paddingVertical: 16, 
-                  borderRadius: 20, 
-                  alignItems: 'center' 
+                style={{
+                  width: "100%",
+                  paddingVertical: 16,
+                  borderRadius: 20,
+                  alignItems: "center",
                 }}
               >
-                <Text style={{ 
-                  color: 'rgba(255,255,255,0.4)', 
-                  fontWeight: '700', 
-                  fontSize: 15 
-                }}>
+                <Text
+                  style={{
+                    color: "rgba(255,255,255,0.4)",
+                    fontWeight: "700",
+                    fontSize: 15,
+                  }}
+                >
                   {lang === "id" ? "Batal" : "Cancel"}
                 </Text>
               </TouchableOpacity>
@@ -1136,9 +1296,7 @@ const handleVehicleDelete = (id: string) => {
           </View>
         </View>
       </Modal>
-      
 
-      {/* 5. MODAL KALENDER (Sekarang Sejajar, Bukan di Dalam) */}
       <Modal
         visible={showCalendarModal}
         transparent
@@ -1163,7 +1321,6 @@ const handleVehicleDelete = (id: string) => {
               borderColor: "rgba(255,255,255,0.1)",
             }}
           >
-            {/* HEADER */}
             <View
               style={{
                 flexDirection: "row",
@@ -1175,9 +1332,7 @@ const handleVehicleDelete = (id: string) => {
                 borderBottomColor: "rgba(255,255,255,0.05)",
               }}
             >
-              <Text style={{ color: "#FFF", fontSize: 18, fontWeight: "800" }}>
-                Jejak Kendaraan
-              </Text>
+              <Text style={{ color: "#FFF", fontSize: 18, fontWeight: "800" }}>Jejak Kendaraan</Text>
               <TouchableOpacity onPress={() => setShowCalendarModal(false)}>
                 <View
                   style={{
@@ -1200,38 +1355,49 @@ const handleVehicleDelete = (id: string) => {
               </TouchableOpacity>
             </View>
 
-               {/* KALENDER */}
-<View style={{ 
-  paddingHorizontal: 5, 
-  paddingVertical: 10,
-  backgroundColor: 'rgba(0,0,0,0.1)', // Memberi kontras tipis agar angka tanggal terlihat jelas
-  borderRadius: 20,
-  marginHorizontal: 10
-}}>
-  <MaintenanceCalendar
-    repairs={stats.vehicleRepairs}
-    fuelEntries={stats.vehicleFuelEntries}
-    // Pastikan di dalam komponen MaintenanceCalendar kamu mengatur 
-    // theme={{ calendarBackground: 'transparent', ... }} agar menyatu
-    onDayPress={(day: any) => {
-      setSelectedDate(day.dateString);
-      const repairsOnDate = stats.vehicleRepairs.filter((r) => r.date === day.dateString);
-      const fuelsOnDate = stats.vehicleFuelEntries.filter((f) => {
-        const fuelDate = typeof f.date === "string" ? f.date.split("T")[0] : f.date;
-        return fuelDate === day.dateString;
-      });
+            <View
+              style={{
+                paddingHorizontal: 5,
+                paddingVertical: 10,
+                backgroundColor: "rgba(0,0,0,0.1)",
+                borderRadius: 20,
+                marginHorizontal: 10,
+              }}
+            >
+              <MaintenanceCalendar
+                repairs={stats.vehicleRepairs}
+                fuelEntries={stats.vehicleFuelEntries}
+                onDayPress={(day: any) => {
+                  setSelectedDate(day.dateString);
+                  const repairsOnDate = stats.vehicleRepairs.filter((r) => r.date === day.dateString);
+                  const fuelsOnDate = stats.vehicleFuelEntries.filter((f) => {
+                    const fuelDate = typeof f.date === "string" ? f.date.split("T")[0] : f.date;
+                    return fuelDate === day.dateString;
+                  });
 
-      const combined = [
-        ...repairsOnDate.map((item) => ({ ...item, category: "repair" })),
-        ...fuelsOnDate.map((item) => ({ ...item, category: "fuel" })),
-      ];
-      setSelectedDateRecords(combined);
-    }}
-  />
-</View>
+                  const combined = [
+                    ...repairsOnDate.map((item) => ({ ...item, category: "repair" })),
+                    ...fuelsOnDate.map((item) => ({ ...item, category: "fuel" })),
+                  ];
+                  setSelectedDateRecords(combined);
+                }}
+              />
+            </View>
           </View>
         </View>
       </Modal>
+
+      <NotifCenter
+        visible={showNotifModal}
+        onClose={() => setShowNotifModal(false)}
+        notifications={notifications}
+        selectedVehicleId={selectedVehicleId}
+        onMarkAsRead={(id) =>
+          setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
+        }
+        onMarkAllAsRead={() => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
+        onDelete={(id) => setNotifications((prev) => prev.filter((n) => n.id !== id))}
+      />
     </View>
   );
 }

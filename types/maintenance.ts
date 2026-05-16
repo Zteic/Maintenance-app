@@ -72,12 +72,15 @@ export interface FuelEntry {
   isFlagged?: boolean; // Auto-Flag jika angka tidak wajar
 }
 
+// types/maintenance.ts
 export interface NotificationItem {
   id: string;
+  vehicleId?: string | null;
+  type: 'system' | 'vehicle';
   title: string;
-  body: string;
+  message: string;
+  isRead: boolean;
   timestamp: Date;
-  read: boolean;
 }
 
 export type ServiceType = string;
