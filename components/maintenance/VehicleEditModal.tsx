@@ -252,53 +252,7 @@ export default function VehicleEditModal({
                   }}
                   showsVerticalScrollIndicator={false}
                 >
-                  {/* Vehicle Type */}
-                  <View style={{ gap: 8 }}>
-                    <Text style={labelStyle}>{t("vehicleType")}</Text>
-                    <View style={{ flexDirection: "row", gap: 10 }}>
-                      {(["motorcycle", "car"] as const).map((type) => (
-                        <TouchableOpacity
-                          key={type}
-                          onPress={() => setVehicleType(type)}
-                          style={{
-                            flex: 1,
-                            paddingVertical: 12,
-                            paddingHorizontal: 16,
-                            borderRadius: 12,
-                            borderWidth: 1.5,
-                            alignItems: "center",
-                            backgroundColor:
-                              vehicleType === type
-                                ? "rgba(245,166,35,0.15)"
-                                : "#0D1B2A",
-                            borderColor:
-                              vehicleType === type
-                                ? "#F5A623"
-                                : "rgba(255,255,255,0.08)",
-                          }}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={{ fontSize: 20, marginBottom: 4 }}>
-                            {type === "motorcycle" ? "🏍️" : "🚗"}
-                          </Text>
-                          <Text
-                            style={{
-                              color:
-                                vehicleType === type
-                                  ? "#F5A623"
-                                  : "rgba(255,255,255,0.5)",
-                              fontSize: 12,
-                              fontWeight: "600",
-                              textAlign: "center",
-                            }}
-                          >
-                            {t(type as any)}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-
+                  
                   {/* Photo Picker */}
                   <View style={{ gap: 8 }}>
                     <Text style={labelStyle}>

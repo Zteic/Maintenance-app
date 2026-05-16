@@ -235,19 +235,19 @@ function AppContent() {
 
   // Save Data
   useEffect(() => {
-    if (!isFetchingFromServer && vehicles.length > 0) {
+    if (!isFetchingFromServer) {
       saveVehicles(vehicles);
     }
   }, [vehicles, isFetchingFromServer]);
 
   useEffect(() => {
-    if (!isFetchingFromServer && repairs.length > 0) {
+    if (!isFetchingFromServer) {
       saveRepairs(repairs);
     }
   }, [repairs, isFetchingFromServer]);
 
   useEffect(() => {
-    if (!isFetchingFromServer && fuelEntries.length > 0) {
+    if (!isFetchingFromServer) {
       saveFuelEntries(fuelEntries);
     }
   }, [fuelEntries, isFetchingFromServer]);
