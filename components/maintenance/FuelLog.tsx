@@ -117,8 +117,8 @@ export default function FuelLog({
   // 3. Hitung Estimasi Sisa BBM & Jarak
   let estRemainingFuel = 0;
   let estRemainingKm = 0;
-  const tankCapacity = vehicle?.fuelCapacity || 4.0; // Ambil kapasitas tangki dari data kendaraan
-
+  const tankCapacity = vehicle?.tankCapacity || 4.0;
+  
   if (sorted.length > 0 && avgKmPerL > 0) {
     const lastEntry = sorted[0]; 
     let assumedFuelAfterFill = Math.min(lastEntry.liters + (tankCapacity * 0.2), tankCapacity); 
