@@ -150,7 +150,7 @@ export default function FuelLog({
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={{ color: "#FFFFFF", fontSize: 17, fontWeight: "700" }}>
+          <Text style={{ color: "#FFFFFF", fontSize: 20, lineHeight: 24 }}>
           ⛽ {isId ? "Catatan BBM" : "Fuel Log"}
         </Text>
         <TouchableOpacity onPress={onAdd} activeOpacity={0.8} style={styles.addButton}>
@@ -161,7 +161,7 @@ export default function FuelLog({
 
       {/* Stats Summary */}
       {activeEntries.length > 0 && (
-        <View style={{ paddingHorizontal: 20, gap: 8 }}>
+        <View style={{ paddingHorizontal: 20, gap: 10 }}>
           {statsResetDate && (
             <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: 1 }}>
               {isId ? `STATISTIK DARI: ${statsResetDate}` : `STATS FROM: ${statsResetDate}`}
@@ -432,7 +432,7 @@ export default function FuelLog({
         })}
       </View>
     </View>
-  );
+    );
 }
 
 const styles = StyleSheet.create({

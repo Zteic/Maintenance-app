@@ -95,21 +95,22 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
   
   return (
     <View style={{ paddingHorizontal: 20, paddingBottom: 30 }}>
-      {/* ROW 1: Judul dan Tombol Add */}
       <View style={{ 
         flexDirection: 'row', 
         justifyContent: 'space-between', 
         alignItems: 'center',
         paddingHorizontal: 20,
-        marginTop: 10
+        marginTop: 10,
+        marginBottom: 5
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Text style={{ fontSize: 20 }}>🛠️</Text>
+          <Text style={{ fontSize: 20, lineHeight: 24 }}>🛠️</Text>
           <Text style={{ 
             color: '#FFFFFF', 
             fontSize: 18, 
             fontWeight: '800',
-            letterSpacing: 0.5 
+            letterSpacing: 0.5,
+            lineHeight: 24 
           }}>
             {isId ? "Riwayat Perbaikan" : "Repair History"}
           </Text>
@@ -117,14 +118,8 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
       </View>
 
       {/* ROW 2: Statistik Tanggal */}
-      <View style={{ paddingHorizontal: 22, marginTop: 8 }}>
-        <Text style={{ 
-          color: 'rgba(255, 255, 255, 0.3)', 
-          fontSize: 10, 
-          fontWeight: '700',
-          textTransform: 'uppercase',
-          letterSpacing: 1
-        }}>
+      <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
+        <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: 1 }}>
           {isId ? "CATATAN DARI" : "STATS FROM"}: {new Date().toISOString().split('T')[0]}
         </Text>
       </View>
