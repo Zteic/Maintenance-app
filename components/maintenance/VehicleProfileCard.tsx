@@ -181,7 +181,7 @@ export default function VehicleProfileCard({
                 marginBottom: 2,
               }}
             >
-              ODOMETER (AUTO)
+              ODOMETER
             </Text>
             <Text
               style={{

@@ -479,38 +479,48 @@ function AppContent() {
   };
 
   const handleVehicleDelete = (id: string) => {
+    // 1. Pengecekan jumlah minimal kendaraan
     if (vehicles.length <= 1) {
-      Alert.alert(
-        lang === "id" ? "Peringatan" : "Warning",
-        lang === "id" ? "Minimal harus ada satu kendaraan." : "At least one vehicle is required."
-      );
+      const msg = lang === "id" ? "Minimal harus ada satu kendaraan." : "At least one vehicle is required.";
+      if (Platform.OS === "web") {
+        window.alert(msg);
+      } else {
+        Alert.alert(lang === "id" ? "Peringatan" : "Warning", msg);
+      }
       return;
     }
 
-    Alert.alert(
-      lang === "id" ? "Hapus Kendaraan" : "Delete Vehicle",
-      lang === "id"
-        ? "Hapus kendaraan ini? Semua data riwayat akan hilang."
-        : "Delete this vehicle? All history will be lost.",
-      [
-        { text: lang === "id" ? "Batal" : "Cancel", style: "cancel" },
-        {
-          text: lang === "id" ? "Hapus" : "Delete",
-          style: "destructive",
-          onPress: () => {
-            const newVehicles = vehicles.filter((v) => v.id !== id);
-            setVehicles(newVehicles);
+    const performDelete = () => {
+      const newVehicles = vehicles.filter((v) => v.id !== id);
+      setVehicles(newVehicles);
 
-            if (selectedVehicleId === id) {
-              const nextVehicleId = newVehicles[0].id;
-              setSelectedVehicleId(nextVehicleId);
-              saveSelectedVehicleId(nextVehicleId);
-            }
-            setShowVehicleModal(false);
-          },
-        },
-      ]
-    );
+      if (selectedVehicleId === id) {
+        const nextVehicleId = newVehicles[0].id;
+        setSelectedVehicleId(nextVehicleId);
+        saveSelectedVehicleId(nextVehicleId);
+      }
+      setShowVehicleModal(false);
+    };
+
+    const confirmMsg = lang === "id" 
+      ? "Hapus kendaraan ini? Semua data riwayat akan hilang." 
+      : "Delete this vehicle? All history will be lost.";
+
+    if (Platform.OS === "web") {
+      const confirmDelete = window.confirm(confirmMsg);
+      if (confirmDelete) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        lang === "id" ? "Hapus Kendaraan" : "Delete Vehicle",
+        confirmMsg,
+        [
+          { text: lang === "id" ? "Batal" : "Cancel", style: "cancel" },
+          { text: lang === "id" ? "Hapus" : "Delete", style: "destructive", onPress: performDelete },
+        ]
+      );
+    }
   };
 
   const handleAddRepair = async (formData: any) => {
