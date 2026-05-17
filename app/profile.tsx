@@ -13,6 +13,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
 } from "react-native";
+import ExportToPDF from '@/components/maintenance/ExportToPDF';
 import * as ImagePicker from "expo-image-picker";
 import { useRouter, Stack } from "expo-router";
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
@@ -92,6 +93,7 @@ function ProfileContent() {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
 
   useEffect(() => {
     loadUserProfile().then((p) => {
@@ -371,7 +373,7 @@ function ProfileContent() {
                 width: 48,
                 height: 48,
                 borderRadius: 14,
-                backgroundColor: "rgba(245,166,35,0.15)",
+                backgroundColor: "rgba(78,205,196,0.1)",
                 borderWidth: 1,
                 borderColor: "rgba(245,166,35,0.3)",
                 alignItems: "center",
@@ -396,11 +398,11 @@ function ProfileContent() {
                 Atur harga BBM per liter saat ini
               </Text>
             </View>
-            <Text style={{ color: "#F5A623", fontSize: 18 }}>›</Text>
+            <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleExport}
+            onPress={() => setShowPdfModal(true)}
             style={{
               backgroundColor: "#1A2B3C",
               borderRadius: 16,
@@ -409,13 +411,37 @@ function ProfileContent() {
               alignItems: "center",
               gap: 16,
               borderWidth: 1,
-              borderColor: "rgba(245,166,35,0.2)",
+              borderColor: "rgba(78,205,196,0.3)", // Neon teal border
+              shadowColor: "#4ECDC4",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 10,
             }}
           >
-            <Text style={{ fontSize: 22 }}>📤</Text>
-            <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>
-              {t("exportPdf")}
-            </Text>
+            {/* Kotak Ikon yang disamakan style-nya */}
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              backgroundColor: "rgba(78,205,196,0.1)",
+              alignItems: "center",
+              justifyContent: "center"
+            }}>
+              <Text style={{ fontSize: 22 }}>📄</Text>
+            </View>
+            
+            {/* Teks Judul dan Sub-judul */}
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>
+                {t("exportPdf")}
+              </Text>
+              <Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>
+                Buat laporan lengkap siap cetak
+              </Text>
+            </View>
+            
+            {/* Panah di kanan */}
+            <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -447,7 +473,7 @@ function ProfileContent() {
   </View>
   <View style={{ flex: 1 }}>
     <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>
-      Export Riwayat Service
+      Backup and Restore
     </Text>
     <Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>
       Backup seluruh data kendaraan ke .vhdb
@@ -507,9 +533,16 @@ function ProfileContent() {
           </View>
         </View>
       </Modal>
+
+      <ExportToPDF 
+        visible={showPdfModal} 
+        onClose={() => setShowPdfModal(false)} 
+      />
+    
     </SafeAreaView>
   );
 }
+
 
 // --- Komponen Utama ---
 export default function ProfileScreen() {

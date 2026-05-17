@@ -334,7 +334,7 @@ export default function ExportScreen() {
                     <Download color="#4ECDC4" size={20} />
                     <View style={{ marginLeft: 14 }}>
                        <Text style={[styles.btnText, { color: '#4ECDC4' }]}>IMPORT FILE</Text>
-                       <Text style={styles.btnSub}>Pilih .vhdb file</Text>
+                       <Text style={styles.btnSub, { color: '#ffffffff' }}>Pilih .vhdb file</Text>
                     </View>
                  </TouchableOpacity>
               </View>
