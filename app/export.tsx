@@ -15,9 +15,6 @@ import {
 
 const { width } = Dimensions.get('window');
 
-const encrypt = (data: string) => Buffer.from(data, 'utf-8').toString('base64');
-const decrypt = (data: string) => Buffer.from(data, 'base64').toString('utf-8');
-
 export default function ExportScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -86,14 +83,14 @@ export default function ExportScreen() {
         data: backupObj
       };
 
-      const encrypted = encrypt(JSON.stringify(payload));
+      const payloadString = JSON.stringify(payload); // Langsung jadikan string
 
-      // 3. Simpan sebagai file .vhdb
       const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
       const fileName = `vehicle_history_backup_${dateStr}.vhdb`;
       const fileUri = FileSystem.documentDirectory + fileName;
 
-      await FileSystem.writeAsStringAsync(fileUri, encrypted);
+      // Simpan langsung sebagai string UTF-8
+      await FileSystem.writeAsStringAsync(fileUri, payloadString);
 
       // 4. Share/Save
       if (await Sharing.isAvailableAsync()) {
@@ -119,7 +116,7 @@ export default function ExportScreen() {
       if (!result.canceled) {
         setLoading(true);
         const content = await FileSystem.readAsStringAsync(result.assets[0].uri);
-        const decrypted = JSON.parse(decrypt(content));
+        const decrypted = JSON.parse(content);
 
         if (decrypted.app !== "GarasiKu") throw new Error();
 
@@ -146,10 +143,16 @@ export default function ExportScreen() {
 
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ChevronLeft color="#FFF" size={26} />
-        </TouchableOpacity>
-        <View style={{ flex: 1, marginLeft: 15 }}>
+        <TouchableOpacity
+            onPress={() => router.back()}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#F5A623", fontSize: 16, marginBottom: 10 }}>← Kembali</Text>
+          </TouchableOpacity>
+        <View style={{ flex: 1, marginLeft: 18 }}>
           <Text style={styles.headerTitle}>Export History</Text>
           <Text style={styles.headerSub}>Backup data kendaraan Anda</Text>
         </View>
@@ -301,13 +304,12 @@ const styles = StyleSheet.create({
   btnSecondary: { flex: 1, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(78, 205, 196, 0.3)', padding: 15, borderRadius: 18 },
   btnText: { color: '#1B2C3C', fontSize: 13, fontWeight: '900' },
   btnSub: { color: 'rgba(0,0,0,0.4)', fontSize: 9, fontWeight: '700' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
-grid: { 
-  flexDirection: 'row', 
-  justifyContent: 'space-between', 
-  gap: 8, 
-  marginTop: 10 
-},
+  grid: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    gap: 8, 
+    marginTop: 10 
+  },
 gridItem: { 
   width: (width - 60) / 3,
   backgroundColor: 'rgba(255,255,255,0.02)', 
