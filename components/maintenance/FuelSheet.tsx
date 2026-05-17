@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useRouter } from "expo-router";
 import {
   View,
   Text,
@@ -48,6 +49,7 @@ export default function FuelSheet({
   onDelete,
 }: FuelSheetProps) {
   const { lang } = useLanguage();
+  const router = useRouter();
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [liters, setLiters] = useState("");
   const [pricePerLiter, setPricePerLiter] = useState("");
@@ -299,7 +301,7 @@ export default function FuelSheet({
                   }}
                   showsVerticalScrollIndicator={false}
                 >
-                  {/* Dropdown Custom Jenis BBM */}
+                  {/* Dropdown Custom Jenis BBM & Peringatan Jika Kosong */}
                   <View style={{ gap: 8 }}>
                     <Text
                       style={{
@@ -310,59 +312,89 @@ export default function FuelSheet({
                     >
                       {label.fuelType}
                     </Text>
-                    <TouchableOpacity
-                      onPress={() => setShowFuelPicker(!showFuelPicker)}
-                      style={inputStyle}
-                    >
-                      <Text
+
+                    {/* Dropdown Custom Jenis BBM */}
+                    {savedPrices.length === 0 ? (
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          onClose(); 
+                          router.push("/profile"); 
+                        }}
                         style={{
-                          color: selectedFuelName
-                            ? "#F5A623"
-                            : "rgba(255,255,255,0.3)",
-                          fontWeight: selectedFuelName ? "700" : "400",
+                          backgroundColor: "rgba(255,82,82,0.1)",
+                          borderRadius: 12,
+                          padding: 16,
+                          borderWidth: 1,
+                          borderColor: "rgba(255,82,82,0.3)",
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 12,
                         }}
                       >
-                        {selectedFuelName ||
-                          (lang === "id"
-                            ? "-- Pilih Jenis BBM --"
-                            : "-- Select Fuel Type --")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                        <Text style={{ fontSize: 24 }}>⚠️</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: "#FF5252", fontWeight: "800", fontSize: 13, marginBottom: 2 }}>
+                            {lang === "id" ? "Harga BBM Belum Diatur" : "Fuel Prices Not Set"}
+                          </Text>
+                          <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, lineHeight: 16 }}>
+                            {lang === "id" 
+                              ? "Ketuk di sini untuk pergi ke Profile dan update harga bensin terbaru." 
+                              : "Tap here to go to Profile and update current fuel prices."}
+                          </Text>
+                        </View>
+                        <Text style={{ color: "#FF5252", fontSize: 18 }}>›</Text>
+                      </TouchableOpacity>
+                    ) : (
 
-                  {showFuelPicker && (
-                    <View
-                      style={{
-                        backgroundColor: "#0D1B2A",
-                        borderRadius: 12,
-                        padding: 8,
-                        borderWidth: 1,
-                        borderColor: "rgba(255,255,255,0.1)",
-                      }}
-                    >
-                      <ScrollView
-                        style={{ maxHeight: 200 }}
-                        nestedScrollEnabled={true}
-                      >
-                        {savedPrices.map((fuel) => (
-                          <TouchableOpacity
-                            key={fuel.id}
-                            onPress={() => handleSelectFuel(fuel)}
+                      <>
+                        <TouchableOpacity
+                          onPress={() => setShowFuelPicker(!showFuelPicker)}
+                          style={inputStyle}
+                        >
+                          <Text
                             style={{
-                              padding: 14,
-                              borderBottomWidth: 1,
-                              borderBottomColor: "rgba(255,255,255,0.05)",
+                              color: selectedFuelName ? "#F5A623" : "rgba(255,255,255,0.3)",
+                              fontWeight: selectedFuelName ? "700" : "400",
                             }}
                           >
-                            <Text style={{ color: "#FFF", fontSize: 14 }}>
-                              {fuel.brand} -{" "}
-                              {fuel.product.replace(/\s*\(RON\s*\d+\)/gi, "")}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
+                            {selectedFuelName ||
+                              (lang === "id" ? "-- Pilih Jenis BBM --" : "-- Select Fuel Type --")}
+                          </Text>
+                        </TouchableOpacity>
+
+                        {showFuelPicker && (
+                          <View
+                            style={{
+                              backgroundColor: "#0D1B2A",
+                              borderRadius: 12,
+                              padding: 8,
+                              borderWidth: 1,
+                              borderColor: "rgba(255,255,255,0.1)",
+                            }}
+                          >
+                            <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled={true}>
+                              {savedPrices.map((fuel) => (
+                                <TouchableOpacity
+                                  key={fuel.id}
+                                  onPress={() => handleSelectFuel(fuel)}
+                                  style={{
+                                    padding: 14,
+                                    borderBottomWidth: 1,
+                                    borderBottomColor: "rgba(255,255,255,0.05)",
+                                  }}
+                                >
+                                  <Text style={{ color: "#FFF", fontSize: 14 }}>
+                                    {fuel.brand} - {fuel.product.replace(/\s*\(RON\s*\d+\)/gi, "")}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </ScrollView>
+                          </View>
+                        )}
+                      </>
+                    )}
+                  </View>
 
                   {/* Date & Odometer */}
                   <View style={{ flexDirection: "row", gap: 12 }}>
