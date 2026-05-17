@@ -915,6 +915,7 @@ function AppContent() {
         {activeTab === "fuel" && (
           <FuelLog
             fuelEntries={stats.vehicleFuelEntries}
+            vehicle={stats.selectedVehicle}
             onAdd={() => {
               setEditingFuel(null);
               setShowFuelSheet(true);

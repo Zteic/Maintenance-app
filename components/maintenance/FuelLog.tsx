@@ -10,7 +10,7 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { FuelEntry } from "@/types/maintenance";
+import { FuelEntry, Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
 import {
   loadFuelStatsResetDate,
@@ -19,6 +19,7 @@ import {
 
 interface FuelLogProps {
   fuelEntries: FuelEntry[];
+  vehicle?: Vehicle | null;
   onAdd: () => void;
   onEdit?: (entry: FuelEntry) => void;
   onDelete?: (id: string) => void;
@@ -54,6 +55,7 @@ const getFuelLogo = (providerName: string) => {
 
 export default function FuelLog({
   fuelEntries,
+  vehicle,
   onAdd,
   onEdit,
   onDelete,
@@ -81,8 +83,11 @@ export default function FuelLog({
 
   const sorted = [...fuelEntries].sort((a, b) => b.date.localeCompare(a.date));
 
+  // 1. Hitung AVG KM/L (Berdasarkan semua data historis agar lebih stabil)
+  const sortedAsc = [...fuelEntries].sort((a, b) => a.date.localeCompare(b.date));
+  let totalDistanceForAvg = 0;
+  let totalLitersForAvg = 0;
   const efficiencies: any[] = [];
-  const sortedAsc = [...activeEntries].sort((a, b) => a.date.localeCompare(b.date));
 
   for (let i = 1; i < sortedAsc.length; i++) {
     const prev = sortedAsc[i - 1];
@@ -91,24 +96,39 @@ export default function FuelLog({
     
     if (distance > 0 && curr.liters > 0) {
       const kmPerL = distance / curr.liters;
+      totalDistanceForAvg += distance;
+      totalLitersForAvg += curr.liters;
       efficiencies.push({
         km: distance,
         liters: curr.liters,
         kmPerL: kmPerL,
-        costPerKm: curr.totalCost / distance,
         date: curr.date,
         entryId: curr.id,
       });
     }
   }
 
-  const totalDistance = efficiencies.reduce((sum, e) => sum + e.km, 0);
-  const totalLitersForAvg = efficiencies.reduce((sum, e) => sum + e.liters, 0);
+  const avgKmPerL = totalLitersForAvg > 0 ? totalDistanceForAvg / totalLitersForAvg : 0;
 
-  const avgKmPerL = totalLitersForAvg > 0 ? totalDistance / totalLitersForAvg : 0;
+  // 2. Hitung Total Bulan Ini (Dari activeEntries / Reset Date)
+  const totalLitersThisMonth = activeEntries.reduce((sum, e) => sum + e.liters, 0);
+  const totalCostThisMonth = activeEntries.reduce((sum, e) => sum + e.totalCost, 0);
 
-  const totalLiters = activeEntries.reduce((sum, e) => sum + e.liters, 0);
-  const totalFuelCost = activeEntries.reduce((sum, e) => sum + e.totalCost, 0);
+  // 3. Hitung Estimasi Sisa BBM & Jarak
+  let estRemainingFuel = 0;
+  let estRemainingKm = 0;
+  const tankCapacity = vehicle?.fuelCapacity || 4.0; // Ambil kapasitas tangki dari data kendaraan
+
+  if (sorted.length > 0 && avgKmPerL > 0) {
+    const lastEntry = sorted[0]; 
+    let assumedFuelAfterFill = Math.min(lastEntry.liters + (tankCapacity * 0.2), tankCapacity); 
+    const currentOdometer = vehicle?.currentOdometer || lastEntry.odometer; 
+    const distanceSinceLastFill = currentOdometer - lastEntry.odometer;
+    const fuelConsumed = distanceSinceLastFill / avgKmPerL;
+
+    estRemainingFuel = Math.max(assumedFuelAfterFill - fuelConsumed, 0);
+    estRemainingKm = estRemainingFuel * avgKmPerL;
+  }
 
   const getStatus = (kmPerL: number) => {
     if (kmPerL > avgKmPerL * 1.1) return { label: isId ? "Irit" : "Efficient", color: "#4ECDC4" };
@@ -160,54 +180,57 @@ export default function FuelLog({
       </View>
 
       {/* Stats Summary */}
-      {activeEntries.length > 0 && (
+      {fuelEntries.length > 0 && (
         <View style={{ paddingHorizontal: 20, gap: 10 }}>
-          {statsResetDate && (
-            <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: 1 }}>
-              {isId ? `STATISTIK DARI: ${statsResetDate}` : `STATS FROM: ${statsResetDate}`}
+          
+          {/* Row 1: Estimasi Pintar */}
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={[styles.statCard, { backgroundColor: 'rgba(78,205,196,0.05)', borderColor: 'rgba(0, 221, 255, 0.2)' }]}>
+              <Text style={styles.statIcon}>⛽</Text>
+              <Text style={styles.statLabel}>KONSUMSI</Text>
+              <Text style={[styles.statValue, { color: "#4ECDC4" }]}>{avgKmPerL > 0 ? avgKmPerL.toFixed(1) : "-"} <Text style={styles.statUnit}>km/L</Text></Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: 'rgba(78,205,196,0.05)', borderColor: 'rgba(0, 221, 255, 0.2)' }]}>
+              <Text style={styles.statIcon}>🛢️</Text>
+              <Text style={styles.statLabel}>SISA BBM</Text>
+              <Text style={[styles.statValue, { color: "#F5A623" }]}>±{estRemainingFuel.toFixed(1)} <Text style={styles.statUnit}>L</Text></Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: 'rgba(78,205,196,0.05)', borderColor: 'rgba(0, 221, 255, 0.2)' }]}>
+              <Text style={styles.statIcon}>🛣️</Text>
+              <Text style={styles.statLabel}>ESTIMASI</Text>
+              <Text style={[styles.statValue, { color: "#A29BFE" }]}>±{estRemainingKm.toFixed(0)} <Text style={styles.statUnit}>km</Text></Text>
+            </View>
+          </View>
+          <Text style={styles.disclaimerText}>*Estimasi berdasarkan riwayat dan kapasitas tangki {tankCapacity}L.</Text>
+
+          {/* Row 2: Pengeluaran Bulanan / Reset */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 5 }}>
+            <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: 1, fontWeight: '700' }}>
+              {isId ? `PENGELUARAN SEJAK: ${statsResetDate || '-'}` : `EXPENSES SINCE: ${statsResetDate || '-'}`}
             </Text>
-          )}
+            {!showResetConfirm ? (
+              <TouchableOpacity onPress={() => setShowResetConfirm(true)}>
+                <Text style={{ color: '#FF5252', fontSize: 10, fontWeight: '700' }}>🔄 {isId ? "Reset" : "Reset"}</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity onPress={handleUndoReset}><Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700' }}>↶ Undo</Text></TouchableOpacity>
+                <TouchableOpacity onPress={confirmReset}><Text style={{ color: '#4ECDC4', fontSize: 10, fontWeight: '700' }}>✓ Simpan</Text></TouchableOpacity>
+              </View>
+            )}
+          </View>
+
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>AVG KM/L</Text>
-              <Text style={[styles.statValue, { color: "#4ECDC4" }]}>{avgKmPerL > 0 ? avgKmPerL.toFixed(1) : "-"}</Text>
+              <Text style={styles.statLabel}>TOTAL LITER</Text>
+              <Text style={styles.statValue}>{totalLitersThisMonth.toFixed(1)} <Text style={styles.statUnit}>L</Text></Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>{isId ? "TOTAL LITER" : "TOTAL LITERS"}</Text>
-              <Text style={[styles.statValue, { color: "#F5A623" }]}>{totalLiters.toFixed(1)} L</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>{isId ? "TOTAL BIAYA" : "TOTAL COST"}</Text>
-              <Text style={[styles.statValue, { color: "#FF6B6B", fontSize: 14 }]}>{formatCurrency(totalFuelCost)}</Text>
+              <Text style={styles.statLabel}>TOTAL BIAYA</Text>
+              <Text style={[styles.statValue, { fontSize: 13 }]}>{formatCurrency(totalCostThisMonth)}</Text>
             </View>
           </View>
 
-          {/* Inline Reset & Undo buttons */}
-          <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
-            {!showResetConfirm ? (
-              <TouchableOpacity
-                onPress={() => setShowResetConfirm(true)}
-                style={styles.resetMainBtn}
-              >
-                <Text style={styles.resetBtnText}>🔄 {isId ? "Reset Statistik" : "Reset Stats"}</Text>
-              </TouchableOpacity>
-            ) : (
-              <>
-                <TouchableOpacity
-                  onPress={handleUndoReset}
-                  style={styles.undoBtn}
-                >
-                  <Text style={styles.undoBtnText}>↶ Undo</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={confirmReset}
-                  style={styles.saveResetBtn}
-                >
-                  <Text style={styles.saveResetBtnText}>✓ {isId ? "Simpan" : "Save"}</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
         </View>
       )}
 
@@ -438,9 +461,15 @@ export default function FuelLog({
 const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20 },
   addButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(78,205,196,0.15)", borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: "rgba(78,205,196,0.3)" },
-  statCard: { flex: 1, backgroundColor: "#1A2B3C", borderRadius: 12, padding: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", alignItems: "center" },
-  statLabel: { color: "rgba(255,255,255,0.3)", fontSize: 8, letterSpacing: 1, fontWeight: "700" },
-  statValue: { color: "#FFFFFF", fontSize: 14, fontWeight: "800", fontFamily: "SpaceMono" },
+  
+  // --- STATS CARD STYLES ---
+  statCard: { flex: 1, backgroundColor: "#1A2B3C", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center" },
+  statIcon: { fontSize: 16, marginBottom: 4 }, 
+  statLabel: { color: "rgba(255,255,255,0.4)", fontSize: 8, letterSpacing: 1, fontWeight: "800", marginBottom: 2 },
+  statValue: { color: "#FFFFFF", fontSize: 16, fontWeight: "800", fontFamily: "SpaceMono" },
+  statUnit: { fontSize: 10, fontWeight: "600", color: "rgba(255,255,255,0.3)" },
+  disclaimerText: { color: "rgba(255,255,255,0.2)", fontSize: 9, fontStyle: "italic", textAlign: "right" }, 
+
   resetMainBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center", backgroundColor: "rgba(255,82,82,0.1)", borderWidth: 1, borderColor: "rgba(255,82,82,0.2)" },
   resetBtnText: { color: "#FF5252", fontSize: 12, fontWeight: "700" },
   undoBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center", backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
