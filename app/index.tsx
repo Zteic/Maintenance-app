@@ -559,9 +559,9 @@ function AppContent() {
   const handleAddRepair = async (formData: any) => {
     try {
       const newRepair: RepairEntry = {
-        id: `rep${Date.now()}`,
         vehicleId: selectedVehicleId,
         ...formData,
+        id: `rep${Date.now()}`,
         date: formData.date || new Date().toISOString().split("T")[0],
       };
 
@@ -1002,9 +1002,9 @@ function AppContent() {
             alert(lang === "id" ? "Data berhasil diperbarui!" : "Data updated successfully!");
           } else {
             const newRepair: RepairEntry = {
-              id: `rep${Date.now()}`,
               vehicleId: vId,
               ...formData,
+              id: `rep${Date.now()}`,
               date: formData.date || new Date().toISOString().split("T")[0],
             };
 
