@@ -853,6 +853,10 @@ function AppContent() {
               onAddReminder={() => setShowPlanModal(true)}
               onEditReminder={handleEdit}
               onDeleteReminder={handleDelete}
+              onEditVehicle={() => { 
+                setEditingVehicle(stats.selectedVehicle!);
+                setShowVehicleModal(true);
+              }}
             />
           </>
         ) : null}

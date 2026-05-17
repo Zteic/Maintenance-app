@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, Modal } from "react-native";
 import { Reminder, Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -8,6 +8,9 @@ interface UpcomingRemindersProps {
   currentOdometer?: number;
   vehicle?: Vehicle;
   onAddReminder?: (serviceType: string) => void;
+  onEditReminder?: (item: Reminder) => void;
+  onDeleteReminder?: (id: string) => void;
+  onEditVehicle?: () => void;
 }
 
 // --- FUNGSI HELPER (DI LUAR KOMPONEN) ---
@@ -51,10 +54,14 @@ export default function UpcomingReminders({
   onAddReminder,
   onEditReminder,
   onDeleteReminder,
+  onEditVehicle,
 }: UpcomingRemindersProps) {
   const { t, lang } = useLanguage();
   const isId = lang === "id";
-  const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  
+  // State untuk memunculkan Modal Info Dokumen
+  const [showDocModal, setShowDocModal] = useState(false);
 
   // 1. Inisialisasi Data Dasar
   const safeReminders = Array.isArray(reminders) ? reminders : [];
@@ -62,25 +69,25 @@ export default function UpcomingReminders({
   const stnkDays = getDaysLeft(vehicle?.stnkDueDate);
 
   const STATUS_CONFIG: any = {
-  safe: { 
-    color: "#4ECDC4", 
-    bg: "rgba(78,205,196,0.1)", 
-    label: isId ? "AMAN" : "SAFE", 
-    border: "rgba(78,205,196,0.2)" 
-  },
-  approaching: { 
-    color: "#F5A623", 
-    bg: "rgba(245,166,35,0.1)", 
-    label: isId ? "BUTUH PERHATIAN" : "NEEDS ATTENTION", 
-    border: "rgba(245,166,35,0.2)" 
-  },
-  overdue: { 
-    color: "#FF5252", 
-    bg: "rgba(255,82,82,0.1)", 
-    label: isId ? "PERBAIKI SEGERA" : "REPAIR NOW", 
-    border: "rgba(255,82,82,0.2)" 
-  },
-};
+    safe: { 
+      color: "#4ECDC4", 
+      bg: "rgba(78,205,196,0.1)", 
+      label: isId ? "AMAN" : "SAFE", 
+      border: "rgba(78,205,196,0.2)" 
+    },
+    approaching: { 
+      color: "#F5A623", 
+      bg: "rgba(245,166,35,0.1)", 
+      label: isId ? "BUTUH PERHATIAN" : "NEEDS ATTENTION", 
+      border: "rgba(245,166,35,0.2)" 
+    },
+    overdue: { 
+      color: "#FF5252", 
+      bg: "rgba(255,82,82,0.1)", 
+      label: isId ? "PERBAIKI SEGERA" : "REPAIR NOW", 
+      border: "rgba(255,82,82,0.2)" 
+    },
+  };
 
   // 2. Gabungkan Dokumen & Servis ke satu Array
   const allReminders = [
@@ -107,12 +114,6 @@ export default function UpcomingReminders({
     };
     return getScore(a) - getScore(b);
   });
-
-  // 4. Filter Banner Urgent
-  const urgentReminders = sortedAll.filter(r => 
-    (r.type === 'doc' && r.days !== null && r.days <= 30) || 
-    (r.type === 'service' && (r.status === 'overdue' || r.status === 'approaching'))
-  );
 
   return (
     <View style={{ gap: 15 }}>
@@ -150,6 +151,7 @@ export default function UpcomingReminders({
                 days={item.days} 
                 statusText={item.statusText} 
                 statusColor={item.statusColor} 
+                onPress={() => setShowDocModal(true)} // Tampilkan Modal Custom
               />
             );
           }
@@ -170,7 +172,6 @@ export default function UpcomingReminders({
                 borderColor: isUrgent ? cfg.border : "rgba(255,255,255,0.05)" 
               }}
             >
-              {/* HEADER: Klik untuk buka/tutup */}
               <TouchableOpacity 
                 activeOpacity={0.7}
                 onPress={() => setExpandedId(isExpanded ? null : item.id)}
@@ -199,15 +200,14 @@ export default function UpcomingReminders({
 
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={{ color: cfg.color, fontSize: 13, fontWeight: "900", fontFamily: "SpaceMono" }}>
-  {kmRemaining > 0 ? `+${kmRemaining.toLocaleString()}` : cfg.label.toUpperCase()}
-</Text>
+                    {kmRemaining > 0 ? `+${kmRemaining.toLocaleString()}` : cfg.label.toUpperCase()}
+                  </Text>
                   <View style={{ marginTop: 4, opacity: 0.3 }}>
                     <Text style={{ color: 'white', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
 
-              {/* DETAIL: Bagian Tombol Aksi */}
               {isExpanded && (
                 <View style={{ 
                   marginTop: 16, 
@@ -259,15 +259,67 @@ export default function UpcomingReminders({
           );
         })}
       </View>
+
+      {/* --- MODAL CUSTOM UNTUK INFORMASI DOKUMEN --- */}
+      <Modal visible={showDocModal} transparent animationType="fade" onRequestClose={() => setShowDocModal(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(7, 18, 28, 0.95)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ width: '85%', backgroundColor: '#162431', borderRadius: 32, padding: 30, alignItems: 'center' }}>
+            {/* Visual Indicator (Garis Atas) */}
+            <View style={{ width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, marginBottom: 25 }} />
+
+            <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '800', marginBottom: 10, textAlign: 'center' }}>
+              {isId ? "Pembaruan Dokumen" : "Document Update"}
+            </Text>
+            
+            <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', fontSize: 14, lineHeight: 22, marginBottom: 35 }}>
+              {isId 
+                ? "Untuk memperbarui tanggal jatuh tempo Pajak atau STNK, Anda perlu mengakses menu Edit Profil Kendaraan." 
+                : "To update the Tax or STNK due date, you need to access the Edit Vehicle Profile menu."}
+            </Text>
+
+            <View style={{ width: '100%', gap: 12 }}>
+              {/* Tombol Utama (Warna Orange khas Edit di aplikasi ini) */}
+              <TouchableOpacity 
+                onPress={() => {
+                  setShowDocModal(false); // Tutup modal info
+                  if (onEditVehicle) onEditVehicle(); // Buka modal edit kendaraan
+                }}
+                activeOpacity={0.8}
+                style={{ width: '100%', paddingVertical: 16, borderRadius: 20, backgroundColor: '#F5A623', alignItems: 'center' }}
+              >
+                <Text style={{ color: '#0D1B2A', fontWeight: '800', fontSize: 16 }}>
+                  {isId ? "Edit Kendaraan Sekarang" : "Edit Vehicle Now"}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Tombol Batal */}
+              <TouchableOpacity 
+                onPress={() => setShowDocModal(false)}
+                activeOpacity={0.6}
+                style={{ width: '100%', paddingVertical: 16, borderRadius: 20, alignItems: 'center' }}
+              >
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '700', fontSize: 15 }}>
+                  {isId ? "Mungkin Nanti" : "Maybe Later"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
 
 // Sub-komponen Dokumen
-function DocReminderCard({ icon, label, date, days, statusText, statusColor }: any) {
+function DocReminderCard({ icon, label, date, days, statusText, statusColor, onPress }: any) {
   const isUrgent = days !== null && days <= 90;
   return (
-    <View style={{ borderRadius: 14, padding: 16, borderWidth: 1, borderColor: isUrgent ? `${statusColor}40` : "rgba(255,255,255,0.06)", flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: isUrgent ? `${statusColor}08` : "#1A2B3C" }}>
+    <TouchableOpacity 
+      activeOpacity={0.7}
+      onPress={onPress}
+      style={{ borderRadius: 14, padding: 16, borderWidth: 1, borderColor: isUrgent ? `${statusColor}40` : "rgba(255,255,255,0.06)", flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: isUrgent ? `${statusColor}08` : "#1A2B3C" }}
+    >
       <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: `${statusColor}15`, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: `${statusColor}30` }}>
         <Text style={{ fontSize: 18 }}>{icon}</Text>
       </View>
@@ -278,6 +330,6 @@ function DocReminderCard({ icon, label, date, days, statusText, statusColor }: a
       <View style={{ backgroundColor: `${statusColor}20`, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 10, alignItems: "center" }}>
         <Text style={{ color: statusColor, fontSize: 12, fontWeight: "700" }}>{statusText}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
