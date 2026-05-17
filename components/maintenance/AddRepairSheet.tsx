@@ -591,10 +591,7 @@ export default function AddRepairSheet({
                                 paddingVertical: 10,
                                 borderRadius: 10,
                                 borderWidth: 1,
-                                backgroundColor:
-                                  tirePosition === pos
-                                    ? "rgba(78,205,196,0.15)"
-                                    : "#0D1B2A",
+                                backgroundColor: "#0D1B2A", 
                                 borderColor:
                                   tirePosition === pos
                                     ? "#4ECDC4"
