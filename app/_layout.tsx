@@ -67,7 +67,6 @@ function AppNavigationOverlay() {
   const pathname = usePathname();
   const params = useGlobalSearchParams();
 
-  // FIX ANDROID NAVBAR: Gunakan Local State agar instan merender warna saat dipencet
   const [activeTab, setActiveTab] = useState("home");
 
   useEffect(() => {
@@ -78,10 +77,8 @@ function AppNavigationOverlay() {
     }
   }, [pathname, params.tab]);
 
-  // FIX BACK BUTTON: Hapus riwayat tab, paksa keluar aplikasi jika di menu utama
   useEffect(() => {
     const onBackPress = () => {
-      // Jika berada di Menu Utama (Dashboard, Fuel, Service) atau menu Profile
       if (pathname === "/" || pathname.includes("profile")) {
         Alert.alert(
           "Keluar Aplikasi",
@@ -91,14 +88,14 @@ function AppNavigationOverlay() {
             { text: "Ya, Keluar", style: "destructive", onPress: () => BackHandler.exitApp() }
           ]
         );
-        return true; // Cegah default system (agar tidak kembali ke tab sebelumnya)
+        return true; 
       }
-      // Jika berada di menu lain (misal /export), biarkan tombol back berjalan normal (kembali ke profile)
       return false;
     };
 
-    BackHandler.addEventListener("hardwareBackPress", onBackPress);
-    return () => BackHandler.removeEventListener("hardwareBackPress", onBackPress);
+    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    
+    return () => subscription.remove();
   }, [pathname]);
 
   const handleNavPress = (tabName: string) => {
