@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Modal } from "react-native";
+import { View, Text, TouchableOpacity, Modal, TouchableWithoutFeedback } from "react-native";
 import { Reminder, Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -262,49 +262,55 @@ export default function UpcomingReminders({
 
       {/* --- MODAL CUSTOM UNTUK INFORMASI DOKUMEN --- */}
       <Modal visible={showDocModal} transparent animationType="fade" onRequestClose={() => setShowDocModal(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(7, 18, 28, 0.95)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ width: '85%', backgroundColor: '#162431', borderRadius: 32, padding: 30, alignItems: 'center' }}>
-            {/* Visual Indicator (Garis Atas) */}
-            <View style={{ width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, marginBottom: 25 }} />
+        <TouchableOpacity 
+          activeOpacity={1} 
+          onPress={() => setShowDocModal(false)} 
+          style={{ flex: 1, backgroundColor: 'rgba(7, 18, 28, 0.95)', justifyContent: 'center', alignItems: 'center' }}
+        >
+          <TouchableWithoutFeedback>
+            <View style={{ width: '85%', backgroundColor: '#162431', borderRadius: 32, padding: 30, alignItems: 'center' }}>
+              {/* Visual Indicator (Garis Atas) */}
+              <View style={{ width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, marginBottom: 25 }} />
 
-            <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '800', marginBottom: 10, textAlign: 'center' }}>
-              {isId ? "Pembaruan Dokumen" : "Document Update"}
-            </Text>
-            
-            <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', fontSize: 14, lineHeight: 22, marginBottom: 35 }}>
-              {isId 
-                ? "Untuk memperbarui tanggal jatuh tempo Pajak atau STNK, Anda perlu mengakses menu Edit Profil Kendaraan." 
-                : "To update the Tax or STNK due date, you need to access the Edit Vehicle Profile menu."}
-            </Text>
+              <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '800', marginBottom: 10, textAlign: 'center' }}>
+                {isId ? "Pembaruan Dokumen" : "Document Update"}
+              </Text>
+              
+              <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', fontSize: 14, lineHeight: 22, marginBottom: 35 }}>
+                {isId 
+                  ? "Untuk memperbarui tanggal jatuh tempo Pajak atau STNK, Anda perlu mengakses menu Edit Profil Kendaraan." 
+                  : "To update the Tax or STNK due date, you need to access the Edit Vehicle Profile menu."}
+              </Text>
 
-            <View style={{ width: '100%', gap: 12 }}>
-              {/* Tombol Utama (Warna Orange khas Edit di aplikasi ini) */}
-              <TouchableOpacity 
-                onPress={() => {
-                  setShowDocModal(false); // Tutup modal info
-                  if (onEditVehicle) onEditVehicle(); // Buka modal edit kendaraan
-                }}
-                activeOpacity={0.8}
-                style={{ width: '100%', paddingVertical: 16, borderRadius: 20, backgroundColor: '#F5A623', alignItems: 'center' }}
-              >
-                <Text style={{ color: '#0D1B2A', fontWeight: '800', fontSize: 16 }}>
-                  {isId ? "Edit Kendaraan Sekarang" : "Edit Vehicle Now"}
-                </Text>
-              </TouchableOpacity>
+              <View style={{ width: '100%', gap: 12 }}>
+                {/* Tombol Utama */}
+                <TouchableOpacity 
+                  onPress={() => {
+                    setShowDocModal(false); 
+                    if (onEditVehicle) onEditVehicle(); 
+                  }}
+                  activeOpacity={0.8}
+                  style={{ width: '100%', paddingVertical: 16, borderRadius: 20, backgroundColor: '#F5A623', alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#0D1B2A', fontWeight: '800', fontSize: 16 }}>
+                    {isId ? "Edit Kendaraan Sekarang" : "Edit Vehicle Now"}
+                  </Text>
+                </TouchableOpacity>
 
-              {/* Tombol Batal */}
-              <TouchableOpacity 
-                onPress={() => setShowDocModal(false)}
-                activeOpacity={0.6}
-                style={{ width: '100%', paddingVertical: 16, borderRadius: 20, alignItems: 'center' }}
-              >
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '700', fontSize: 15 }}>
-                  {isId ? "Mungkin Nanti" : "Maybe Later"}
-                </Text>
-              </TouchableOpacity>
+                {/* Tombol Batal */}
+                <TouchableOpacity 
+                  onPress={() => setShowDocModal(false)}
+                  activeOpacity={0.6}
+                  style={{ width: '100%', paddingVertical: 16, borderRadius: 20, alignItems: 'center' }}
+                >
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '700', fontSize: 15 }}>
+                    {isId ? "Mungkin Nanti" : "Maybe Later"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </View>
+          </TouchableWithoutFeedback>
+        </TouchableOpacity>
       </Modal>
 
     </View>

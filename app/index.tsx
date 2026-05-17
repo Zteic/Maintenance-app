@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from "expo-router";
 import {
   View,
@@ -104,6 +105,38 @@ function AppContent() {
   const [planName, setPlanName] = useState("");
   const [planInterval, setPlanInterval] = useState("");
   const [showOdoHistory, setShowOdoHistory] = useState(false);
+
+  // --- STATE UNTUK NAMA GARASI CUSTOM ---
+  const [appName, setAppName] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
+
+  useEffect(() => {
+    const loadAppName = async () => {
+      try {
+        const savedName = await AsyncStorage.getItem("custom_app_name");
+        if (savedName) {
+          setAppName(savedName);
+        } else {
+          setAppName(t("appName")); // Default bawaan
+        }
+      } catch (e) {
+        console.log("Gagal memuat nama:", e);
+      }
+    };
+    loadAppName();
+  }, []);
+
+  // Fungsi untuk menyimpan nama saat selesai mengetik
+  const saveAppName = async () => {
+    setIsEditingName(false);
+    const finalName = appName.trim() || t("appName"); // Jika dikosongkan, kembali ke default
+    setAppName(finalName);
+    try {
+      await AsyncStorage.setItem("custom_app_name", finalName);
+    } catch (e) {
+      console.log("Gagal menyimpan nama:", e);
+    }
+  };
 
   // Notif State
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -609,36 +642,35 @@ function AppContent() {
             paddingBottom: 16,
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <TouchableOpacity
-              onPress={() => router.push("/profile")}
-              style={{
-                width: 45,
-                height: 45,
-                borderRadius: 22.5,
-                backgroundColor: "#1A2B3C",
-                borderWidth: 1.5,
-                borderColor: "#F5A623",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ fontSize: 20 }}>👤</Text>
-            </TouchableOpacity>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>            
             <View>
-              <Text
-                style={{
-                  color: "rgba(255,255,255,0.4)",
-                  fontSize: 10,
-                  fontWeight: "700",
-                  letterSpacing: 1,
-                }}
-              >
-                {t("appTagline").toUpperCase()}
-              </Text>
-              <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}>
-                {t("appName")}
-              </Text>
+              {isEditingName ? (
+                <TextInput
+                  value={appName}
+                  onChangeText={setAppName}
+                  onBlur={saveAppName} // Simpan saat klik di luar kotak
+                  onSubmitEditing={saveAppName} // Simpan saat tekan tombol Enter/Done di keyboard
+                  autoFocus // Langsung munculkan keyboard
+                  style={{ 
+                    color: "#FFFFFF", 
+                    fontSize: 22, 
+                    fontWeight: "800", 
+                    padding: 0, 
+                    borderBottomWidth: 1, 
+                    borderBottomColor: '#4ECDC4',
+                    minWidth: 100
+                  }}
+                />
+              ) : (
+                <TouchableOpacity 
+                  activeOpacity={0.7} 
+                  onPress={() => setIsEditingName(true)} // Ubah jadi mode edit saat diklik
+                >
+                  <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}>
+                    {appName}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
