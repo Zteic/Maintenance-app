@@ -64,7 +64,7 @@ export default function FuelLog({
   const isId = lang === "id";
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [showStats, setShowStats] = useState(false); // Default: disembunyikan
   
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -117,8 +117,8 @@ export default function FuelLog({
   // 3. Hitung Estimasi Sisa BBM & Jarak
   let estRemainingFuel = 0;
   let estRemainingKm = 0;
-  const tankCapacity = vehicle?.tankCapacity || 4.0;
-  
+  const tankCapacity = vehicle?.tankCapacity || 0;
+
   if (sorted.length > 0 && avgKmPerL > 0) {
     const lastEntry = sorted[0]; 
     let assumedFuelAfterFill = Math.min(lastEntry.liters + (tankCapacity * 0.2), tankCapacity); 
@@ -181,56 +181,106 @@ export default function FuelLog({
 
       {/* Stats Summary */}
       {fuelEntries.length > 0 && (
-        <View style={{ paddingHorizontal: 20, gap: 10 }}>
+        <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
           
-          {/* Row 1: Estimasi Pintar */}
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={[styles.statCard, { backgroundColor: 'rgba(78,205,196,0.05)', borderColor: 'rgba(0, 221, 255, 0.2)' }]}>
-              <Text style={styles.statIcon}>⛽</Text>
-              <Text style={styles.statLabel}>KONSUMSI</Text>
-              <Text style={[styles.statValue, { color: "#4ECDC4" }]}>{avgKmPerL > 0 ? avgKmPerL.toFixed(1) : "-"} <Text style={styles.statUnit}>km/L</Text></Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: 'rgba(78,205,196,0.05)', borderColor: 'rgba(0, 221, 255, 0.2)' }]}>
-              <Text style={styles.statIcon}>🛢️</Text>
-              <Text style={styles.statLabel}>SISA BBM</Text>
-              <Text style={[styles.statValue, { color: "#F5A623" }]}>±{estRemainingFuel.toFixed(1)} <Text style={styles.statUnit}>L</Text></Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: 'rgba(78,205,196,0.05)', borderColor: 'rgba(0, 221, 255, 0.2)' }]}>
-              <Text style={styles.statIcon}>🛣️</Text>
-              <Text style={styles.statLabel}>ESTIMASI</Text>
-              <Text style={[styles.statValue, { color: "#A29BFE" }]}>±{estRemainingKm.toFixed(0)} <Text style={styles.statUnit}>km</Text></Text>
-            </View>
-          </View>
-          <Text style={styles.disclaimerText}>*Estimasi berdasarkan riwayat dan kapasitas tangki {tankCapacity}L.</Text>
-
-          {/* Row 2: Pengeluaran Bulanan / Reset */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 5 }}>
-            <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: 1, fontWeight: '700' }}>
-              {isId ? `PENGELUARAN SEJAK: ${statsResetDate || '-'}` : `EXPENSES SINCE: ${statsResetDate || '-'}`}
+          {/* Tombol Buka/Tutup Statistik */}
+          <TouchableOpacity
+            onPress={() => setShowStats(!showStats)}
+            activeOpacity={0.8}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: 'rgba(78,205,196,0.1)',
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: 'rgba(78,205,196,0.3)',
+            }}
+          >
+            <Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 13, letterSpacing: 0.5 }}>
+              {showStats 
+                ? (isId ? "Sembunyikan Statistik BBM" : "Hide Fuel Stats") 
+                : (isId ? "Tampilkan Statistik BBM 📊" : "Show Fuel Stats 📊")}
             </Text>
-            {!showResetConfirm ? (
-              <TouchableOpacity onPress={() => setShowResetConfirm(true)}>
-                <Text style={{ color: '#FF5252', fontSize: 10, fontWeight: '700' }}>🔄 {isId ? "Reset" : "Reset"}</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <TouchableOpacity onPress={handleUndoReset}><Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700' }}>↶ Undo</Text></TouchableOpacity>
-                <TouchableOpacity onPress={confirmReset}><Text style={{ color: '#4ECDC4', fontSize: 10, fontWeight: '700' }}>✓ Simpan</Text></TouchableOpacity>
+            <Text style={{ color: '#4ECDC4', fontSize: 16, fontWeight: 'bold' }}>
+              {showStats ? "▲" : "▼"}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Isi Statistik (Hanya muncul jika tombol ditekan / showStats = true) */}
+          {showStats && (
+            <View style={{ gap: 10, marginTop: 15 }}>
+              
+              {/* VALIDASI: Cek apakah kapasitas tangki sudah diatur? */}
+              {tankCapacity > 0 ? (
+                // --- JIKA TANGKI SUDAH DIISI: Tampilkan Estimasi ---
+                <>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    <View style={[styles.statCard, { backgroundColor: 'rgba(78,205,196,0.05)', borderColor: 'rgba(78,205,196,0.2)' }]}>
+                      <Text style={styles.statIcon}>⛽</Text>
+                      <Text style={styles.statLabel}>KONSUMSI</Text>
+                      <Text style={[styles.statValue, { color: "#4ECDC4" }]}>{avgKmPerL > 0 ? avgKmPerL.toFixed(1) : "-"} <Text style={styles.statUnit}>km/L</Text></Text>
+                    </View>
+                    <View style={[styles.statCard, { backgroundColor: 'rgba(245,166,35,0.05)', borderColor: 'rgba(245,166,35,0.2)' }]}>
+                      <Text style={styles.statIcon}>🛢️</Text>
+                      <Text style={styles.statLabel}>SISA BBM</Text>
+                      <Text style={[styles.statValue, { color: "#F5A623" }]}>±{estRemainingFuel.toFixed(1)} <Text style={styles.statUnit}>L</Text></Text>
+                    </View>
+                    <View style={[styles.statCard, { backgroundColor: 'rgba(162,155,254,0.05)', borderColor: 'rgba(162,155,254,0.2)' }]}>
+                      <Text style={styles.statIcon}>🛣️</Text>
+                      <Text style={styles.statLabel}>ESTIMASI</Text>
+                      <Text style={[styles.statValue, { color: "#A29BFE" }]}>±{estRemainingKm.toFixed(0)} <Text style={styles.statUnit}>km</Text></Text>
+                    </View>
+                  </View>
+                  <Text style={styles.disclaimerText}>*Estimasi berdasarkan riwayat dan kapasitas tangki {tankCapacity}L.</Text>
+                </>
+              ) : (
+                // --- JIKA TANGKI BELUM DIISI (0): Tampilkan Peringatan ---
+                <View style={{ backgroundColor: 'rgba(245,166,35,0.1)', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(245,166,35,0.3)', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 24, marginBottom: 8 }}>⚠️</Text>
+                  <Text style={{ color: '#F5A623', fontSize: 14, fontWeight: '800', textAlign: 'center', marginBottom: 6 }}>
+                    {isId ? "Kapasitas Tangki Belum Diisi" : "Tank Capacity Not Set"}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, textAlign: 'center', lineHeight: 18 }}>
+                    {isId 
+                      ? "Untuk melihat estimasi Sisa BBM dan Jarak Tempuh, silakan edit Profil Kendaraan Anda dan isi Kapasitas Tangki terlebih dahulu." 
+                      : "To see Fuel and Distance estimations, please edit your Vehicle Profile and set the Tank Capacity first."}
+                  </Text>
+                </View>
+              )}
+
+              {/* Row 2: Pengeluaran Bulanan / Reset (Tetap Tampil di bawah peringatan/estimasi) */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: 1, fontWeight: '700' }}>
+                  {isId ? `PENGELUARAN SEJAK: ${statsResetDate || '-'}` : `EXPENSES SINCE: ${statsResetDate || '-'}`}
+                </Text>
+                {!showResetConfirm ? (
+                  <TouchableOpacity onPress={() => setShowResetConfirm(true)}>
+                    <Text style={{ color: '#FF5252', fontSize: 10, fontWeight: '700' }}>🔄 {isId ? "Reset" : "Reset"}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <TouchableOpacity onPress={handleUndoReset}><Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700' }}>↶ Undo</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={confirmReset}><Text style={{ color: '#4ECDC4', fontSize: 10, fontWeight: '700' }}>✓ Simpan</Text></TouchableOpacity>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
 
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>TOTAL LITER</Text>
-              <Text style={styles.statValue}>{totalLitersThisMonth.toFixed(1)} <Text style={styles.statUnit}>L</Text></Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>TOTAL BIAYA</Text>
-              <Text style={[styles.statValue, { fontSize: 13 }]}>{formatCurrency(totalCostThisMonth)}</Text>
-            </View>
-          </View>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>TOTAL LITER</Text>
+                  <Text style={styles.statValue}>{totalLitersThisMonth.toFixed(1)} <Text style={styles.statUnit}>L</Text></Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>TOTAL BIAYA</Text>
+                  <Text style={[styles.statValue, { fontSize: 13 }]}>{formatCurrency(totalCostThisMonth)}</Text>
+                </View>
+              </View>
 
+            </View>
+          )}
         </View>
       )}
 
