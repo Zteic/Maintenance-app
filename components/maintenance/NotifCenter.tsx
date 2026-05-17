@@ -169,7 +169,7 @@ export default function NotifCenter({
                     {/* Footer: Vehicle Name & Time */}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Text style={{ color: '#00BCD4', fontSize: 10, fontWeight: '800' }}>
-                        {notif.type === 'system' ? 'SISTEM' : `KENDARAAN • ${notif.vehicleName || '-'}`}
+                        {notif.type === 'system' ? 'SISTEM' : `Kendaraan • ${notif.vehicleName || '-'}`}
                       </Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                         <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>{new Date(notif.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>

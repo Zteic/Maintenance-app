@@ -366,7 +366,13 @@ function AppContent() {
 
     setReminders((prev) => [...prev, newPlan]);
 
-    addNotification('ADD', lang === "id" ? "Rencana Perawatan Baru" : "New Plan", `Jadwal baru ${planName} setiap ${planInterval} km.`, "vehicle", selectedVehicleId);
+    addNotification(
+      'ADD', 
+      lang === "id" ? "Rencana Perawatan Baru" : "New Maintenance Plan",
+      `Rencana baru untuk ${planName} setiap ${planInterval} km berhasil dijadwalkan.`,
+      "vehicle",
+      selectedVehicleId
+    );
 
     setPlanName("");
     setPlanInterval("");
@@ -443,7 +449,13 @@ function AppContent() {
             : v
         )
       );
-      addNotification('UPDATE', lang === "id" ? "Kendaraan Diperbarui" : "Vehicle Updated", `Data kendaraan ${data.name} diperbarui.`, "vehicle", editingVehicle.id);
+      addNotification(
+        'UPDATE', 
+        lang === "id" ? "Profil Kendaraan Diperbarui" : "Vehicle Profile Updated",
+        `Data kendaraan ${data.name || editingVehicle.name} telah berhasil diperbarui.`,
+        "vehicle",
+        editingVehicle.id
+      );
     } else {
       const newVehicle = {
         id: `v${Date.now()}`,
@@ -454,7 +466,13 @@ function AppContent() {
       setVehicles((prev) => [...prev, newVehicle]);
       setSelectedVehicleId(newVehicle.id);
 
-      addNotification('ADD', lang === "id" ? "Kendaraan Ditambahkan" : "Vehicle Added", `Kendaraan baru terdaftar di garasi.`, "vehicle", newVehicle.id);
+      addNotification(
+        'ADD', 
+        lang === "id" ? "Kendaraan Ditambahkan" : "Vehicle Added",
+        `Kendaraan baru ${newVehicle.name} berhasil terdaftar di garasi.`,
+        "vehicle",
+        newVehicle.id
+      );
     }
 
     setShowVehicleModal(false);
@@ -696,40 +714,10 @@ function AppContent() {
         {activeTab === "home" && stats.selectedVehicle ? (
           <>
             <VehicleProfileCard
-              vehicle={{
-                ...stats.selectedVehicle,
-                currentOdometer: stats.autoLatestOdometer,
-              }}
-              onEditVehicle={() => {
-                setEditingVehicle(stats.selectedVehicle!);
-                setShowVehicleModal(true);
-              }}
+              vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
+              onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }}
+              onOdometerPress={() => setShowOdoHistory(true)} // <--- TAMBAHKAN BARIS INI
             />
-
-            <TouchableOpacity
-              onPress={() => setShowOdoHistory(true)}
-              style={{
-                marginHorizontal: 20,
-                backgroundColor: "rgba(78,205,196,0.1)",
-                borderWidth: 1,
-                borderColor: "rgba(78,205,196,0.3)",
-                padding: 15,
-                borderRadius: 14,
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <Text style={{ fontSize: 18 }}>⏱️</Text>
-                <Text style={{ color: "#4ECDC4", fontWeight: "700" }}>
-                  Riwayat Odometer (Auto)
-                </Text>
-              </View>
-              <Text style={{ color: "white", fontWeight: "bold" }}>
-                {stats.autoLatestOdometer.toLocaleString("id-ID")} km ›
-              </Text>
-            </TouchableOpacity>
 
             <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
               <View
@@ -957,6 +945,7 @@ function AppContent() {
             const newCost = Number(formData.cost).toLocaleString("id-ID");
 
             addNotification(
+              'UPDATE',
               lang === "id" ? "Servis Diperbarui" : "Service Updated",
               `Update [${formData.serviceType}]: Odo ${oldOdo}km ➔ ${newOdo}km | Biaya Rp${oldCost} ➔ Rp${newCost}.`,
               "vehicle",
@@ -992,6 +981,7 @@ function AppContent() {
             }
 
             addNotification(
+              'ADD',
               lang === "id" ? "Servis Ditambahkan" : "Service Added",
               `Mencatat [${formData.serviceType}] pada Odo: ${Number(formData.odometer).toLocaleString(
                 "id-ID"
@@ -999,7 +989,6 @@ function AppContent() {
               "vehicle",
               vId
             );
-
             alert(lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
           }
 
@@ -1043,7 +1032,9 @@ function AppContent() {
 
             const oldOdoF = editingFuel.odometer?.toLocaleString("id-ID") || 0;
             const newOdoF = Number(entry.odometer).toLocaleString("id-ID");
+            
             addNotification(
+              'UPDATE', 
               lang === "id" ? "Catatan Bensin Diperbarui" : "Fuel Record Updated",
               `Update Bensin: Odo ${oldOdoF}km ➔ ${newOdoF}km | Liter: ${editingFuel.liters}L ➔ ${entry.liters}L.`,
               "vehicle",
@@ -1053,6 +1044,7 @@ function AppContent() {
             handleAddFuel(entry);
 
             addNotification(
+              'ADD',
               lang === "id" ? "Bensin Ditambahkan" : "Fuel Added",
               `Mengisi ${entry.liters}L pada Odo: ${Number(entry.odometer).toLocaleString(
                 "id-ID"

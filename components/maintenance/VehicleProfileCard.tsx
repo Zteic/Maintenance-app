@@ -6,11 +6,13 @@ import { useLanguage } from "@/context/LanguageContext";
 interface VehicleProfileCardProps {
   vehicle: Vehicle;
   onEditVehicle?: () => void;
+  onOdometerPress?: () => void;
 }
 
 export default function VehicleProfileCard({
   vehicle,
   onEditVehicle,
+  onOdometerPress,
 }: VehicleProfileCardProps) {
   const { t, lang } = useLanguage();
   if (!vehicle) return null;
@@ -153,63 +155,69 @@ export default function VehicleProfileCard({
         </View>
 
         {/* Odometer Widget */}
-        <View
-  style={{
-    backgroundColor: "rgba(13,27,42,0.6)",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12, // Tinggi kotak dikurangi
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    flexDirection: 'row', // Layout menyamping
-    justifyContent: 'space-between', // Judul di kiri, angka di kanan
-    alignItems: 'center'
-  }}
->
-  {/* Sisi Kiri: Label & Info Terakhir */}
-  <View>
-    <Text
-      style={{
-        color: "rgba(255, 255, 255, 0.86))",
-        fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 1,
-        marginBottom: 2,
-      }}
-    >
-      ODOMETER
-    </Text>
-    <Text
-      style={{
-        color: "rgba(218, 206, 206, 0.89)",
-        fontSize: 9,
-      }}
-    >
-      {t("lastUpdated")}{" "}
-      {daysSinceUpdate === 0
-        ? t("today")
-        : `${daysSinceUpdate} ${daysSinceUpdate > 1 ? t("daysAgo") : t("dayAgo")}`}
-    </Text>
-  </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={onOdometerPress}
+          style={{
+            backgroundColor: "rgba(13,27,42,0.6)",
+            borderRadius: 16,
+            paddingHorizontal: 16,
+            paddingVertical: 12, // Tinggi kotak dikurangi
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.06)",
+            flexDirection: 'row', // Layout menyamping
+            justifyContent: 'space-between', // Judul di kiri, angka di kanan
+            alignItems: 'center'
+          }}
+        >
+          {/* Sisi Kiri: Label & Info Terakhir */}
+          <View>
+            <Text
+              style={{
+                color: "rgba(255, 255, 255, 0.86)",
+                fontSize: 10,
+                fontWeight: '700',
+                letterSpacing: 1,
+                marginBottom: 2,
+              }}
+            >
+              ODOMETER (AUTO)
+            </Text>
+            <Text
+              style={{
+                color: "rgba(218, 206, 206, 0.89)",
+                fontSize: 9,
+              }}
+            >
+              {t("lastUpdated")}{" "}
+              {daysSinceUpdate === 0
+                ? t("today")
+                : `${daysSinceUpdate} ${daysSinceUpdate > 1 ? t("daysAgo") : t("dayAgo")}`}
+            </Text>
+          </View>
 
-  {/* Sisi Kanan: Angka Odometer */}
-  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
-    <Text
-      style={{
-        color: "#FFFFFF",
-        fontSize: 24, // Sedikit diperkecil agar proporsional
-        fontFamily: "SpaceMono",
-        fontWeight: "700",
-        letterSpacing: 1,
-      }}
-    >
-      {formatOdometer(vehicle.currentOdometer)}
-    </Text>
-    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: '600' }}>
-      km
-    </Text>
-  </View>
-</View>
+          {/* Sisi Kanan: Angka Odometer */}
+          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
+            <Text
+              style={{
+                color: "#FFFFFF",
+                fontSize: 24, // Sedikit diperkecil agar proporsional
+                fontFamily: "SpaceMono",
+                fontWeight: "700",
+                letterSpacing: 1,
+              }}
+            >
+              {formatOdometer(vehicle.currentOdometer)}
+            </Text>
+            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: '600' }}>
+              km
+            </Text>
+            
+            {/* Tambahan ikon panah agar user tahu kotak ini bisa diklik */}
+            <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 18, marginLeft: 6, marginBottom: 2 }}>
+            </Text>
+          </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
