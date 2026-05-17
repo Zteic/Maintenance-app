@@ -261,7 +261,7 @@ export default function UpcomingReminders({
       </View>
 
       {/* --- MODAL CUSTOM UNTUK INFORMASI DOKUMEN --- */}
-      <Modal visible={showDocModal} transparent animationType="fade" onRequestClose={() => setShowDocModal(false)}>
+      <Modal visible={showDocModal} transparent animationType="none" onRequestClose={() => setShowDocModal(false)}>
         <TouchableOpacity 
           activeOpacity={1} 
           onPress={() => setShowDocModal(false)} 

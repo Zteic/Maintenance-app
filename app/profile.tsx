@@ -485,7 +485,7 @@ function ProfileContent() {
       </ScrollView>
 
       {/* Backup Modal Sederhana */}
-      <Modal visible={showBackupModal} transparent animationType="fade">
+      <Modal visible={showBackupModal} transparent animationType="none">
         <View
           style={{
             flex: 1,

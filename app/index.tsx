@@ -1148,7 +1148,7 @@ function AppContent() {
         </View>
       </Modal>
 
-      <Modal visible={showPlanModal} transparent animationType="fade" onRequestClose={() => setShowPlanModal(false)}>
+      <Modal visible={showPlanModal} transparent animationType="none" onRequestClose={() => setShowPlanModal(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.9)", justifyContent: "center", alignItems: "center" }}>
           <View
             style={{
@@ -1232,7 +1232,7 @@ function AppContent() {
         </View>
       </Modal>
 
-      <Modal visible={showLangModal} transparent animationType="fade" onRequestClose={() => setShowLangModal(false)}>
+      <Modal visible={showLangModal} transparent animationType="none" onRequestClose={() => setShowLangModal(false)}>
         <TouchableWithoutFeedback onPress={() => setShowLangModal(false)}>
           <View
             style={{
@@ -1300,7 +1300,7 @@ function AppContent() {
         </TouchableWithoutFeedback>
       </Modal>
 
-      <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
+      <Modal visible={showDeleteConfirm} transparent animationType="none" onRequestClose={() => setShowDeleteConfirm(false)}>
         <View
           style={{
             flex: 1,
