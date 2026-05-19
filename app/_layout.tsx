@@ -118,8 +118,8 @@ function AppNavigationOverlay() {
 
   const showFab = activeTab === "home" || activeTab === "fuel";
 
-  // Sembunyikan navbar jika sedang berada di layar export atau sub-layar lainnya
-  if (pathname !== "/" && !pathname.includes("profile")) {
+  // Sembunyikan navbar jika berada di layar selain Home, Profile, dan Export
+  if (pathname !== "/" && !pathname.includes("profile") && !pathname.includes("export")) {
     return null; 
   }
 

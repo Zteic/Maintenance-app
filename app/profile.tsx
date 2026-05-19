@@ -13,7 +13,6 @@ import {
   Modal,
   TouchableWithoutFeedback,
 } from "react-native";
-import ExportToPDF from '@/components/maintenance/ExportToPDF';
 import * as ImagePicker from "expo-image-picker";
 import { useRouter, Stack } from "expo-router";
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
@@ -93,7 +92,6 @@ function ProfileContent() {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [showBackupModal, setShowBackupModal] = useState(false);
-  const [showPdfModal, setShowPdfModal] = useState(false);
 
   useEffect(() => {
     loadUserProfile().then((p) => {
@@ -402,49 +400,6 @@ function ProfileContent() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setShowPdfModal(true)}
-            style={{
-              backgroundColor: "#1A2B3C",
-              borderRadius: 16,
-              padding: 20,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 16,
-              borderWidth: 1,
-              borderColor: "rgba(78,205,196,0.3)", // Neon teal border
-              shadowColor: "#4ECDC4",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.1,
-              shadowRadius: 10,
-            }}
-          >
-            {/* Kotak Ikon yang disamakan style-nya */}
-            <View style={{
-              width: 48,
-              height: 48,
-              borderRadius: 14,
-              backgroundColor: "rgba(78,205,196,0.1)",
-              alignItems: "center",
-              justifyContent: "center"
-            }}>
-              <Text style={{ fontSize: 22 }}>📄</Text>
-            </View>
-            
-            {/* Teks Judul dan Sub-judul */}
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>
-                {t("exportPdf")}
-              </Text>
-              <Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>
-                Buat laporan lengkap siap cetak
-              </Text>
-            </View>
-            
-            {/* Panah di kanan */}
-            <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
   onPress={() => router.push('/export')} // Navigasi ke halaman export
   style={{
     backgroundColor: "#1A2B3C",
@@ -533,11 +488,6 @@ function ProfileContent() {
           </View>
         </View>
       </Modal>
-
-      <ExportToPDF 
-        visible={showPdfModal} 
-        onClose={() => setShowPdfModal(false)} 
-      />
     
     </SafeAreaView>
   );
