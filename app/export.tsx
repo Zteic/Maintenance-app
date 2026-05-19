@@ -411,18 +411,32 @@ export default function ExportScreen() {
         setExportDone(true);
       } else {
         const { uri } = await Print.printToFileAsync({ html: htmlContent, base64: false });
-        const finalFilename = customFilename.endsWith('.pdf') ? customFilename : `${customFilename}.pdf`;
-        const newUri = FileSystem.cacheDirectory + finalFilename;
+        
+        // 🚀 ANTI ERROR FIX: Bersihkan nama file dari spasi dan simbol aneh
+        let safeName = customFilename.trim() || 'GarasiKu-Report';
+        if (!safeName.endsWith('.pdf')) safeName += '.pdf';
+        safeName = safeName.replace(/[^a-zA-Z0-9.\-_]/g, '_'); 
+
+        // Gunakan documentDirectory alih-alih cacheDirectory agar lebih stabil
+        const newUri = FileSystem.documentDirectory + safeName;
+        
+        // Cek dan hapus file lama jika ada (menghindari error copyAsync gagal overwrite)
+        const fileInfo = await FileSystem.getInfoAsync(newUri);
+        if (fileInfo.exists) {
+           await FileSystem.deleteAsync(newUri);
+        }
+
         await FileSystem.copyAsync({ from: uri, to: newUri });
         
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(newUri, { UTI: '.pdf', mimeType: 'application/pdf' });
+          await Sharing.shareAsync(newUri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: 'Bagikan PDF Laporan GarasiKu' });
           setExportDone(true);
         }
       }
 
-    } catch (e) {
-      Alert.alert("Error", "Gagal memproses file PDF.");
+    } catch (e: any) {
+      // Tampilkan ALASAN ASLI KENAPA ERROR terjadi!
+      Alert.alert("Error PDF", e?.message || "Gagal memproses file PDF.");
     } finally {
       setLoading(false);
     }
@@ -456,9 +470,9 @@ export default function ExportScreen() {
       setProgressText("🔄 Compressing Files...");
       await new Promise(r => setTimeout(r, 600));
 
-      const finalFilename = customFilename.endsWith('.vhdb') ? customFilename : `${customFilename}.vhdb`;
-
       if (Platform.OS === 'web') {
+        let finalFilename = customFilename.trim() || 'GarasiKu-Backup';
+        if (!finalFilename.endsWith('.vhdb')) finalFilename += '.vhdb';
         const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -470,17 +484,32 @@ export default function ExportScreen() {
         URL.revokeObjectURL(url);
         setExportDone(true);
       } else {
-        const fileUri = FileSystem.cacheDirectory + finalFilename;
+        // 🚀 ANTI ERROR FIX: Bersihkan nama file
+        let safeName = customFilename.trim() || 'GarasiKu-Backup';
+        if (!safeName.endsWith('.vhdb')) safeName += '.vhdb';
+        safeName = safeName.replace(/[^a-zA-Z0-9.\-_]/g, '_'); 
+
+        const fileUri = FileSystem.documentDirectory + safeName;
+        
+        // Hapus file lama jika namanya kembar
+        const fileInfo = await FileSystem.getInfoAsync(fileUri);
+        if (fileInfo.exists) {
+           await FileSystem.deleteAsync(fileUri);
+        }
+
         await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(payload));
+        
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, { mimeType: 'application/json', dialogTitle: 'Simpan Backup GarasiKu' });
+          // Gunakan tipe octet-stream agar Android tidak bingung dengan ekstensi custom .vhdb
+          await Sharing.shareAsync(fileUri, { mimeType: 'application/octet-stream', dialogTitle: 'Simpan Backup GarasiKu' });
           setExportDone(true);
         }
       }
       setProgressText("✅ Export Completed");
       await new Promise(r => setTimeout(r, 400));
-    } catch (e) {
-      Alert.alert("Export Gagal", "Terjadi kesalahan saat membackup database.");
+    } catch (e: any) {
+      // Tampilkan pesan error yang sesungguhnya!
+      Alert.alert("Export Gagal", e?.message || "Terjadi kesalahan saat membackup database.");
     } finally {
       setLoading(false);
     }
