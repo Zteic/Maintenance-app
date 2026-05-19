@@ -77,14 +77,14 @@ export default function FuelLog({
     loadFuelStatsResetDate().then((d) => setStatsResetDate(d));
   }, []);
 
-  const activeEntries = statsResetDate
-    ? fuelEntries.filter((e) => e.date >= statsResetDate)
-    : fuelEntries;
-
-  const sorted = [...fuelEntries].sort((a, b) => b.date.localeCompare(a.date));
-
-  // 1. Hitung AVG KM/L (Berdasarkan semua data historis agar lebih stabil)
-  const sortedAsc = [...fuelEntries].sort((a, b) => a.date.localeCompare(b.date));
+  // 🚀 PERBAIKAN SORTING: Jika tanggalnya sama, urutkan berdasarkan Odometer!
+  const sortedAsc = [...fuelEntries].sort((a, b) => {
+    if (a.date === b.date) return a.odometer - b.odometer;
+    return a.date.localeCompare(b.date);
+  });
+  
+  // Sorted descending (terbaru di atas) dibuat dengan membalik sortedAsc agar urutannya 100% akurat
+  const sorted = [...sortedAsc].reverse();
   let totalDistanceForAvg = 0;
   let totalLitersForAvg = 0;
   const efficiencies: any[] = [];
@@ -96,8 +96,6 @@ export default function FuelLog({
     
     if (distance > 0 && curr.liters > 0) {
       const kmPerL = distance / curr.liters;
-      totalDistanceForAvg += distance;
-      totalLitersForAvg += curr.liters;
       efficiencies.push({
         km: distance,
         liters: curr.liters,
@@ -105,14 +103,22 @@ export default function FuelLog({
         date: curr.date,
         entryId: curr.id,
       });
+
+      // 🚀 KUNCI PERBAIKAN: Hanya tambahkan ke hitungan rata-rata JIKA bensin diisi SETELAH tombol reset ditekan!
+      // 🚀 PERBAIKAN LOGIKA: Cari di urutan ke berapa "Titik Nol" (Reset) itu berada
+      const resetIndex = statsResetDate ? sortedAsc.findIndex(e => e.id === statsResetDate) : -1;
+                  
+      // Hanya hitung rata-rata jika riwayat ini berada SETELAH Titik Nol
+      const isAfterReset = resetIndex === -1 || i > resetIndex;
+      
+      if (isAfterReset) {
+        totalDistanceForAvg += distance;
+        totalLitersForAvg += curr.liters;
+      }
     }
   }
 
   const avgKmPerL = totalLitersForAvg > 0 ? totalDistanceForAvg / totalLitersForAvg : 0;
-
-  // 2. Hitung Total Bulan Ini (Dari activeEntries / Reset Date)
-  const totalLitersThisMonth = activeEntries.reduce((sum, e) => sum + e.liters, 0);
-  const totalCostThisMonth = activeEntries.reduce((sum, e) => sum + e.totalCost, 0);
 
   // 3. Hitung Estimasi Sisa BBM & Jarak
   let estRemainingFuel = 0;
@@ -141,10 +147,11 @@ export default function FuelLog({
 };
 
   const confirmReset = () => {
-    const today = new Date().toISOString().split("T")[0];
+    // 🚀 PERBAIKAN RESET: Pastikan mengambil ID dari urutan paling akhir di sortedAsc
+    const latestEntryId = sortedAsc.length > 0 ? sortedAsc[sortedAsc.length - 1].id : "NONE";
     setPrevResetDate(statsResetDate);
-    setStatsResetDate(today);
-    saveFuelStatsResetDate(today);
+    setStatsResetDate(latestEntryId); // Kita simpan ID-nya, bukan tanggalnya
+    saveFuelStatsResetDate(latestEntryId);
     setShowResetConfirm(false);
   };
 
@@ -179,108 +186,63 @@ export default function FuelLog({
         </TouchableOpacity>
       </View>
 
-      {/* Stats Summary */}
+      {/* Stats Summary (Konsumsi KM/L & Reset) */}
       {fuelEntries.length > 0 && (
-        <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
+        <View style={{ paddingHorizontal: 20, marginBottom: 15 }}>
           
-          {/* Tombol Buka/Tutup Statistik */}
-          <TouchableOpacity
-            onPress={() => setShowStats(!showStats)}
-            activeOpacity={0.8}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: 'rgba(78,205,196,0.1)',
-              paddingHorizontal: 16,
-              paddingVertical: 14,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: 'rgba(78,205,196,0.3)',
-            }}
-          >
-            <Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 13, letterSpacing: 0.5 }}>
-              {showStats 
-                ? (isId ? "Sembunyikan Statistik BBM" : "Hide Fuel Stats") 
-                : (isId ? "Tampilkan Statistik BBM 📊" : "Show Fuel Stats 📊")}
-            </Text>
-            <Text style={{ color: '#4ECDC4', fontSize: 16, fontWeight: 'bold' }}>
-              {showStats ? "▲" : "▼"}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Isi Statistik (Hanya muncul jika tombol ditekan / showStats = true) */}
-          {showStats && (
-            <View style={{ gap: 10, marginTop: 15 }}>
-              
-              {/* VALIDASI: Cek apakah kapasitas tangki sudah diatur? */}
-              {tankCapacity > 0 ? (
-                // --- JIKA TANGKI SUDAH DIISI: Tampilkan Estimasi ---
-                <>
-                  <View style={{ flexDirection: "row", gap: 8 }}>
-                    <View style={[styles.statCard, { backgroundColor: 'rgba(78,205,196,0.05)', borderColor: 'rgba(78,205,196,0.2)' }]}>
-                      <Text style={styles.statIcon}>⛽</Text>
-                      <Text style={styles.statLabel}>KONSUMSI</Text>
-                      <Text style={[styles.statValue, { color: "#4ECDC4" }]}>{avgKmPerL > 0 ? avgKmPerL.toFixed(1) : "-"} <Text style={styles.statUnit}>km/L</Text></Text>
-                    </View>
-                    <View style={[styles.statCard, { backgroundColor: 'rgba(245,166,35,0.05)', borderColor: 'rgba(245,166,35,0.2)' }]}>
-                      <Text style={styles.statIcon}>🛢️</Text>
-                      <Text style={styles.statLabel}>SISA BBM</Text>
-                      <Text style={[styles.statValue, { color: "#F5A623" }]}>±{estRemainingFuel.toFixed(1)} <Text style={styles.statUnit}>L</Text></Text>
-                    </View>
-                    <View style={[styles.statCard, { backgroundColor: 'rgba(162,155,254,0.05)', borderColor: 'rgba(162,155,254,0.2)' }]}>
-                      <Text style={styles.statIcon}>🛣️</Text>
-                      <Text style={styles.statLabel}>ESTIMASI</Text>
-                      <Text style={[styles.statValue, { color: "#A29BFE" }]}>±{estRemainingKm.toFixed(0)} <Text style={styles.statUnit}>km</Text></Text>
-                    </View>
-                  </View>
-                  <Text style={styles.disclaimerText}>*Estimasi berdasarkan riwayat dan kapasitas tangki {tankCapacity}L.</Text>
-                </>
-              ) : (
-                // --- JIKA TANGKI BELUM DIISI (0): Tampilkan Peringatan ---
-                <View style={{ backgroundColor: 'rgba(245,166,35,0.1)', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(245,166,35,0.3)', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 24, marginBottom: 8 }}>⚠️</Text>
-                  <Text style={{ color: '#F5A623', fontSize: 14, fontWeight: '800', textAlign: 'center', marginBottom: 6 }}>
-                    {isId ? "Kapasitas Tangki Belum Diisi" : "Tank Capacity Not Set"}
-                  </Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, textAlign: 'center', lineHeight: 18 }}>
-                    {isId 
-                      ? "Untuk melihat estimasi Sisa BBM dan Jarak Tempuh, silakan edit Profil Kendaraan Anda dan isi Kapasitas Tangki terlebih dahulu." 
-                      : "To see Fuel and Distance estimations, please edit your Vehicle Profile and set the Tank Capacity first."}
-                  </Text>
-                </View>
-              )}
-
-              {/* Row 2: Pengeluaran Bulanan / Reset (Tetap Tampil di bawah peringatan/estimasi) */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-                <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: 1, fontWeight: '700' }}>
-                  {isId ? `PENGELUARAN SEJAK: ${statsResetDate || '-'}` : `EXPENSES SINCE: ${statsResetDate || '-'}`}
-                </Text>
-                {!showResetConfirm ? (
-                  <TouchableOpacity onPress={() => setShowResetConfirm(true)}>
-                    <Text style={{ color: '#FF5252', fontSize: 10, fontWeight: '700' }}>🔄 {isId ? "Reset" : "Reset"}</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={{ flexDirection: 'row', gap: 10 }}>
-                    <TouchableOpacity onPress={handleUndoReset}><Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700' }}>↶ Undo</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={confirmReset}><Text style={{ color: '#4ECDC4', fontSize: 10, fontWeight: '700' }}>✓ Simpan</Text></TouchableOpacity>
-                  </View>
-                )}
-              </View>
-
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>TOTAL LITER</Text>
-                  <Text style={styles.statValue}>{totalLitersThisMonth.toFixed(1)} <Text style={styles.statUnit}>L</Text></Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>TOTAL BIAYA</Text>
-                  <Text style={[styles.statValue, { fontSize: 13 }]}>{formatCurrency(totalCostThisMonth)}</Text>
-                </View>
-              </View>
-
+          {/* Banner Konsumsi */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: 'rgba(78,205,196,0.08)',
+            paddingHorizontal: 20,
+            paddingVertical: 18,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: 'rgba(78,205,196,0.3)',
+            marginBottom: 8 // Memberi jarak dengan teks reset di bawahnya
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={{ fontSize: 24 }}>⛽</Text>
+              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, letterSpacing: 1, fontWeight: "800" }}>
+                {isId ? "RATA-RATA KONSUMSI" : "AVG CONSUMPTION"}
+              </Text>
             </View>
-          )}
+            <Text style={{ color: "#4ECDC4", fontSize: 22, fontWeight: "900", fontFamily: "SpaceMono" }}>
+              {/* Akan benar-benar tampil 0.0 jika avgKmPerL bernilai 0 */}
+              {avgKmPerL > 0 ? avgKmPerL.toFixed(1) : "0.0"} <Text style={{ fontSize: 12, fontWeight: "600", color: "rgba(255,255,255,0.4)" }}>km/L</Text>
+            </Text>
+          </View>
+
+          {/* Baris Informasi Tanggal & Tombol Reset */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+            <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: 1, fontWeight: '700' }}>
+              {(() => {
+                const resetEntry = statsResetDate ? fuelEntries.find(e => e.id === statsResetDate) : null;
+                if (resetEntry) {
+                  return isId ? `DIHITUNG SETELAH: ${resetEntry.date}` : `CALCULATING AFTER: ${resetEntry.date}`;
+                }
+                return isId ? "PERHITUNGAN AKTIF" : "CALCULATION ACTIVE";
+              })()}
+            </Text>
+            
+            {!showResetConfirm ? (
+              <TouchableOpacity onPress={() => setShowResetConfirm(true)} activeOpacity={0.7} style={{ padding: 4 }}>
+                <Text style={{ color: '#FF5252', fontSize: 10, fontWeight: '800' }}>🔄 {isId ? "Reset" : "Reset"}</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 15 }}>
+                <TouchableOpacity onPress={handleUndoReset} activeOpacity={0.7} style={{ padding: 4 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '800' }}>↶ {isId ? "Batal" : "Undo"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={confirmReset} activeOpacity={0.7} style={{ padding: 4 }}>
+                  <Text style={{ color: '#4ECDC4', fontSize: 10, fontWeight: '800' }}>✓ {isId ? "Simpan" : "Save"}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
         </View>
       )}
 
