@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  TextInput, Dimensions, ActivityIndicator, Alert, StatusBar, Platform 
+  Dimensions, ActivityIndicator, Alert, StatusBar, Platform 
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import * as FileSystem from 'expo-file-system';
+// 🚀 PERBAIKAN: Menggunakan modul legacy agar fungsi getInfoAsync berjalan lancar di Expo 54
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Print from 'expo-print';
@@ -29,11 +30,10 @@ export default function ExportScreen() {
   // UI & Filter State
   const [mode, setMode] = useState<'backup' | 'pdf' | 'import'>('backup');
   const [selectedVehicle, setSelectedVehicle] = useState('all');
-  const [period, setPeriod] = useState<string>('all'); // Diubah menjadi string untuk menampung tahun dinamis
+  const [period, setPeriod] = useState<string>('all'); 
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [pdfReportType, setPdfReportType] = useState<'summary' | 'hybrid'>('hybrid');
-  const [customFilename, setCustomFilename] = useState('');
   
   // Progress Loader State
   const [loading, setLoading] = useState(false);
@@ -61,7 +61,6 @@ export default function ExportScreen() {
 
   // =========================================================
   // SMART DYNAMIC YEAR FINDER
-  // Membaca seluruh data dan mendeteksi tahun berapa saja yang punya history
   // =========================================================
   const currentYear = new Date().getFullYear();
   const availableYears = Array.from(new Set([
@@ -69,7 +68,6 @@ export default function ExportScreen() {
     ...fuels.map(f => new Date(f.date).getFullYear())
   ])).filter(y => !isNaN(y) && y < currentYear).sort((a,b) => b - a);
 
-  // List opsi filter (Semua, Bulan Ini, 3 Bulan, Tahun Ini, [Tahun-tahun sebelumnya], Custom)
   const periodOptions = ['all', 'this_month', 'last_3_months', 'this_year', ...availableYears.map(String), 'custom'];
 
   const getPeriodLabel = (p: string) => {
@@ -78,7 +76,7 @@ export default function ExportScreen() {
     if (p === 'last_3_months') return isId ? '3 Bulan Terakhir' : 'Last 3 Months';
     if (p === 'this_year') return isId ? 'Tahun Ini' : 'This Year';
     if (p === 'custom') return isId ? 'Custom Date' : 'Custom Date';
-    return `${isId ? 'Tahun' : 'Year'} ${p}`; // Untuk tahun-tahun masa lalu
+    return `${isId ? 'Tahun' : 'Year'} ${p}`;
   };
 
   // =========================================================
@@ -118,11 +116,10 @@ export default function ExportScreen() {
         e.setHours(23, 59, 59, 999);
         return d >= s && d <= e;
       }
-      // Jika period adalah spesifik Tahun (contoh: "2024")
       if (/^\d{4}$/.test(period)) {
         return d.getFullYear() === parseInt(period);
       }
-      return true; // Mode 'all'
+      return true;
     };
 
     filteredRepairs = filteredRepairs.filter(r => filterByDateRange(r.date));
@@ -135,19 +132,6 @@ export default function ExportScreen() {
   const estimatedSize = ((JSON.stringify(filteredRepairs).length + JSON.stringify(filteredFuels).length) / 1024).toFixed(1);
   const vehicleName = selectedVehicle === 'all' ? (isId ? "Semua Kendaraan" : "All Vehicles") : vehicles.find(v => v.id === selectedVehicle)?.name || "Kendaraan";
   const isDataEmpty = filteredRepairs.length === 0 && filteredFuels.length === 0;
-
-  useEffect(() => {
-    const dateStr = new Date().toISOString().split('T')[0];
-    const safeVehicleName = selectedVehicle === 'all' ? 'All-Vehicles' : (vehicles.find(v => v.id === selectedVehicle)?.name.replace(/\s+/g, '-') || 'Vehicle');
-    let periodLabel = period.replace(/_/g, '-');
-    if (period === 'all') periodLabel = 'Full-Report';
-    
-    if (mode === 'pdf') {
-      setCustomFilename(`${safeVehicleName}-${periodLabel}-${dateStr}`);
-    } else {
-      setCustomFilename(`${safeVehicleName}-Backup-${dateStr}`);
-    }
-  }, [selectedVehicle, period, mode, vehicles]);
 
   // ==========================================
   // HYBRID PDF GENERATOR ENGINE
@@ -406,21 +390,16 @@ export default function ExportScreen() {
       setProgressText("🚀 Finalizing PDF Document...");
       await new Promise(r => setTimeout(r, 400));
 
+      const finalFilename = 'LaporanGarasimu.pdf';
+
       if (Platform.OS === 'web') {
         await Print.printAsync({ html: htmlContent });
         setExportDone(true);
       } else {
         const { uri } = await Print.printToFileAsync({ html: htmlContent, base64: false });
+        const newUri = FileSystem.documentDirectory + finalFilename;
         
-        // 🚀 ANTI ERROR FIX: Bersihkan nama file dari spasi dan simbol aneh
-        let safeName = customFilename.trim() || 'GarasiKu-Report';
-        if (!safeName.endsWith('.pdf')) safeName += '.pdf';
-        safeName = safeName.replace(/[^a-zA-Z0-9.\-_]/g, '_'); 
-
-        // Gunakan documentDirectory alih-alih cacheDirectory agar lebih stabil
-        const newUri = FileSystem.documentDirectory + safeName;
-        
-        // Cek dan hapus file lama jika ada (menghindari error copyAsync gagal overwrite)
+        // Cek dan hapus file lama sebelum menimpa
         const fileInfo = await FileSystem.getInfoAsync(newUri);
         if (fileInfo.exists) {
            await FileSystem.deleteAsync(newUri);
@@ -429,21 +408,20 @@ export default function ExportScreen() {
         await FileSystem.copyAsync({ from: uri, to: newUri });
         
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(newUri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: 'Bagikan PDF Laporan GarasiKu' });
+          await Sharing.shareAsync(newUri, { UTI: '.pdf', mimeType: 'application/pdf' });
           setExportDone(true);
         }
       }
 
-    } catch (e: any) {
-      // Tampilkan ALASAN ASLI KENAPA ERROR terjadi!
-      Alert.alert("Error PDF", e?.message || "Gagal memproses file PDF.");
+    } catch (e) {
+      Alert.alert("Export Gagal", "Aplikasi gagal memproses file (kemungkinan karena mencoba menimpa file lama tanpa izin penghapusan terlebih dahulu).");
     } finally {
       setLoading(false);
     }
   };
 
   // =========================================================
-  // BACKUP CODE ENGINE (.VHDB)
+  // BACKUP CODE ENGINE (.VHDB) PATEN FILE NAME
   // =========================================================
   const handleExportBackup = async () => {
     setLoading(true);
@@ -470,9 +448,10 @@ export default function ExportScreen() {
       setProgressText("🔄 Compressing Files...");
       await new Promise(r => setTimeout(r, 600));
 
+      // 🚀 NAMA FILE DIBUAT PATEN
+      const finalFilename = 'JagaGarasimu.vhdb';
+
       if (Platform.OS === 'web') {
-        let finalFilename = customFilename.trim() || 'GarasiKu-Backup';
-        if (!finalFilename.endsWith('.vhdb')) finalFilename += '.vhdb';
         const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -484,32 +463,28 @@ export default function ExportScreen() {
         URL.revokeObjectURL(url);
         setExportDone(true);
       } else {
-        // 🚀 ANTI ERROR FIX: Bersihkan nama file
-        let safeName = customFilename.trim() || 'GarasiKu-Backup';
-        if (!safeName.endsWith('.vhdb')) safeName += '.vhdb';
-        safeName = safeName.replace(/[^a-zA-Z0-9.\-_]/g, '_'); 
-
-        const fileUri = FileSystem.documentDirectory + safeName;
+        const fileUri = FileSystem.documentDirectory + finalFilename;
         
-        // Hapus file lama jika namanya kembar
+        // 🚀 MENCEGAH ERROR MENIMPA FILE LAMA: Cek dan hapus jika sudah ada
         const fileInfo = await FileSystem.getInfoAsync(fileUri);
         if (fileInfo.exists) {
            await FileSystem.deleteAsync(fileUri);
         }
 
         await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(payload));
-        
         if (await Sharing.isAvailableAsync()) {
-          // Gunakan tipe octet-stream agar Android tidak bingung dengan ekstensi custom .vhdb
           await Sharing.shareAsync(fileUri, { mimeType: 'application/octet-stream', dialogTitle: 'Simpan Backup GarasiKu' });
           setExportDone(true);
         }
       }
       setProgressText("✅ Export Completed");
       await new Promise(r => setTimeout(r, 400));
-    } catch (e: any) {
-      // Tampilkan pesan error yang sesungguhnya!
-      Alert.alert("Export Gagal", e?.message || "Terjadi kesalahan saat membackup database.");
+    } catch (e) {
+      // 🚀 PESAN ERROR PENDEK SESUAI INSTRUKSI
+      Alert.alert(
+        "Export Gagal", 
+        "Aplikasi gagal menyimpan file (kemungkinan karena mencoba menimpa file lama tanpa izin penghapusan terlebih dahulu)."
+      );
     } finally {
       setLoading(false);
     }
@@ -581,7 +556,7 @@ export default function ExportScreen() {
               </ScrollView>
             </View>
 
-            {/* INTEGRASI BARU: FILTER PERIODE DENGAN TAHUN DINAMIS & CUSTOM DATE */}
+            {/* FILTER PERIODE DENGAN TAHUN DINAMIS & CUSTOM DATE */}
             {mode === 'pdf' && (
               <>
                 <View>
@@ -681,18 +656,15 @@ export default function ExportScreen() {
               </View>
             </View>
 
-            {/* STEP 3: CUSTOM FILENAME & EXE ACTION */}
+            {/* STEP 3: EXE ACTION (HILANGKAN TEXT INPUT NAMA FILE) */}
             <View>
-              <Text style={styles.sectionLabel}>3. PENAMAAN FILE & PROSES GENERATE</Text>
+              <Text style={styles.sectionLabel}>3. PROSES GENERATE</Text>
               <View style={styles.card}>
-                <Text style={styles.cardDesc}>Sistem otomatis membuat nama file. Anda diperbolehkan mengubah isinya secara manual di bawah ini:</Text>
-                <TextInput 
-                  value={customFilename}
-                  onChangeText={setCustomFilename}
-                  style={styles.input}
-                  placeholder="Ketik nama file..."
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                />
+                <Text style={styles.cardDesc}>
+                  {mode === 'pdf' 
+                    ? "Sistem akan membuat file laporan bernama LaporanGarasimu.pdf" 
+                    : "Sistem akan membuat file backup paten bernama JagaGarasimu.vhdb"}
+                </Text>
                 
                 <TouchableOpacity 
                   onPress={mode === 'pdf' ? handleExportPDF : handleExportBackup} 
@@ -775,7 +747,6 @@ const styles = StyleSheet.create({
   previewLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 13 },
   previewVal: { color: '#F5A623', fontWeight: '700', fontSize: 14, fontFamily: 'SpaceMono' },
 
-  input: { backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 15, borderRadius: 12, fontSize: 14, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginBottom: 20 },
   btnPrimary: { backgroundColor: '#4ECDC4', paddingVertical: 16, borderRadius: 16, alignItems: 'center', shadowColor: '#4ECDC4', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
   btnPrimaryTxt: { color: '#0D1B2A', fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
 
