@@ -38,6 +38,9 @@ export default function ExportScreen() {
   // Progress Loader State
   const [loading, setLoading] = useState(false);
   const [progressText, setProgressText] = useState('');
+  // 🚀 STATE KHUSUS IMPORT & RESTORE
+  const [stagedFile, setStagedFile] = useState<any>(null);
+  const [stagedData, setStagedData] = useState<any>(null);
   const [exportDone, setExportDone] = useState(false);
 
   // Load Data dari Local Storage saat masuk halaman
@@ -134,7 +137,7 @@ export default function ExportScreen() {
   const isDataEmpty = filteredRepairs.length === 0 && filteredFuels.length === 0;
 
   // ==========================================
-  // HYBRID PDF GENERATOR ENGINE
+  // HYBRID PDF GENERATOR ENGINE (DENGAN DIRECT DOWNLOAD)
   // ==========================================
   const handleExportPDF = async () => {
     if (isDataEmpty) {
@@ -390,21 +393,35 @@ export default function ExportScreen() {
       setProgressText("🚀 Finalizing PDF Document...");
       await new Promise(r => setTimeout(r, 400));
 
-      const finalFilename = 'LaporanGarasimu.pdf';
+      const finalFilename = 'JagaGarasimu_Laporan';
 
       if (Platform.OS === 'web') {
+        // Mode web (PDF tidak bisa ter-download diam-diam tanpa plugin berat tambahan, jadi tetap diarahkan ke print dialog)
         await Print.printAsync({ html: htmlContent });
         setExportDone(true);
-      } else {
-        const { uri } = await Print.printToFileAsync({ html: htmlContent, base64: false });
-        const newUri = FileSystem.documentDirectory + finalFilename;
+      } else if (Platform.OS === 'android') {
+        // 🚀 OPSI DIRECT DOWNLOAD UNTUK ANDROID MENGGUNAKAN SAF (STORAGE ACCESS FRAMEWORK)
+        const { base64 } = await Print.printToFileAsync({ html: htmlContent, base64: true });
         
-        // Cek dan hapus file lama sebelum menimpa
-        const fileInfo = await FileSystem.getInfoAsync(newUri);
-        if (fileInfo.exists) {
-           await FileSystem.deleteAsync(newUri);
+        // Meminta izin membuka folder bawaan HP
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (permissions.granted) {
+          // Membuat file di folder yang dipilih pengguna
+          const savedUri = await FileSystem.StorageAccessFramework.createFileAsync(permissions.directoryUri, finalFilename, 'application/pdf');
+          await FileSystem.writeAsStringAsync(savedUri, base64 || '', { encoding: FileSystem.EncodingType.Base64 });
+          setExportDone(true);
+        } else {
+          // Fallback jika user membatalkan pilihan folder
+          setLoading(false);
+          return;
         }
-
+      } else {
+        // 🚀 OPSI IOS (Karena iOS tertutup, ia tetap menggunakan dialog Share "Save to Files")
+        const { uri } = await Print.printToFileAsync({ html: htmlContent, base64: false });
+        const newUri = FileSystem.documentDirectory + finalFilename + '.pdf';
+        
+        const fileInfo = await FileSystem.getInfoAsync(newUri);
+        if (fileInfo.exists) await FileSystem.deleteAsync(newUri);
         await FileSystem.copyAsync({ from: uri, to: newUri });
         
         if (await Sharing.isAvailableAsync()) {
@@ -414,14 +431,14 @@ export default function ExportScreen() {
       }
 
     } catch (e) {
-      Alert.alert("Export Gagal", "Aplikasi gagal memproses file (kemungkinan karena mencoba menimpa file lama tanpa izin penghapusan terlebih dahulu).");
+      Alert.alert("Export Gagal", "Aplikasi gagal memproses file.");
     } finally {
       setLoading(false);
     }
   };
 
   // =========================================================
-  // BACKUP CODE ENGINE (.VHDB) PATEN FILE NAME
+  // BACKUP CODE ENGINE (.VHDB) DIRECT DOWNLOAD
   // =========================================================
   const handleExportBackup = async () => {
     setLoading(true);
@@ -448,28 +465,35 @@ export default function ExportScreen() {
       setProgressText("🔄 Compressing Files...");
       await new Promise(r => setTimeout(r, 600));
 
-      // 🚀 NAMA FILE DIBUAT PATEN
-      const finalFilename = 'JagaGarasimu.vhdb';
+      const finalFilename = 'JagaGarasimu';
 
       if (Platform.OS === 'web') {
         const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = finalFilename;
+        a.download = finalFilename + '.vhdb';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         setExportDone(true);
-      } else {
-        const fileUri = FileSystem.documentDirectory + finalFilename;
-        
-        // 🚀 MENCEGAH ERROR MENIMPA FILE LAMA: Cek dan hapus jika sudah ada
-        const fileInfo = await FileSystem.getInfoAsync(fileUri);
-        if (fileInfo.exists) {
-           await FileSystem.deleteAsync(fileUri);
+      } else if (Platform.OS === 'android') {
+        // 🚀 OPSI DIRECT DOWNLOAD UNTUK ANDROID MENGGUNAKAN SAF
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (permissions.granted) {
+          const savedUri = await FileSystem.StorageAccessFramework.createFileAsync(permissions.directoryUri, finalFilename, 'application/octet-stream');
+          await FileSystem.writeAsStringAsync(savedUri, JSON.stringify(payload));
+          setExportDone(true);
+        } else {
+          setLoading(false);
+          return;
         }
+      } else {
+        // 🚀 OPSI IOS (Menggunakan Share Dialog)
+        const fileUri = FileSystem.documentDirectory + finalFilename + '.vhdb';
+        const fileInfo = await FileSystem.getInfoAsync(fileUri);
+        if (fileInfo.exists) await FileSystem.deleteAsync(fileUri);
 
         await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(payload));
         if (await Sharing.isAvailableAsync()) {
@@ -477,30 +501,139 @@ export default function ExportScreen() {
           setExportDone(true);
         }
       }
-      setProgressText("✅ Export Completed");
-      await new Promise(r => setTimeout(r, 400));
+      if (exportDone || Platform.OS === 'android') {
+        setProgressText("✅ Export Completed");
+        await new Promise(r => setTimeout(r, 400));
+      }
     } catch (e) {
-      // 🚀 PESAN ERROR PENDEK SESUAI INSTRUKSI
-      Alert.alert(
-        "Export Gagal", 
-        "Aplikasi gagal menyimpan file (kemungkinan karena mencoba menimpa file lama tanpa izin penghapusan terlebih dahulu)."
-      );
+      Alert.alert("Export Gagal", "Aplikasi gagal menyimpan file.");
     } finally {
       setLoading(false);
     }
   };
 
+  // =========================================================
+  // 🚀 ENGINE BARU: PROSES IMPORT FILE & RESTORE (SUPPORT WEB & MOBILE)
+  // =========================================================
   const handleImport = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
-      if (!result.canceled) {
-        Alert.alert(isId ? "Proses Validasi" : "Validation", isId ? "Sistem sedang memeriksa integritas file enkripsi .vhdb..." : "Checking file integrity...");
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setLoading(true);
+        setProgressText("🔄 Mengekstrak Data...");
+        
+        const asset = result.assets[0];
+        let content = "";
+
+        // 🚀 LOGIKA KHUSUS WEB VS MOBILE UNTUK BACA FILE
+        if (Platform.OS === 'web') {
+          // Di Web, file yang dipilih menghasilkan Blob URI. Kita baca menggunakan fetch bawaan browser.
+          const response = await fetch(asset.uri);
+          content = await response.text();
+        } else {
+          // Di Mobile (Android/iOS), baca file langsung dari memori
+          content = await FileSystem.readAsStringAsync(asset.uri);
+        }
+        
+        let decrypted;
+        try {
+          decrypted = JSON.parse(content);
+        } catch (err) {
+          throw new Error("CORRUPTED");
+        }
+
+        // Integrity Check (Mencegah file asing masuk ke sistem)
+        if (!decrypted.meta || !decrypted.data || decrypted.meta.app_name !== CURRENT_APP_NAME) {
+          throw new Error("INVALID_FORMAT");
+        }
+
+        // Tampilkan antarmuka validasi (Staging Mode)
+        setStagedFile({
+          name: asset.name || 'Backup_Database.vhdb',
+          version: decrypted.meta.schema_version,
+          date: decrypted.meta.export_date,
+          size: (content.length / 1024).toFixed(1) + " KB"
+        });
+        setStagedData(decrypted);
       }
-    } catch (e) {
-      Alert.alert("Error", "Gagal mengimpor file.");
+    } catch (e: any) {
+       // Penanganan Error yang aman untuk Web & Mobile
+       const isCorrupted = e.message === "CORRUPTED";
+       const isInvalid = e.message === "INVALID_FORMAT";
+       const title = isCorrupted ? "File Rusak" : (isInvalid ? "Format Tidak Dikenali" : "Error");
+       const desc = isCorrupted ? "File backup tidak dapat dibaca atau korup." : (isInvalid ? "Ini bukan file backup dari aplikasi GarasiKu." : "Sistem gagal membuka file tersebut.");
+       
+       if (Platform.OS === 'web') {
+         window.alert(`${title}\n\n${desc}`);
+       } else {
+         Alert.alert(title, desc);
+       }
+    } finally {
+      setLoading(false);
     }
   };
 
+  const executeRestore = async (restoreMode: 'replace' | 'merge') => {
+    if (!stagedData) return;
+    setLoading(true);
+    setProgressText("🚀 Merestore Database...");
+
+    try {
+      const dataToRestore = stagedData.data; 
+
+      if (restoreMode === 'replace') {
+        const keys = await AsyncStorage.getAllKeys();
+        const garasiKeys = keys.filter(k => k.startsWith('garasi_'));
+        await AsyncStorage.multiRemove(garasiKeys);
+
+        const entries = Object.entries(dataToRestore);
+        await AsyncStorage.multiSet(entries as [string, string][]);
+      } else if (restoreMode === 'merge') {
+         const newEntries: [string, string][] = [];
+         for (const [key, newValue] of Object.entries(dataToRestore)) {
+            if (typeof newValue !== 'string') continue;
+            const existingValue = await AsyncStorage.getItem(key);
+            if (!existingValue) {
+               newEntries.push([key, newValue]);
+               continue;
+            }
+            try {
+               const existingArr = JSON.parse(existingValue);
+               const newArr = JSON.parse(newValue);
+               if (Array.isArray(existingArr) && Array.isArray(newArr)) {
+                  const mergedMap = new Map();
+                  existingArr.forEach(item => mergedMap.set(item.id, item));
+                  newArr.forEach(item => mergedMap.set(item.id, item)); 
+                  newEntries.push([key, JSON.stringify(Array.from(mergedMap.values()))]);
+               } else {
+                  newEntries.push([key, newValue]); 
+               }
+            } catch(e) {
+               newEntries.push([key, newValue]);
+            }
+         }
+         await AsyncStorage.multiSet(newEntries);
+      }
+
+      setStagedData(null);
+      setStagedFile(null);
+      
+      // 🚀 Notifikasi Sukses yang aman untuk Web & Mobile
+      if (Platform.OS === 'web') {
+        window.alert("Restore Sukses!\n\nDatabase kendaraan telah berhasil dipulihkan.");
+      } else {
+        Alert.alert("Restore Sukses!", "Database kendaraan telah berhasil dipulihkan. Mengembalikan ke beranda...");
+      }
+      
+      router.replace("/");
+    } catch (e) {
+      if (Platform.OS === 'web') window.alert("Gagal Restore: Terjadi kesalahan saat memproses data.");
+      else Alert.alert("Gagal Restore", "Terjadi kesalahan saat memproses data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -516,20 +649,58 @@ export default function ExportScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 150 }}>
         
-        {/* UPPER TAB NAVIGATION */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity onPress={() => setMode('backup')} style={[styles.tabBtn, mode === 'backup' && styles.tabActive]}>
-            <Text style={[styles.tabTxt, mode === 'backup' && styles.txtActive]}>💾 Backup (.vhdb)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setMode('pdf')} style={[styles.tabBtn, mode === 'pdf' && styles.tabActive]}>
-            <Text style={[styles.tabTxt, mode === 'pdf' && styles.txtActive]}>📄 Laporan PDF</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setMode('import')} style={[styles.tabBtn, mode === 'import' && styles.tabActive]}>
-            <Text style={[styles.tabTxt, mode === 'import' && styles.txtActive]}>📥 Import Data</Text>
-          </TouchableOpacity>
-        </View>
+        {/* SEMBUNYIKAN TAB JIKA SEDANG VALIDASI IMPORT */}
+        {!stagedFile && (
+          <View style={styles.tabContainer}>
+            <TouchableOpacity onPress={() => setMode('backup')} style={[styles.tabBtn, mode === 'backup' && styles.tabActive]}>
+              <Text style={[styles.tabTxt, mode === 'backup' && styles.txtActive]}>💾 Backup (.vhdb)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setMode('pdf')} style={[styles.tabBtn, mode === 'pdf' && styles.tabActive]}>
+              <Text style={[styles.tabTxt, mode === 'pdf' && styles.txtActive]}>📄 Laporan PDF</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setMode('import')} style={[styles.tabBtn, mode === 'import' && styles.tabActive]}>
+              <Text style={[styles.tabTxt, mode === 'import' && styles.txtActive]}>📥 Import Data</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-        {mode === 'import' ? (
+        {/* TAMPILAN JIKA SEDANG VALIDASI FILE YANG DI IMPORT */}
+        {stagedFile ? (
+          <View style={{ gap: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(245, 166, 35, 0.1)', padding: 20, borderRadius: 20, borderWidth: 1, borderColor: '#F5A623' }}>
+              <Text style={{ fontSize: 30, marginRight: 15 }}>⚠️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#F5A623', fontSize: 16, fontWeight: '900' }}>VALIDASI BACKUP</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 4 }}>File telah diverifikasi. Silakan pilih metode restore di bawah ini.</Text>
+              </View>
+            </View>
+
+            <View style={styles.previewCard}>
+              <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '800', marginBottom: 15 }}>📄 {stagedFile.name}</Text>
+              <View style={{ gap: 10 }}>
+                <View style={styles.previewRow}><Text style={styles.previewLabel}>Ukuran Database</Text><Text style={styles.previewVal}>{stagedFile.size}</Text></View>
+                <View style={styles.previewRow}><Text style={styles.previewLabel}>Tanggal Backup</Text><Text style={styles.previewVal}>{new Date(stagedFile.date).toLocaleDateString('id-ID')}</Text></View>
+                <View style={styles.previewRow}><Text style={styles.previewLabel}>Versi Mesin</Text><Text style={{ color: '#4ECDC4', fontWeight: '800' }}>v{stagedFile.version} (Compatible)</Text></View>
+              </View>
+            </View>
+
+            <View style={{ gap: 12, marginTop: 10 }}>
+              <TouchableOpacity onPress={() => executeRestore('merge')} style={styles.btnPrimary}>
+                <Text style={styles.btnPrimaryTxt}>A. GABUNGKAN DATA (MERGE AMAN)</Text>
+                <Text style={{ color: 'rgba(0,0,0,0.5)', fontSize: 11, marginTop: 2, textAlign: 'center' }}>Data saat ini tidak dihapus, hanya menutupi yang hilang.</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => executeRestore('replace')} style={[styles.btnPrimary, { backgroundColor: '#FF5252', shadowColor: '#FF5252' }]}>
+                <Text style={[styles.btnPrimaryTxt, { color: '#FFF' }]}>B. TIMPA SEMUA (REPLACE ALL)</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2, textAlign: 'center' }}>Hapus bersih aplikasi & ganti total dengan isi file ini.</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => { setStagedFile(null); setStagedData(null); }} style={{ padding: 15, alignItems: 'center', marginTop: 5 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '700' }}>Batal & Kembali</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : mode === 'import' ? (
           <View style={styles.card}>
              <View style={styles.iconBox}><Text style={{fontSize:30}}>📥</Text></View>
              <Text style={styles.cardTitle}>Restore Database Kendaraan</Text>
@@ -540,7 +711,6 @@ export default function ExportScreen() {
           </View>
         ) : (
           <View style={{ gap: 20 }}>
-            
             {/* STEP 1: PILIH TARGET KENDARAAN */}
             <View>
               <Text style={styles.sectionLabel}>1. TARGET KENDARAAN</Text>
@@ -656,13 +826,13 @@ export default function ExportScreen() {
               </View>
             </View>
 
-            {/* STEP 3: EXE ACTION (HILANGKAN TEXT INPUT NAMA FILE) */}
+            {/* STEP 3: EXE ACTION */}
             <View>
               <Text style={styles.sectionLabel}>3. PROSES GENERATE</Text>
               <View style={styles.card}>
                 <Text style={styles.cardDesc}>
                   {mode === 'pdf' 
-                    ? "Sistem akan membuat file laporan bernama LaporanGarasimu.pdf" 
+                    ? "Sistem akan membuat file laporan PDF bernama JagaGarasimu_Laporan.pdf" 
                     : "Sistem akan membuat file backup paten bernama JagaGarasimu.vhdb"}
                 </Text>
                 
