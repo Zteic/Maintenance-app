@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  Dimensions, ActivityIndicator, Alert, StatusBar, Platform 
+  TextInput, Dimensions, ActivityIndicator, Alert, StatusBar, Platform 
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 // 🚀 PERBAIKAN: Menggunakan modul legacy agar fungsi getInfoAsync berjalan lancar di Expo 54
@@ -29,11 +29,12 @@ export default function ExportScreen() {
   
   // UI & Filter State
   const [mode, setMode] = useState<'backup' | 'pdf' | 'import'>('backup');
-  const [selectedVehicle, setSelectedVehicle] = useState('all');
+  const [selectedVehicles, setSelectedVehicles] = useState<string[]>(['all']);
   const [period, setPeriod] = useState<string>('all'); 
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [pdfReportType, setPdfReportType] = useState<'summary' | 'hybrid'>('hybrid');
+  const [exportCategory, setExportCategory] = useState<'all' | 'fuel' | 'service'>('all');
   
   // Progress Loader State
   const [loading, setLoading] = useState(false);
@@ -82,6 +83,25 @@ export default function ExportScreen() {
     return `${isId ? 'Tahun' : 'Year'} ${p}`;
   };
 
+  // 🚀 LOGIKA MULTI-SELECTION KENDARAAN
+  const toggleVehicleSelection = (id: string) => {
+    if (id === 'all') {
+      setSelectedVehicles(['all']);
+    } else {
+      setSelectedVehicles((prev) => {
+        // Hilangkan tanda 'all' jika user mulai memilih kendaraan spesifik
+        const filtered = prev.filter(v => v !== 'all');
+        if (filtered.includes(id)) {
+          const next = filtered.filter(v => v !== id);
+          // Jika semua kendaraan batal dipilih, otomatis kembalikan ke 'all'
+          return next.length === 0 ? ['all'] : next;
+        } else {
+          return [...filtered, id];
+        }
+      });
+    }
+  };
+
   // =========================================================
   // CORE FILTER ENGINE (Periode & Multi-Vehicle)
   // =========================================================
@@ -89,9 +109,10 @@ export default function ExportScreen() {
     let filteredRepairs = [...repairs];
     let filteredFuels = [...fuels];
 
-    if (selectedVehicle !== 'all') {
-      filteredRepairs = filteredRepairs.filter(r => r.vehicleId === selectedVehicle);
-      filteredFuels = filteredFuels.filter(f => f.vehicleId === selectedVehicle);
+    // Perbaikan Multi-Vehicle Filter
+    if (!selectedVehicles.includes('all')) {
+      filteredRepairs = filteredRepairs.filter(r => selectedVehicles.includes(r.vehicleId));
+      filteredFuels = filteredFuels.filter(f => selectedVehicles.includes(f.vehicleId));
     }
 
     const now = new Date();
@@ -128,12 +149,17 @@ export default function ExportScreen() {
     filteredRepairs = filteredRepairs.filter(r => filterByDateRange(r.date));
     filteredFuels = filteredFuels.filter(f => filterByDateRange(f.date));
 
+    if (exportCategory === 'fuel') filteredRepairs = [];
+    if (exportCategory === 'service') filteredFuels = [];
+
     return { filteredRepairs, filteredFuels };
   };
 
   const { filteredRepairs, filteredFuels } = getFilteredData();
   const estimatedSize = ((JSON.stringify(filteredRepairs).length + JSON.stringify(filteredFuels).length) / 1024).toFixed(1);
-  const vehicleName = selectedVehicle === 'all' ? (isId ? "Semua Kendaraan" : "All Vehicles") : vehicles.find(v => v.id === selectedVehicle)?.name || "Kendaraan";
+  const vehicleName = selectedVehicles.includes('all') 
+  ? (isId ? "Semua Kendaraan" : "All Vehicles") 
+  : vehicles.filter(v => selectedVehicles.includes(v.id)).map(v => v.name).join(', ');
   const isDataEmpty = filteredRepairs.length === 0 && filteredFuels.length === 0;
 
   // ==========================================
@@ -151,8 +177,8 @@ export default function ExportScreen() {
       setProgressText("🔄 Preparing & Filtering Data...");
       await new Promise(r => setTimeout(r, 500));
 
-      const vPlate = selectedVehicle === 'all' ? "-" : vehicles.find(v => v.id === selectedVehicle)?.plateNumber || "-";
-      const vModel = selectedVehicle === 'all' ? "Multi-Vehicle System" : `${vehicles.find(v => v.id === selectedVehicle)?.brand || ''} ${vehicles.find(v => v.id === selectedVehicle)?.model || ''}`;
+      const vPlate = selectedVehicles.includes('all') ? "-" : vehicles.filter(v => selectedVehicles.includes(v.id)).map(v => v.plateNumber).join(', ');
+      const vModel = selectedVehicles.includes('all') ? "Multi-Vehicle System" : vehicles.filter(v => selectedVehicles.includes(v.id)).map(v => `${v.brand || ''} ${v.model || ''}`).join(', ');
       
       const totalFuelCost = filteredFuels.reduce((sum, item) => sum + (item.totalCost || 0), 0);
       const totalServiceCost = filteredRepairs.reduce((sum, item) => sum + (item.cost || 0), 0);
@@ -177,8 +203,8 @@ export default function ExportScreen() {
       await new Promise(r => setTimeout(r, 500));
 
       const allActivities = [
-        ...filteredRepairs.map(r => ({ ...r, type: 'SERVICE', icon: '🛠️', title: r.serviceType, displayCost: r.cost })),
-        ...filteredFuels.map(f => ({ ...f, type: 'FUEL', icon: '⛽', title: `${isId ? 'Isi Bensin' : 'Fuel Fill'} ${f.liters.toFixed(1)}L`, displayCost: f.totalCost }))
+        ...filteredRepairs.map(r => ({ ...r, type: 'SERVICE', icon: '🛠️', title: r.serviceType, displayCost: r.cost, vehicleName: vehicles.find(v => v.id === r.vehicleId)?.name || '-' })),
+        ...filteredFuels.map(f => ({ ...f, type: 'FUEL', icon: '⛽', title: `${isId ? 'Isi Bensin' : 'Fuel Fill'} ${f.liters.toFixed(1)}L`, displayCost: f.totalCost, vehicleName: vehicles.find(v => v.id === f.vehicleId)?.name || '-' }))
       ].sort((a, b) => b.date.localeCompare(a.date));
 
       const groupedByMonth: Record<string, { items: any[], total: number }> = {};
@@ -196,6 +222,7 @@ export default function ExportScreen() {
       const fuelPct = totalExpense > 0 ? Math.round((totalFuelCost / totalExpense) * 100) : 0;
       const servPct = totalExpense > 0 ? Math.round((totalServiceCost / totalExpense) * 100) : 0;
       const formatRp = (num: number) => `Rp ${num.toLocaleString('id-ID')}`;
+      const showVehicleBadge = selectedVehicles.includes('all') || selectedVehicles.length > 1;
 
       let timelineHTML = '';
       for (const [month, data] of Object.entries(groupedByMonth)) {
@@ -210,7 +237,10 @@ export default function ExportScreen() {
                 <div class="timeline-item">
                   <div class="tl-icon">${item.icon}</div>
                   <div class="tl-content">
-                    <div class="tl-title"><strong>${item.title}</strong></div>
+                    <div class="tl-title">
+                    <strong>${item.title}</strong>
+                    ${showVehicleBadge ? `<span style="font-size:9px; background:#e1e8ed; padding:2px 6px; border-radius:4px; margin-left:6px; color:#7f8c8d;">${item.vehicleName}</span>` : ''}
+                  </div>
                     <div class="tl-meta">${new Date(item.date).toLocaleDateString('id-ID')} &bull; ${item.odometer.toLocaleString('id-ID')} km</div>
                   </div>
                   <div class="tl-cost">${formatRp(item.displayCost)}</div>
@@ -222,7 +252,7 @@ export default function ExportScreen() {
         `;
       }
 
-      let appendixHTML = '';
+    let appendixHTML = '';
       if (pdfReportType === 'hybrid') {
         appendixHTML = `
           <div style="page-break-before: always;"></div>
@@ -232,6 +262,7 @@ export default function ExportScreen() {
             <thead>
               <tr>
                 <th>Tanggal</th>
+                ${showVehicleBadge ? '<th>Kendaraan</th>' : ''}
                 <th>Kategori</th>
                 <th>Aktivitas / Keterangan</th>
                 <th>Odometer</th>
@@ -242,6 +273,7 @@ export default function ExportScreen() {
               ${allActivities.map(item => `
                 <tr>
                   <td>${new Date(item.date).toLocaleDateString('id-ID')}</td>
+                  ${showVehicleBadge ? `<td>${item.vehicleName}</td>` : ''}
                   <td><b>${item.type}</b></td>
                   <td>${item.icon} ${item.title}</td>
                   <td>${item.odometer.toLocaleString('id-ID')} km</td>
@@ -283,7 +315,7 @@ export default function ExportScreen() {
           .bar-track { flex: 1; background: #e1e8ed; height: 10px; border-radius: 5px; overflow: hidden; margin: 0 15px; }
           .bar-fill.fuel { background: #4ECDC4; height: 100%; width: ${fuelPct}%; }
           .bar-fill.serv { background: #F5A623; height: 100%; width: ${servPct}%; }
-          .bar-val { width: 60px; font-size: 12px; text-align: right; font-weight: 800; color: #0D1B2A; }
+          .bar-val { min-width: 90px; white-space: nowrap; padding-left: 10px; font-size: 12px; text-align: right; font-weight: 800; color: #0D1B2A; }
           .insight-card { background: rgba(245, 166, 35, 0.05); border: 1px dashed #F5A623; border-radius: 12px; padding: 15px; margin-bottom: 25px; display: flex; gap: 15px; }
           .insight-item { flex: 1; }
           .insight-item h4 { margin: 0 0 4px; font-size: 10px; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -396,34 +428,36 @@ export default function ExportScreen() {
       const finalFilename = 'JagaGarasimu_Laporan';
 
       if (Platform.OS === 'web') {
-        // Mode web (PDF tidak bisa ter-download diam-diam tanpa plugin berat tambahan, jadi tetap diarahkan ke print dialog)
-        await Print.printAsync({ html: htmlContent });
+        // 🚀 SOLUSI WEB: Download sebagai file .html agar langsung terunduh otomatis
+        // karena browser tidak bisa membuat .pdf di background tanpa dialog Print.
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = finalFilename + '.html'; // Disimpan sebagai Laporan HTML
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
         setExportDone(true);
       } else if (Platform.OS === 'android') {
-        // 🚀 OPSI DIRECT DOWNLOAD UNTUK ANDROID MENGGUNAKAN SAF (STORAGE ACCESS FRAMEWORK)
         const { base64 } = await Print.printToFileAsync({ html: htmlContent, base64: true });
-        
-        // Meminta izin membuka folder bawaan HP
         const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (permissions.granted) {
-          // Membuat file di folder yang dipilih pengguna
           const savedUri = await FileSystem.StorageAccessFramework.createFileAsync(permissions.directoryUri, finalFilename, 'application/pdf');
           await FileSystem.writeAsStringAsync(savedUri, base64 || '', { encoding: FileSystem.EncodingType.Base64 });
           setExportDone(true);
         } else {
-          // Fallback jika user membatalkan pilihan folder
           setLoading(false);
           return;
         }
       } else {
-        // 🚀 OPSI IOS (Karena iOS tertutup, ia tetap menggunakan dialog Share "Save to Files")
         const { uri } = await Print.printToFileAsync({ html: htmlContent, base64: false });
         const newUri = FileSystem.documentDirectory + finalFilename + '.pdf';
-        
         const fileInfo = await FileSystem.getInfoAsync(newUri);
         if (fileInfo.exists) await FileSystem.deleteAsync(newUri);
         await FileSystem.copyAsync({ from: uri, to: newUri });
-        
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(newUri, { UTI: '.pdf', mimeType: 'application/pdf' });
           setExportDone(true);
@@ -450,14 +484,47 @@ export default function ExportScreen() {
       const keys = await AsyncStorage.getAllKeys();
       const garasiKeys = keys.filter(k => k.startsWith('garasi_') || k.startsWith('app_'));
       const allData = await AsyncStorage.multiGet(garasiKeys);
-      const backupObj = Object.fromEntries(allData);
+      let backupObj = Object.fromEntries(allData);
+
+      // 🚀 FILTER KHUSUS MULTI-VEHICLE BACKUP (.VHDB)
+      if (!selectedVehicles.includes('all')) {
+        try {
+          // Filter tabel vehicles
+          if (backupObj.garasi_vehicles) {
+            const allV = JSON.parse(backupObj.garasi_vehicles);
+            backupObj.garasi_vehicles = JSON.stringify(allV.filter((v: any) => selectedVehicles.includes(v.id)));
+          }
+          // Filter tabel repairs
+          if (backupObj.garasi_repairs) {
+            const allR = JSON.parse(backupObj.garasi_repairs);
+            backupObj.garasi_repairs = JSON.stringify(allR.filter((r: any) => selectedVehicles.includes(r.vehicleId)));
+          }
+          // Filter tabel fuels
+          if (backupObj.garasi_fuel_entries) {
+            const allF = JSON.parse(backupObj.garasi_fuel_entries);
+            backupObj.garasi_fuel_entries = JSON.stringify(allF.filter((f: any) => selectedVehicles.includes(f.vehicleId)));
+          }
+          // Filter tabel reminders
+          if (backupObj.garasi_reminders) {
+            const allRem = JSON.parse(backupObj.garasi_reminders);
+            backupObj.garasi_reminders = JSON.stringify(allRem.filter((rem: any) => selectedVehicles.includes(rem.vehicleId)));
+          }
+          // Filter tabel notifications
+          if (backupObj.garasi_notifications) {
+             const allNotif = JSON.parse(backupObj.garasi_notifications);
+             backupObj.garasi_notifications = JSON.stringify(allNotif.filter((n: any) => !n.vehicleId || selectedVehicles.includes(n.vehicleId)));
+          }
+        } catch (err) {
+          console.log("Error filtering backup data:", err);
+        }
+      }
 
       const payload = {
         meta: {
           app_name: CURRENT_APP_NAME,
           schema_version: CURRENT_SCHEMA_VERSION,
           export_date: new Date().toISOString(),
-          vehicle_target: selectedVehicle
+          vehicle_target: selectedVehicles 
         },
         data: backupObj
       };
@@ -715,15 +782,15 @@ export default function ExportScreen() {
             <View>
               <Text style={styles.sectionLabel}>1. TARGET KENDARAAN</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                <TouchableOpacity onPress={() => setSelectedVehicle('all')} style={[styles.pillBtn, selectedVehicle === 'all' && styles.pillActive]}>
-                  <Text style={[styles.pillTxt, selectedVehicle === 'all' && styles.pillTxtActive]}>Semua Kendaraan</Text>
-                </TouchableOpacity>
-                {vehicles.map(v => (
-                  <TouchableOpacity key={v.id} onPress={() => setSelectedVehicle(v.id)} style={[styles.pillBtn, selectedVehicle === v.id && styles.pillActive]}>
-                    <Text style={[styles.pillTxt, selectedVehicle === v.id && styles.pillTxtActive]}>{v.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+             <TouchableOpacity onPress={() => toggleVehicleSelection('all')} style={[styles.pillBtn, selectedVehicles.includes('all') && styles.pillActive]}>
+               <Text style={[styles.pillTxt, selectedVehicles.includes('all') && styles.pillTxtActive]}>Semua Kendaraan</Text>
+             </TouchableOpacity>
+             {vehicles.map(v => (
+               <TouchableOpacity key={v.id} onPress={() => toggleVehicleSelection(v.id)} style={[styles.pillBtn, selectedVehicles.includes(v.id) && styles.pillActive]}>
+                 <Text style={[styles.pillTxt, selectedVehicles.includes(v.id) && styles.pillTxtActive]}>{v.name}</Text>
+               </TouchableOpacity>
+             ))}
+           </ScrollView>
             </View>
 
             {/* FILTER PERIODE DENGAN TAHUN DINAMIS & CUSTOM DATE */}
@@ -771,6 +838,21 @@ export default function ExportScreen() {
                     </View>
                   )}
                 </View>
+
+                <View>
+               <Text style={styles.sectionLabel}>📁 KATEGORI DATA</Text>
+               <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
+                 <TouchableOpacity onPress={() => setExportCategory('all')} style={[styles.smallPill, exportCategory === 'all' && styles.smallPillActive]}>
+                   <Text style={[styles.smallPillTxt, exportCategory === 'all' && styles.smallPillTxtActive]}>Semua Data</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity onPress={() => setExportCategory('fuel')} style={[styles.smallPill, exportCategory === 'fuel' && styles.smallPillActive]}>
+                   <Text style={[styles.smallPillTxt, exportCategory === 'fuel' && styles.smallPillTxtActive]}>Hanya Bensin</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity onPress={() => setExportCategory('service')} style={[styles.smallPill, exportCategory === 'service' && styles.smallPillActive]}>
+                   <Text style={[styles.smallPillTxt, exportCategory === 'service' && styles.smallPillTxtActive]}>Hanya Servis</Text>
+                 </TouchableOpacity>
+               </View>
+             </View>
 
                 <View>
                   <Text style={styles.sectionLabel}>📐 MODE FORMAT PDF</Text>

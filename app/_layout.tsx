@@ -38,6 +38,9 @@ export default function RootLayout() {
   // 🚀 4. PINDAHKAN STATE TAB KE SINI AGAR BERLAKU GLOBAL
   const [activeTab, setActiveTab] = useState("home");
 
+  // 🚀 PERBAIKAN 1: Gunakan useMemo agar perubahan tab tidak membebani sistem
+  const tabContextValue = React.useMemo(() => ({ activeTab, setActiveTab }), [activeTab]);
+
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
@@ -49,7 +52,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       {/* 🚀 5. BUNGKUS APLIKASI DENGAN CONTEXT PROVIDER */}
-      <TabContext.Provider value={{ activeTab, setActiveTab }}>
+      <TabContext.Provider value={tabContextValue}>
         <ThemeProvider value={DefaultTheme}>
           <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
             <Stack screenOptions={{ headerShown: false, animation: "none" }}>
@@ -105,10 +108,18 @@ function AppNavigationOverlay() {
   }, [pathname]);
 
   // 🚀 8. PERBAIKI FUNGSI KLIK TAB
+  // 🚀 PERBAIKAN 2: Samakan cara kerja semua tombol tab (termasuk Profile)
   const handleNavPress = (tabName: string) => {
     setActiveTab(tabName); 
-    if (pathname !== "/") {
-      router.replace("/");
+
+    if (tabName === "profile") {
+      if (pathname !== "/profile") router.push("/profile");
+    } else {
+      if (pathname !== "/") {
+        // Jika kembali dari profile, gunakan fungsi back() agar transisi mulus
+        if (pathname.includes("profile")) router.back();
+        else router.navigate("/");
+      }
     }
   };
 
@@ -156,7 +167,7 @@ function AppNavigationOverlay() {
           <Text style={[styles.navLabel, activeTab === "history" && styles.activeText]}>Service</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push("/profile")} style={styles.navItem}>
+        <TouchableOpacity onPress={() => handleNavPress("profile")} style={styles.navItem}>
           <Text style={[styles.navEmoji, activeTab === "profile" && styles.activeEmoji]}>👤</Text>
           <Text style={[styles.navLabel, activeTab === "profile" && styles.activeText]}>Profile</Text>
         </TouchableOpacity>

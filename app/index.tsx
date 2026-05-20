@@ -742,152 +742,89 @@ function AppContent() {
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         contentContainerStyle={{
-          gap: 20,
           paddingBottom: 150,
           paddingTop: 10,
         }}
       >
-        {activeTab === "home" && stats.selectedVehicle ? (
-          <>
-            <VehicleProfileCard
-              vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
-              onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }}
-              onOdometerPress={() => setShowOdoHistory(true)} // <--- TAMBAHKAN BARIS INI
-            />
+        {/* 🚀 PERBAIKAN 4: Gunakan "display: flex/none" agar tab pindah secara instan tanpa loading ulang komponen */}
+        
+        {/* TAB 1: HOME */}
+        <View style={{ display: activeTab === "home" ? "flex" : "none", width: "100%", gap: 20 }}>
+          {stats.selectedVehicle ? (
+            <>
+              <VehicleProfileCard
+                vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
+                onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }}
+                onOdometerPress={() => setShowOdoHistory(true)}
+              />
 
-            <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: "#1A2B3C",
-                  borderRadius: 14,
-                  padding: 14,
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.05)",
-                }}
-              >
-                <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>
-                  {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
-                </Text>
-
-                <Text
-                  style={{
-                    color: "#F5A623",
-                    fontSize: 16,
-                    fontWeight: "600",
-                    marginTop: 2,
-                    marginBottom: 8,
-                  }}
-                >
-                  {new Intl.NumberFormat("id-ID", {
-                    style: "currency",
-                    currency: "IDR",
-                    maximumFractionDigits: 0,
-                  }).format(stats.monthlyCost)}
-                </Text>
-
-                <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, gap: 4 }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>
-                      ⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}
-                    </Text>
-                    <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>
-                      Rp {stats.totalFuelMonthly.toLocaleString("id-ID")}
-                    </Text>
+              <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
+                <View style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>
+                    {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
+                  </Text>
+                  <Text style={{ color: "#F5A623", fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>
+                    {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(stats.monthlyCost)}
+                  </Text>
+                  <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, gap: 4 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}</Text>
+                      <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalFuelMonthly.toLocaleString("id-ID")}</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}</Text>
+                      <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalRepairMonthly.toLocaleString("id-ID")}</Text>
+                    </View>
                   </View>
-
-                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>
-                      🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}
-                    </Text>
-                    <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>
-                      Rp {stats.totalRepairMonthly.toLocaleString("id-ID")}
-                    </Text>
-                  </View>
+                  <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: "italic" }}>
+                    {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
+                  </Text>
                 </View>
 
-                <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: "italic" }}>
-                  {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
-                </Text>
+                <TouchableOpacity onPress={() => setShowCalendarModal(true)} activeOpacity={0.7} style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600" }}>{t("servicesDone")}</Text>
+                    <Text style={{ fontSize: 14 }}>📅</Text>
+                  </View>
+                  <Text style={{ color: "#4ECDC4", fontSize: 16, fontWeight: "800", marginTop: 2 }}>
+                    {stats.monthlyServicesDone} <Text style={{ fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>{t("records")}</Text>
+                  </Text>
+                  <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, marginTop: 8, gap: 4 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ Total Liter</Text>
+                      <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>{stats.totalLitersMonthly.toFixed(1)} L</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛣️ {lang === "id" ? "Jarak" : "Distance"}</Text>
+                      <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>+{stats.monthlyDistance.toLocaleString("id-ID")} km</Text>
+                    </View>
+                  </View>
+                  <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10 }}>
+                    {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                onPress={() => setShowCalendarModal(true)}
-                activeOpacity={0.7}
-                style={{
-                  flex: 1,
-                  backgroundColor: "#1A2B3C",
-                  borderRadius: 14,
-                  padding: 14,
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.05)",
-                }}
-              >
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600" }}>
-                    {t("servicesDone")}
-                  </Text>
-                  <Text style={{ fontSize: 14 }}>📅</Text>
-                </View>
+              <MaintenanceStatusBar
+                reminders={stats.vehicleReminders}
+                currentOdometer={stats.autoLatestOdometer}
+                accentColor={stats.selectedVehicle?.color}
+              />
+              <UpcomingReminders
+                reminders={stats.vehicleReminders}
+                currentOdometer={stats.autoLatestOdometer}
+                vehicle={stats.selectedVehicle}
+                onAddReminder={() => setShowPlanModal(true)}
+                onEditReminder={handleEdit}
+                onDeleteReminder={handleDelete}
+                onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }}
+              />
+            </>
+          ) : null}
+        </View>
 
-                <Text
-                  style={{
-                    color: "#4ECDC4",
-                    fontSize: 16,
-                    fontWeight: "800",
-                    marginTop: 2,
-                  }}
-                >
-                  {stats.monthlyServicesDone}{" "}
-                  <Text style={{ fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>
-                    {t("records")}
-                  </Text>
-                </Text>
-
-                <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, marginTop: 8, gap: 4 }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ Total Liter</Text>
-                    <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>
-                      {stats.totalLitersMonthly.toFixed(1)} L
-                    </Text>
-                  </View>
-
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>
-                      🛣️ {lang === "id" ? "Jarak" : "Distance"}
-                    </Text>
-                    <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>
-                      +{stats.monthlyDistance.toLocaleString("id-ID")} km
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10 }}>
-                  {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <MaintenanceStatusBar
-              reminders={stats.vehicleReminders}
-              currentOdometer={stats.autoLatestOdometer}
-              accentColor={stats.selectedVehicle?.color}
-            />
-            <UpcomingReminders
-              reminders={stats.vehicleReminders}
-              currentOdometer={stats.autoLatestOdometer}
-              vehicle={stats.selectedVehicle}
-              onAddReminder={() => setShowPlanModal(true)}
-              onEditReminder={handleEdit}
-              onDeleteReminder={handleDelete}
-              onEditVehicle={() => { 
-                setEditingVehicle(stats.selectedVehicle!);
-                setShowVehicleModal(true);
-              }}
-            />
-          </>
-        ) : null}
-
-        {activeTab === "history" && (
+        {/* TAB 2: HISTORY / SERVICE */}
+        <View style={{ display: activeTab === "history" ? "flex" : "none", width: "100%" }}>
           <RepairHistory
             repairs={stats.vehicleRepairs}
             onEdit={(r) => {
@@ -897,16 +834,16 @@ function AppContent() {
             onDelete={(id) => {
               const deletedItem = stats.vehicleRepairs.find((r) => r.id === id);
               setRepairs((prev) => prev.filter((r) => r.id !== id));
-
               if (deletedItem) {
                 addNotification('DELETE', "Riwayat Dihapus", `Menghapus riwayat [${deletedItem.serviceType}].`, "vehicle", selectedVehicleId, deletedItem.odometer, undefined, 'Perbaikan Kendaraan');
                 evaluateOdometerRollback(deletedItem.odometer, id, 'Perbaikan Kendaraan');
               }
             }}
           />
-        )}
+        </View>
 
-        {activeTab === "fuel" && (
+        {/* TAB 3: FUEL */}
+        <View style={{ display: activeTab === "fuel" ? "flex" : "none", width: "100%" }}>
           <FuelLog
             fuelEntries={stats.vehicleFuelEntries}
             vehicle={stats.selectedVehicle}
@@ -921,17 +858,15 @@ function AppContent() {
             onDelete={(id) => {
               const deletedFuel = stats.vehicleFuelEntries.find((f) => f.id === id);
               setFuelEntries((prev) => prev.filter((f) => f.id !== id));
-
               if (deletedFuel) {
                 addNotification('DELETE', "Catatan Bensin Dihapus", `Menghapus data bensin ${deletedFuel.liters}L.`, "vehicle", selectedVehicleId, deletedFuel.odometer, undefined, 'Pengisian Bensin');
                 evaluateOdometerRollback(deletedFuel.odometer, id, 'Pengisian Bensin');
               }
-
               setShowFuelSheet(false);
               setEditingFuel(null);
             }}
           />
-        )}
+        </View>
       </ScrollView>
 
       {/* MODALS SECTION */}
