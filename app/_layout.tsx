@@ -1,14 +1,11 @@
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import {
-  Stack,
-  useRouter,
-  usePathname,
-  useGlobalSearchParams,
-} from "expo-router";
+// 1. HAPUS useGlobalSearchParams dari import
+import { Stack, useRouter, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+// 2. TAMBAHKAN createContext dan useContext
+import React, { useEffect, useState, createContext, useContext } from "react";
 import {
   View,
   TouchableOpacity,
@@ -25,16 +22,21 @@ import {
 import "react-native-reanimated";
 import "../global.css";
 
-// Import pemicu modal dari index
 import { openFuelSheet, openRepairSheet } from "./index";
 
 const { width } = Dimensions.get("window");
 SplashScreen.preventAutoHideAsync();
 
+// 🚀 3. BUAT GLOBAL CONTEXT UNTUK TAB
+export const TabContext = createContext<any>(null);
+
 export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
+
+  // 🚀 4. PINDAHKAN STATE TAB KE SINI AGAR BERLAKU GLOBAL
+  const [activeTab, setActiveTab] = useState("home");
 
   useEffect(() => {
     if (loaded) {
@@ -46,17 +48,20 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={DefaultTheme}>
-        <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
-          <Stack screenOptions={{ headerShown: false, animation: "none" }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="profile" />
-            <Stack.Screen name="export" />
-          </Stack>
-          <AppNavigationOverlay />
-        </View>
-        <StatusBar style="light" />
-      </ThemeProvider>
+      {/* 🚀 5. BUNGKUS APLIKASI DENGAN CONTEXT PROVIDER */}
+      <TabContext.Provider value={{ activeTab, setActiveTab }}>
+        <ThemeProvider value={DefaultTheme}>
+          <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
+            <Stack screenOptions={{ headerShown: false, animation: "none" }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="profile" />
+              <Stack.Screen name="export" />
+            </Stack>
+            <AppNavigationOverlay />
+          </View>
+          <StatusBar style="light" />
+        </ThemeProvider>
+      </TabContext.Provider>
     </SafeAreaProvider>
   );
 }
@@ -65,17 +70,9 @@ function AppNavigationOverlay() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
-  const params = useGlobalSearchParams();
 
-  const [activeTab, setActiveTab] = useState("home");
-
-  useEffect(() => {
-    if (pathname.includes("profile")) {
-      setActiveTab("profile");
-    } else {
-      setActiveTab(params.tab?.toString() || "home");
-    }
-  }, [pathname, params.tab]);
+  // 🚀 6. AMBIL STATUS TAB DARI CONTEXT (Bukan dari useState lokal lagi)
+  const { activeTab, setActiveTab } = useContext(TabContext);
 
   useEffect(() => {
     const onBackPress = () => {
@@ -98,16 +95,20 @@ function AppNavigationOverlay() {
     return () => subscription.remove();
   }, [pathname]);
 
+  // 🚀 7. PERBAIKI EFEK PATHNAME (Tanpa Params)
+  useEffect(() => {
+    if (pathname.includes("profile")) {
+      setActiveTab("profile");
+    } else if (pathname === "/" && activeTab === "profile") {
+      setActiveTab("home");
+    }
+  }, [pathname]);
+
+  // 🚀 8. PERBAIKI FUNGSI KLIK TAB
   const handleNavPress = (tabName: string) => {
-    setActiveTab(tabName); // Optimistic UI Update (Langsung ganti warna)
-    
-    if (pathname === "/") {
-      router.setParams({ tab: tabName });
-    } else {
-      router.replace({
-        pathname: "/",
-        params: { tab: tabName },
-      });
+    setActiveTab(tabName); 
+    if (pathname !== "/") {
+      router.replace("/");
     }
   };
 
@@ -118,14 +119,12 @@ function AppNavigationOverlay() {
 
   const showFab = activeTab === "home" || activeTab === "fuel";
 
-  // Sembunyikan navbar jika berada di layar selain Home, Profile, dan Export
   if (pathname !== "/" && !pathname.includes("profile") && !pathname.includes("export")) {
     return null; 
   }
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">
-      {/* 1. SMART FAB */}
       {showFab && (
         <TouchableOpacity
           activeOpacity={0.8}
@@ -136,7 +135,6 @@ function AppNavigationOverlay() {
         </TouchableOpacity>
       )}
 
-      {/* 2. BOTTOM NAVBAR */}
       <View
         style={[
           styles.navbar,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from "expo-router";
+import { TabContext } from "./_layout";
 import {
   View,
   Text,
@@ -74,7 +75,6 @@ Notifications.setNotificationHandler({
 
 function AppContent() {
   const router = useRouter();
-  const params = useLocalSearchParams();
   const { t, lang, setLang } = useLanguage();
   const now = new Date();
   const insets = useSafeAreaInsets();
@@ -87,7 +87,7 @@ function AppContent() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [fuelEntries, setFuelEntries] = useState<FuelEntry[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState(MOCK_VEHICLES[0].id);
-  const [activeTab, setActiveTab] = useState<TabType>("home");
+  const { activeTab } = React.useContext(TabContext);
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showFuelSheet, setShowFuelSheet] = useState(false);
   const [editingRepair, setEditingRepair] = useState<RepairEntry | null>(null);
@@ -142,12 +142,6 @@ function AppContent() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifModal, setShowNotifModal] = useState(false);
   const bellScale = React.useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (params.tab) {
-      setActiveTab(params.tab as TabType);
-    }
-  }, [params.tab]);
 
   useEffect(() => {
     openFuelSheet = () => setShowFuelSheet(true);
