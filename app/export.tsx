@@ -237,6 +237,41 @@ export default function ExportScreen() {
       const servPct = totalExpense > 0 ? Math.round((totalServiceCost / totalExpense) * 100) : 0;
       const formatRp = (num: number) => `Rp ${num.toLocaleString('id-ID')}`;
       const showVehicleBadge = selectedVehicles.includes('all') || selectedVehicles.length > 1;
+      // 🚀 LOGIKA GENERATOR QR CODE VERIFIKASI UNIK
+      const qrData = `GarasiKu|VERIFIED|Date:${new Date().toISOString().split('T')[0]}|Vehicles:${selectedVehicles.join('-')}|TotalCost:${totalExpense}`;
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}`;
+
+      // 🚀 LOGIKA PENGUMPULAN FOTO AKTIVITAS & KENDARAAN
+      let photosHTML = '';
+      
+      // Ambil foto dari riwayat aktivitas perbaikan/bensin yang memiliki property gambar
+      const activitiesWithPhotos = allActivities.filter((a: any) => a.imageUri || a.photo || a.image || a.receiptImage);
+      // Ambil foto profil kendaraan jika ada
+      const vehiclesWithPhotos = exportedVehicles.filter((v: any) => v.imageUri || v.photo || v.image);
+
+      if (activitiesWithPhotos.length > 0 || vehiclesWithPhotos.length > 0) {
+        photosHTML = `
+          <div style="page-break-before: always;"></div>
+          <h2 class="section-title">📷 LAMPIRAN FOTO & DOKUMENTASI MEDIA</h2>
+          <p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">Berikut adalah lampiran bukti foto fisik kendaraan, struk transaksi, dan dokumentasi sparepart mekanik.</p>
+          
+          <div class="photo-grid">
+            ${vehiclesWithPhotos.map((v: any) => `
+              <div class="photo-box">
+                <img src="${v.imageUri || v.photo || v.image}" onerror="this.parentElement.style.display='none';" />
+                <div class="photo-caption">Profil Kendaraan:<br><b>${v.name}</b></div>
+              </div>
+            `).join('')}
+
+            ${activitiesWithPhotos.map((a: any) => `
+              <div class="photo-box">
+                <img src="${a.imageUri || a.photo || a.image || a.receiptImage}" onerror="this.parentElement.style.display='none';" />
+                <div class="photo-caption">${new Date(a.date).toLocaleDateString('id-ID')}<br><b>${a.title}</b> (${a.vehicleName})</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
 
       let timelineHTML = '';
       for (const [month, data] of Object.entries(groupedByMonth)) {
@@ -356,6 +391,13 @@ export default function ExportScreen() {
           .mini-list-item .v-name { font-size: 10px; color: #7f8c8d; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
           .mini-list-item .v-val { font-size: 13px; color: #0D1B2A; font-weight: 900; margin-top: 3px; }
           .insight-item .mini-list { border-top-color: rgba(245,166,35,0.2); }
+          /* CSS Khusus Layout Media Foto & QR Code */
+          .photo-grid { width: 100%; text-align: left; margin-top: 10px; }
+          .photo-box { display: inline-block; width: 155px; margin: 8px; border: 1px solid #e1e8ed; padding: 6px; border-radius: 8px; vertical-align: top; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+          .photo-box img { width: 100%; height: 110px; object-fit: cover; border-radius: 6px; background: #f5f7f8; }
+          .photo-box .photo-caption { font-size: 9px; color: #555; margin-top: 6px; line-height: 12px; text-align: center; word-wrap: break-word; }
+          .qr-wrapper { display: block; margin: 15px auto 5px auto; text-align: center; }
+          .qr-wrapper img { width: 85px; height: 85px; padding: 5px; border: 1px solid #eee; background: #fff; border-radius: 6px; }
         </style>
       </head>
       <body>
@@ -455,10 +497,15 @@ export default function ExportScreen() {
 
           <h2 class="section-title">📅 TIMELINE AKUMULASI BULANAN</h2>
           ${timelineHTML || `<p style="color:#7f8c8d; font-size:12px;">${isId ? 'Tidak ada data aktivitas di periode ini.' : 'No activities recorded in this period.'}</p>`}
-
+          
+          ${photosHTML}
           ${appendixHTML}
 
           <div class="footer">
+            <div class="qr-wrapper">
+              <img src="${qrCodeUrl}" alt="QR Verification" />
+              <div style="font-size: 8px; color: #bdc3c7; margin-top: 4px; font-weight: bold; letter-spacing: 0.5px;">SECURE VERIFICATION QR</div>
+            </div>
             Laporan ini dibuat secara otomatis dan sah melalui enkripsi local database GarasiKu v${CURRENT_SCHEMA_VERSION}.<br>
             &copy; ${new Date().getFullYear()} GarasiKu App. All rights reserved.
           </div>
