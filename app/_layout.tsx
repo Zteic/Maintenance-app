@@ -1,11 +1,14 @@
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-// 1. HAPUS useGlobalSearchParams dari import
-import { Stack, useRouter, usePathname } from "expo-router";
+import {
+  Stack,
+  useRouter,
+  usePathname,
+  useGlobalSearchParams,
+} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-// 2. TAMBAHKAN createContext dan useContext
-import React, { useEffect, useState, createContext, useContext } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   TouchableOpacity,
@@ -22,24 +25,16 @@ import {
 import "react-native-reanimated";
 import "../global.css";
 
+// Import pemicu modal dari index
 import { openFuelSheet, openRepairSheet } from "./index";
 
 const { width } = Dimensions.get("window");
 SplashScreen.preventAutoHideAsync();
 
-// 🚀 3. BUAT GLOBAL CONTEXT UNTUK TAB
-export const TabContext = createContext<any>(null);
-
 export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
-
-  // 🚀 4. PINDAHKAN STATE TAB KE SINI AGAR BERLAKU GLOBAL
-  const [activeTab, setActiveTab] = useState("home");
-
-  // 🚀 PERBAIKAN 1: Gunakan useMemo agar perubahan tab tidak membebani sistem
-  const tabContextValue = React.useMemo(() => ({ activeTab, setActiveTab }), [activeTab]);
 
   useEffect(() => {
     if (loaded) {
@@ -51,20 +46,17 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      {/* 🚀 5. BUNGKUS APLIKASI DENGAN CONTEXT PROVIDER */}
-      <TabContext.Provider value={tabContextValue}>
-        <ThemeProvider value={DefaultTheme}>
-          <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
-            <Stack screenOptions={{ headerShown: false, animation: "none" }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="profile" />
-              <Stack.Screen name="export" />
-            </Stack>
-            <AppNavigationOverlay />
-          </View>
-          <StatusBar style="light" />
-        </ThemeProvider>
-      </TabContext.Provider>
+      <ThemeProvider value={DefaultTheme}>
+        <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
+          <Stack screenOptions={{ headerShown: false, animation: "none" }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="profile" />
+            <Stack.Screen name="export" />
+          </Stack>
+          <AppNavigationOverlay />
+        </View>
+        <StatusBar style="light" />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
@@ -73,9 +65,17 @@ function AppNavigationOverlay() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
+  const params = useGlobalSearchParams();
 
-  // 🚀 6. AMBIL STATUS TAB DARI CONTEXT (Bukan dari useState lokal lagi)
-  const { activeTab, setActiveTab } = useContext(TabContext);
+  const [activeTab, setActiveTab] = useState("home");
+
+  useEffect(() => {
+    if (pathname.includes("profile")) {
+      setActiveTab("profile");
+    } else {
+      setActiveTab(params.tab?.toString() || "home");
+    }
+  }, [pathname, params.tab]);
 
   useEffect(() => {
     const onBackPress = () => {
@@ -98,27 +98,19 @@ function AppNavigationOverlay() {
     return () => subscription.remove();
   }, [pathname]);
 
-  // 🚀 7. PERBAIKI EFEK PATHNAME (Tanpa Params)
-  useEffect(() => {
-    if (pathname.includes("profile")) {
-      setActiveTab("profile");
-    } else if (pathname === "/" && activeTab === "profile") {
-      setActiveTab("home");
-    }
-  }, [pathname]);
-
-  // 🚀 8. PERBAIKI FUNGSI KLIK TAB
-  // 🚀 PERBAIKAN 2: Samakan cara kerja semua tombol tab (termasuk Profile)
   const handleNavPress = (tabName: string) => {
-    setActiveTab(tabName); 
-
+    setActiveTab(tabName); // Optimistic UI Update (Langsung ganti warna)
+    
     if (tabName === "profile") {
       if (pathname !== "/profile") router.push("/profile");
     } else {
-      if (pathname !== "/") {
-        // Jika kembali dari profile, gunakan fungsi back() agar transisi mulus
-        if (pathname.includes("profile")) router.back();
-        else router.navigate("/");
+      if (pathname === "/") {
+        router.setParams({ tab: tabName });
+      } else {
+        router.replace({
+          pathname: "/",
+          params: { tab: tabName },
+        });
       }
     }
   };
@@ -130,12 +122,14 @@ function AppNavigationOverlay() {
 
   const showFab = activeTab === "home" || activeTab === "fuel";
 
+  // Sembunyikan navbar jika berada di layar selain Home, Profile, dan Export
   if (pathname !== "/" && !pathname.includes("profile") && !pathname.includes("export")) {
     return null; 
   }
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">
+      {/* 1. SMART FAB */}
       {showFab && (
         <TouchableOpacity
           activeOpacity={0.8}
@@ -146,6 +140,7 @@ function AppNavigationOverlay() {
         </TouchableOpacity>
       )}
 
+      {/* 2. BOTTOM NAVBAR */}
       <View
         style={[
           styles.navbar,

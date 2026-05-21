@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from "expo-router";
-import { TabContext } from "./_layout";
 import {
   View,
   Text,
@@ -87,7 +86,8 @@ function AppContent() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [fuelEntries, setFuelEntries] = useState<FuelEntry[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState(MOCK_VEHICLES[0].id);
-  const { activeTab } = React.useContext(TabContext);
+  const params = useLocalSearchParams();
+  const activeTab = params.tab?.toString() || "home";
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showFuelSheet, setShowFuelSheet] = useState(false);
   const [editingRepair, setEditingRepair] = useState<RepairEntry | null>(null);
