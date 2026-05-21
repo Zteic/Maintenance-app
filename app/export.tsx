@@ -177,27 +177,41 @@ export default function ExportScreen() {
       setProgressText("🔄 Preparing & Filtering Data...");
       await new Promise(r => setTimeout(r, 500));
 
-      const vPlate = selectedVehicles.includes('all') ? "-" : vehicles.filter(v => selectedVehicles.includes(v.id)).map(v => v.plateNumber).join(', ');
-      const vModel = selectedVehicles.includes('all') ? "Multi-Vehicle System" : vehicles.filter(v => selectedVehicles.includes(v.id)).map(v => `${v.brand || ''} ${v.model || ''}`).join(', ');
-      
+      // 1. Ambil daftar kendaraan yang ikut diexport
+      const exportedVehicles = selectedVehicles.includes('all') ? vehicles : vehicles.filter(v => selectedVehicles.includes(v.id));
+
+      // 2. Hitung statistik spesifik untuk MASING-MASING kendaraan
+      const vehicleStats = exportedVehicles.map(v => {
+        const vRepairs = filteredRepairs.filter(r => r.vehicleId === v.id);
+        const vFuels = filteredFuels.filter(f => f.vehicleId === v.id);
+
+        const vTotalService = vRepairs.reduce((sum, r) => sum + (r.cost || 0), 0);
+        const vTotalFuel = vFuels.reduce((sum, f) => sum + (f.totalCost || 0), 0);
+        
+        const vOdos = [...vRepairs.map(r => r.odometer), ...vFuels.map(f => f.odometer)].filter(o => o > 0);
+        let vMaxService = { serviceType: "-", cost: 0 };
+        if (vRepairs.length > 0) {
+          const sorted = [...vRepairs].sort((a, b) => b.cost - a.cost);
+          vMaxService = { serviceType: sorted[0].serviceType, cost: sorted[0].cost };
+        }
+
+        return {
+          name: v.name, brand: v.brand, model: v.model, plate: v.plateNumber,
+          vTotalExpense: vTotalService + vTotalFuel,
+          vFuelCount: vFuels.length,
+          vFuelLiters: vFuels.reduce((sum, f) => sum + (f.liters || 0), 0),
+          vServiceCount: vRepairs.length,
+          vOdoIncrease: vOdos.length > 1 ? Math.max(...vOdos) - Math.min(...vOdos) : 0,
+          vCurrentOdo: vOdos.length > 0 ? Math.max(...vOdos) : (v.currentOdometer || 0),
+          vMaxService,
+          vMaxFuel: vFuels.length > 0 ? Math.max(...vFuels.map(f => f.totalCost || 0)) : 0
+        };
+      });
+
+      // 3. Totalkan untuk keperluan diagram batang (Bar Chart)
       const totalFuelCost = filteredFuels.reduce((sum, item) => sum + (item.totalCost || 0), 0);
       const totalServiceCost = filteredRepairs.reduce((sum, item) => sum + (item.cost || 0), 0);
       const totalExpense = totalFuelCost + totalServiceCost;
-
-      const odometers = [...filteredRepairs.map(r => r.odometer), ...filteredFuels.map(f => f.odometer)].filter(o => o > 0);
-      const odoIncrease = odometers.length > 1 ? (Math.max(...odometers) - Math.min(...odometers)) : 0;
-      const currentOdo = odometers.length > 0 ? Math.max(...odometers) : 0;
-
-      let maxServiceExpense = { serviceType: "-", cost: 0 };
-      if (filteredRepairs.length > 0) {
-        const sortedRepairsByCost = [...filteredRepairs].sort((a, b) => b.cost - a.cost);
-        maxServiceExpense = { serviceType: sortedRepairsByCost[0].serviceType, cost: sortedRepairsByCost[0].cost };
-      }
-
-      let maxFuelExpense = 0;
-      if (filteredFuels.length > 0) {
-        maxFuelExpense = Math.max(...filteredFuels.map(f => f.totalCost || 0));
-      }
 
       setProgressText("🔄 Compiling Grouped Timeline...");
       await new Promise(r => setTimeout(r, 500));
@@ -337,6 +351,11 @@ export default function ExportScreen() {
           .detail-table td { padding: 8px; border-bottom: 1px solid #eee; color: #2c3e50; }
           .detail-table tr:nth-child(even) { background: #f9fbfb; }
           .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #bdc3c7; border-top: 1px solid #eee; padding-top: 15px; }
+          .mini-list { text-align: left; margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee; }
+          .mini-list-item { margin-bottom: 12px; }
+          .mini-list-item .v-name { font-size: 10px; color: #7f8c8d; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+          .mini-list-item .v-val { font-size: 13px; color: #0D1B2A; font-weight: 900; margin-top: 3px; }
+          .insight-item .mini-list { border-top-color: rgba(245,166,35,0.2); }
         </style>
       </head>
       <body>
@@ -353,33 +372,45 @@ export default function ExportScreen() {
             </div>
           </div>
 
-          <div class="vehicle-card">
-            <div class="v-info">
-              <h2>🚗 ${vehicleName}</h2>
-              <p>${vModel} &bull; Plat: ${vPlate}</p>
-            </div>
-            <div class="v-stats">
-              <h3>${currentOdo.toLocaleString('id-ID')} km</h3>
-              <p>Current Odometer</p>
-            </div>
+          <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px;">
+            ${vehicleStats.map(vs => `
+              <div class="vehicle-card" style="margin-bottom: 0;">
+                <div class="v-info">
+                  <h2>🚗 ${vs.name}</h2>
+                  <p>${vs.brand || ''} ${vs.model || ''} &bull; Plat: ${vs.plate || '-'}</p>
+                </div>
+                <div class="v-stats">
+                  <h3>${vs.vCurrentOdo.toLocaleString('id-ID')} km</h3>
+                  <p>Current Odometer</p>
+                </div>
+              </div>
+            `).join('')}
           </div>
 
           <div class="dashboard">
             <div class="stat-card">
               <span>Total Pengeluaran</span>
-              <strong>${formatRp(totalExpense)}</strong>
+              <div class="mini-list">
+                ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">${formatRp(vs.vTotalExpense)}</div></div>`).join('')}
+              </div>
             </div>
             <div class="stat-card">
               <span>Log Pengisian BBM</span>
-              <strong>${filteredFuels.length}x Fill (${filteredFuels.reduce((sum, f) => sum + f.liters, 0).toFixed(1)}L)</strong>
+              <div class="mini-list">
+                ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">${vs.vFuelCount}x Fill (${vs.vFuelLiters.toFixed(1)}L)</div></div>`).join('')}
+              </div>
             </div>
             <div class="stat-card">
               <span>Log Servis/Mekanik</span>
-              <strong>${filteredRepairs.length}x Aktivitas</strong>
+              <div class="mini-list">
+                ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">${vs.vServiceCount}x Aktivitas</div></div>`).join('')}
+              </div>
             </div>
             <div class="stat-card">
               <span>Kenaikan Jarak</span>
-              <strong>+${odoIncrease.toLocaleString('id-ID')} km</strong>
+              <div class="mini-list">
+                ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">+${vs.vOdoIncrease.toLocaleString('id-ID')} km</div></div>`).join('')}
+              </div>
             </div>
           </div>
 
@@ -400,11 +431,25 @@ export default function ExportScreen() {
           <div class="insight-card">
              <div class="insight-item" style="border-right: 1px dashed rgba(245,166,35,0.3); padding-right:10px;">
                 <h4>💡 Pengeluaran Bengkel Terbesar</h4>
-                <p>${maxServiceExpense.serviceType !== '-' ? `${maxServiceExpense.serviceType} (${formatRp(maxServiceExpense.cost)})` : '-'}</p>
+                <div class="mini-list">
+                  ${vehicleStats.map(vs => `
+                    <div class="mini-list-item">
+                      <div class="v-name">${vs.name}</div>
+                      <div class="v-val">${vs.vMaxService.serviceType !== '-' ? `${vs.vMaxService.serviceType} <br><span style="font-weight:600; color:#7f8c8d; font-size:11px;">${formatRp(vs.vMaxService.cost)}</span>` : '-'}</div>
+                    </div>
+                  `).join('')}
+                </div>
              </div>
              <div class="insight-item">
                 <h4>⛽ Transaksi BBM Tertinggi</h4>
-                <p>${maxFuelExpense > 0 ? formatRp(maxFuelExpense) : '-'}</p>
+                <div class="mini-list">
+                  ${vehicleStats.map(vs => `
+                    <div class="mini-list-item">
+                      <div class="v-name">${vs.name}</div>
+                      <div class="v-val">${vs.vMaxFuel > 0 ? formatRp(vs.vMaxFuel) : '-'}</div>
+                    </div>
+                  `).join('')}
+                </div>
              </div>
           </div>
 
