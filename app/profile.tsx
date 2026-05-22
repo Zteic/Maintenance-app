@@ -93,6 +93,43 @@ function ProfileContent() {
   const [editEmail, setEditEmail] = useState("");
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [appMode, setAppMode] = useState<'basic' | 'advance'>('basic');
+  // 🚀 STATE UNTUK STORAGE & LEGAL
+  const [storageSize, setStorageSize] = useState('0.00 MB');
+
+  useEffect(() => {
+    const calculateStorage = async () => {
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+        const items = await AsyncStorage.multiGet(keys);
+        let totalBytes = 0;
+        items.forEach(([key, value]) => {
+          totalBytes += (key.length + (value ? value.length : 0)) * 2;
+        });
+        setStorageSize((totalBytes / 1024 / 1024).toFixed(2) + ' MB');
+      } catch (e) {}
+    };
+    calculateStorage();
+  }, []);
+
+  const handleResetData = () => {
+    Alert.alert(
+      "Reset & Hapus Data",
+      "Semua data kendaraan, histori, dan pengaturan akan dihapus permanen dari perangkat ini. Lanjutkan?",
+      [
+        { text: "Batal", style: "cancel" },
+        { 
+          text: "Ya, Hapus", 
+          style: "destructive", 
+          onPress: async () => {
+            const keys = await AsyncStorage.getAllKeys();
+            const garasiKeys = keys.filter(k => k.startsWith('garasi_'));
+            await AsyncStorage.multiRemove(garasiKeys);
+            Alert.alert("Berhasil", "Aplikasi telah direset.", [{ text: "OK", onPress: () => router.replace("/") }]);
+          } 
+        }
+      ]
+    );
+  };
 
   useEffect(() => {
     loadUserProfile().then((p) => {
@@ -397,8 +434,11 @@ function ProfileContent() {
     </Text>
     <Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>
       Backup seluruh data kendaraan ke .vhdb
-              </Text>
-            </View>
+    </Text>
+    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>
+      💽 Penggunaan Memori: {storageSize}
+    </Text>
+  </View>
             <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
           </TouchableOpacity>
         </View>
@@ -452,6 +492,56 @@ function ProfileContent() {
             </View>
             <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* 🔥 SECTION INFORMASI & LEGAL (PUBLISH STANDARD) */}
+        <View style={{ marginHorizontal: 20, marginTop: 25, marginBottom: 20 }}>
+          <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>INFORMASI & LEGAL</Text>
+          
+          <View style={{ backgroundColor: '#1A2B3C', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+            
+            {/* What's New */}
+            <TouchableOpacity onPress={() => router.push('/changelog')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+              <Text style={{ fontSize: 18, marginRight: 12 }}>✨</Text>
+              <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Apa yang Baru (What's New)</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
+            </TouchableOpacity>
+
+            {/* Privacy Policy */}
+            <TouchableOpacity onPress={() => router.push('/privacy')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+              <Text style={{ fontSize: 18, marginRight: 12 }}>🛡️</Text>
+              <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Kebijakan Privasi (Privacy Policy)</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
+            </TouchableOpacity>
+
+            {/* Terms & Conditions */}
+            <TouchableOpacity onPress={() => router.push('/terms')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+              <Text style={{ fontSize: 18, marginRight: 12 }}>📜</Text>
+              <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Syarat & Ketentuan</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
+            </TouchableOpacity>
+
+            {/* Contact Developer */}
+            <TouchableOpacity onPress={() => router.push('/contact')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+              <Text style={{ fontSize: 18, marginRight: 12 }}>✉️</Text>
+              <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Hubungi Developer</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
+            </TouchableOpacity>
+
+            {/* Check for Updates */}
+            <TouchableOpacity onPress={() => router.push('/check-updates')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+              <Text style={{ fontSize: 18, marginRight: 12 }}>🔄</Text>
+              <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Periksa Pembaruan</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
+            </TouchableOpacity>
+
+            {/* Reset Data */}
+            <TouchableOpacity onPress={handleResetData} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: 'rgba(255,82,82,0.05)' }}>
+              <Text style={{ fontSize: 18, marginRight: 12 }}>⚠️</Text>
+              <Text style={{ color: '#FF5252', flex: 1, fontWeight: '700' }}>Hapus Semua Data Aplikasi</Text>
+            </TouchableOpacity>
+
+          </View>
         </View>
 
       </ScrollView>
