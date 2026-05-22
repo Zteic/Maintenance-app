@@ -146,23 +146,23 @@ function AppNavigationOverlay() {
           styles.navbar,
           { height: 60 + insets.bottom, paddingBottom: insets.bottom },
         ]}
-      >
-        <TouchableOpacity onPress={() => handleNavPress("home")} style={styles.navItem}>
+        >
+        <TouchableOpacity activeOpacity={0.9} onPress={() => handleNavPress("home")} style={styles.navItem}>
           <Text style={[styles.navEmoji, activeTab === "home" && styles.activeEmoji]}>📊</Text>
           <Text style={[styles.navLabel, activeTab === "home" && styles.activeText]}>Dashboard</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => handleNavPress("fuel")} style={styles.navItem}>
+        <TouchableOpacity activeOpacity={0.9} onPress={() => handleNavPress("fuel")} style={styles.navItem}>
           <Text style={[styles.navEmoji, activeTab === "fuel" && styles.activeEmoji]}>⛽</Text>
           <Text style={[styles.navLabel, activeTab === "fuel" && styles.activeText]}>Fuel</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => handleNavPress("history")} style={styles.navItem}>
+        <TouchableOpacity activeOpacity={0.9} onPress={() => handleNavPress("history")} style={styles.navItem}>
           <Text style={[styles.navEmoji, activeTab === "history" && styles.activeEmoji]}>🔧</Text>
           <Text style={[styles.navLabel, activeTab === "history" && styles.activeText]}>Service</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => handleNavPress("profile")} style={styles.navItem}>
+        <TouchableOpacity activeOpacity={0.9} onPress={() => handleNavPress("profile")} style={styles.navItem}>
           <Text style={[styles.navEmoji, activeTab === "profile" && styles.activeEmoji]}>👤</Text>
           <Text style={[styles.navLabel, activeTab === "profile" && styles.activeText]}>Profile</Text>
         </TouchableOpacity>
