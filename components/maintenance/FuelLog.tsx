@@ -20,6 +20,7 @@ import {
 interface FuelLogProps {
   fuelEntries: FuelEntry[];
   vehicle?: Vehicle | null;
+  appMode?: 'basic' | 'advance';
   onAdd: () => void;
   onEdit?: (entry: FuelEntry) => void;
   onDelete?: (id: string) => void;
@@ -56,6 +57,7 @@ const getFuelLogo = (providerName: string) => {
 export default function FuelLog({
   fuelEntries,
   vehicle,
+  appMode = 'basic',
   onAdd,
   onEdit,
   onDelete,
@@ -182,8 +184,8 @@ export default function FuelLog({
         </Text>
       </View>
 
-      {/* Stats Summary (Konsumsi KM/L & Reset) */}
-      {fuelEntries.length > 0 && (
+      {/* Stats Summary (Konsumsi KM/L & Reset) - HANYA TAMPIL DI ADVANCE MODE */}
+      {appMode === 'advance' && fuelEntries.length > 0 && (
         <View style={{ paddingHorizontal: 20, marginBottom: 15 }}>
           
           {/* Banner Konsumsi */}
