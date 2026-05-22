@@ -180,10 +180,6 @@ export default function FuelLog({
           <Text style={{ color: "#FFFFFF", fontSize: 20, lineHeight: 24 }}>
           ⛽ {isId ? "Catatan BBM" : "Fuel Log"}
         </Text>
-        <TouchableOpacity onPress={onAdd} activeOpacity={0.8} style={styles.addButton}>
-          <Text style={{ color: "#4ECDC4", fontSize: 16, fontWeight: "700" }}>+</Text>
-          <Text style={{ color: "#4ECDC4", fontSize: 12, fontWeight: "600" }}>{isId ? "Isi BBM" : "Add Fuel"}</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Stats Summary (Konsumsi KM/L & Reset) */}

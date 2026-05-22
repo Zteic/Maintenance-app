@@ -107,9 +107,15 @@ function AppContent() {
   const [showOdoHistory, setShowOdoHistory] = useState(false);
   // 🚀 STATE UNTUK ADVANCED SEARCH & MODE PENGGUNAAN
   const [appMode, setAppMode] = useState<'basic' | 'advance'>('basic');
+  
+  // State Search History Service
   const [searchQuery, setSearchQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-
+  
+  // 🚀 STATE SEARCH FUEL BARU
+  const [fuelSearchQuery, setFuelSearchQuery] = useState('');
+  const [recentFuelSearches, setRecentFuelSearches] = useState<string[]>([]);
+  const [fuelFilter, setFuelFilter] = useState<'all' | 'month' | 'full' | 'last'>('all');
   // --- STATE UNTUK NAMA GARASI CUSTOM ---
   const [appName, setAppName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
@@ -142,27 +148,54 @@ function AppContent() {
     }
   };
 
-  // 🚀 EFFECT: BACA MODE DAN HISTORY SEARCH SAAT BUKA TAB HISTORY
+  // 🚀 EFFECT: BACA MODE DAN HISTORY SEARCH MULTI-TAB
   useEffect(() => {
+    AsyncStorage.getItem('garasi_app_mode').then(mode => {
+      if (mode) setAppMode(mode as 'basic' | 'advance');
+    });
+
     if (activeTab === 'history') {
-      AsyncStorage.getItem('garasi_app_mode').then(mode => {
-        if (mode) setAppMode(mode as 'basic' | 'advance');
-      });
       AsyncStorage.getItem('garasi_recent_searches').then(recents => {
         if (recents) setRecentSearches(JSON.parse(recents));
       });
+    } else if (activeTab === 'fuel') {
+      AsyncStorage.getItem('garasi_recent_fuel_searches').then(recents => {
+        if (recents) setRecentFuelSearches(JSON.parse(recents));
+      });
     } else {
-      setSearchQuery(''); // Reset kotak pencarian jika pindah tab
+      setSearchQuery(''); setFuelSearchQuery(''); setFuelFilter('all');
     }
   }, [activeTab]);
 
-  // 🚀 FUNGSI EXECUTE PENCARIAN (SIMPAN KE RECENT)
-  const executeSearch = (query: string) => {
-    setSearchQuery(query);
-    if (query.trim() !== '' && !recentSearches.includes(query.trim())) {
-      const newRecents = [query.trim(), ...recentSearches].slice(0, 5); // Simpan max 5 riwayat
-      setRecentSearches(newRecents);
-      AsyncStorage.setItem('garasi_recent_searches', JSON.stringify(newRecents));
+  // 🚀 FUNGSI EXECUTE PENCARIAN & HAPUS
+  const executeSearch = (query: string, type: 'service' | 'fuel') => {
+    const q = query.trim();
+    if (type === 'service') {
+      setSearchQuery(q);
+      if (q !== '' && !recentSearches.includes(q)) {
+        const newRecents = [q, ...recentSearches].slice(0, 5);
+        setRecentSearches(newRecents);
+        AsyncStorage.setItem('garasi_recent_searches', JSON.stringify(newRecents));
+      }
+    } else {
+      setFuelSearchQuery(q);
+      if (q !== '' && !recentFuelSearches.includes(q)) {
+        const newRecents = [q, ...recentFuelSearches].slice(0, 5);
+        setRecentFuelSearches(newRecents);
+        AsyncStorage.setItem('garasi_recent_fuel_searches', JSON.stringify(newRecents));
+      }
+    }
+  };
+
+  const removeRecentSearch = (kw: string, type: 'service' | 'fuel') => {
+    if (type === 'service') {
+      const updated = recentSearches.filter(item => item !== kw);
+      setRecentSearches(updated);
+      AsyncStorage.setItem('garasi_recent_searches', JSON.stringify(updated));
+    } else {
+      const updated = recentFuelSearches.filter(item => item !== kw);
+      setRecentFuelSearches(updated);
+      AsyncStorage.setItem('garasi_recent_fuel_searches', JSON.stringify(updated));
     }
   };
 
@@ -658,6 +691,33 @@ function AppContent() {
     return true; // Jika mode basic atau search kosong, tampilkan semua
   });
 
+  // 🚀 ENGINE SMART SEARCH & FILTER UNTUK BBM
+  const filteredFuel = stats.vehicleFuelEntries.filter(f => {
+    if (appMode === 'basic') return true;
+
+    if (fuelSearchQuery.trim() !== '') {
+      const q = fuelSearchQuery.toLowerCase();
+      const matchNotes = (f.notes || '').toLowerCase().includes(q);
+      const matchType = (f.fuelType || '').toLowerCase().includes(q);
+      const matchSpbu = (f.station || '').toLowerCase().includes(q); 
+      if (!matchNotes && !matchType && !matchSpbu) return false;
+    }
+
+    if (fuelFilter === 'month') {
+      const d = new Date(f.date);
+      const now = new Date();
+      if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
+    }
+    // Jika ada properti isFullTank di database Anda, gunakan ini:
+    // if (fuelFilter === 'full' && !f.isFullTank) return false;
+    
+    return true;
+  });
+
+  const finalFuelData = (appMode === 'advance' && fuelFilter === 'last' && filteredFuel.length > 0) 
+    ? [ [...filteredFuel].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] ] 
+    : filteredFuel;
+
   const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
 
   return (
@@ -873,11 +933,11 @@ function AppContent() {
                 <Text style={{ fontSize: 16, marginRight: 10, opacity: 0.5 }}>🔍</Text>
                 <TextInput 
                   style={{ flex: 1, color: '#FFF', paddingVertical: 12, fontSize: 13 }}
-                  placeholder={lang === 'id' ? "Cari oli, ban, bengkel, atau catatan..." : "Search oil, tire, workshop, notes..."}
+                  placeholder={lang === 'id' ? "Cari oli, ban, bengkel..." : "Search oil, tire, workshop..."}
                   placeholderTextColor="rgba(255,255,255,0.3)"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
-                  onSubmitEditing={() => executeSearch(searchQuery)}
+                  onSubmitEditing={() => executeSearch(searchQuery, 'service')}
                 />
                 {searchQuery !== '' && (
                   <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 5 }}>
@@ -888,12 +948,25 @@ function AppContent() {
 
               {/* Riwayat Kata Kunci Terakhir */}
               {searchQuery === '' && recentSearches.length > 0 && (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                  {recentSearches.map((kw, idx) => (
-                    <TouchableOpacity key={idx} onPress={() => executeSearch(kw)} style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
-                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>🕒 {kw}</Text>
+                <View style={{ marginTop: 10 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '700' }}>Pencarian Terakhir</Text>
+                    <TouchableOpacity onPress={() => { setRecentSearches([]); AsyncStorage.removeItem('garasi_recent_searches'); }}>
+                      <Text style={{ color: '#FF5252', fontSize: 11, fontWeight: '700' }}>Bersihkan</Text>
                     </TouchableOpacity>
-                  ))}
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {recentSearches.map((kw, idx) => (
+                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, paddingLeft: 12 }}>
+                        <TouchableOpacity onPress={() => executeSearch(kw, 'service')} style={{ paddingVertical: 8, paddingRight: 8 }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🕒 {kw}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => removeRecentSearch(kw, 'service')} style={{ padding: 8, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.05)' }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
                 </View>
               )}
             </View>
@@ -918,9 +991,70 @@ function AppContent() {
 
         {/* TAB 3: FUEL */}
         <View style={{ display: activeTab === "fuel" ? "flex" : "none", width: "100%" }}>
+          
+          {/* 🚀 ADVANCED SEARCH UI & QUICK FILTER BBM */}
+          {appMode === 'advance' && (
+            <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
+              
+              {/* Quick Filters */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
+                {([
+                  { id: 'all', label: 'Semua' },
+                  { id: 'month', label: 'Bulan Ini' },
+                  { id: 'last', label: 'Terakhir' }
+                ] as const).map(f => (
+                  <TouchableOpacity 
+                    key={f.id} 
+                    onPress={() => setFuelFilter(f.id as any)}
+                    style={{ backgroundColor: fuelFilter === f.id ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}
+                  >
+                    <Text style={{ color: fuelFilter === f.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{f.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Search Bar */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: fuelSearchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
+                <Text style={{ fontSize: 16, marginRight: 10, opacity: 0.5 }}>🔍</Text>
+                <TextInput 
+                  style={{ flex: 1, color: '#FFF', paddingVertical: 12, fontSize: 13 }}
+                  placeholder="Cari Pertamax, Shell, atau SPBU..."
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={fuelSearchQuery}
+                  onChangeText={setFuelSearchQuery}
+                  onSubmitEditing={() => executeSearch(fuelSearchQuery, 'fuel')}
+                />
+                {fuelSearchQuery !== '' && (
+                  <TouchableOpacity onPress={() => setFuelSearchQuery('')} style={{ padding: 5 }}>
+                    <Text style={{ color: '#FF5252', fontWeight: 'bold' }}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Riwayat Kata Kunci Terakhir BBM */}
+              {fuelSearchQuery === '' && recentFuelSearches.length > 0 && (
+                <View style={{ marginTop: 10 }}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {recentFuelSearches.map((kw, idx) => (
+                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, paddingLeft: 12 }}>
+                        <TouchableOpacity onPress={() => executeSearch(kw, 'fuel')} style={{ paddingVertical: 8, paddingRight: 8 }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🕒 {kw}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => removeRecentSearch(kw, 'fuel')} style={{ padding: 8, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.05)' }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+
           <FuelLog
-            fuelEntries={stats.vehicleFuelEntries}
+            fuelEntries={finalFuelData}
             vehicle={stats.selectedVehicle}
+            appMode={appMode}
             onAdd={() => {
               setEditingFuel(null);
               setShowFuelSheet(true);
