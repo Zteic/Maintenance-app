@@ -208,52 +208,6 @@ function ProfileContent() {
           </Text>
         </View>
 
-        {/* Avatar */}
-        <View style={{ alignItems: "center", paddingVertical: 24 }}>
-          <TouchableOpacity
-            onPress={handlePickPhoto}
-            style={{ position: "relative" }}
-          >
-            <View
-              style={{
-                width: 110,
-                height: 110,
-                borderRadius: 55,
-                backgroundColor: "#1A2B3C",
-                borderWidth: 2.5,
-                borderColor: "#F5A623",
-                overflow: "hidden",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              {profile.photoUri ? (
-                <Image
-                  source={{ uri: profile.photoUri }}
-                  style={{ width: "100%", height: "100%" }}
-                />
-              ) : (
-                <Text style={{ fontSize: 50 }}>👤</Text>
-              )}
-            </View>
-            <View
-              style={{
-                position: "absolute",
-                bottom: 2,
-                right: 2,
-                backgroundColor: "#F5A623",
-                borderRadius: 14,
-                width: 28,
-                height: 28,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ fontSize: 14 }}>📷</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
         {/* Profile Card */}
         <View
           style={{
@@ -432,11 +386,41 @@ function ProfileContent() {
     </Text>
     <Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>
       Backup seluruh data kendaraan ke .vhdb
-    </Text>
-  </View>
-  <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
-</TouchableOpacity>
+              </Text>
+            </View>
+            <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
+          </TouchableOpacity>
         </View>
+
+        {/* 🚀 MENU FEEDBACK & BUG REPORT BARU */}
+        <View style={{ marginHorizontal: 20, marginTop: 25 }}>
+          <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>BANTUAN & PENGEMBANGAN</Text>
+          
+          <TouchableOpacity 
+            onPress={() => router.push('/feedback')}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
+          >
+            <Text style={{ fontSize: 22, marginRight: 15 }}>🐞</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Laporkan Bug & Saran</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Kirim masukan langsung ke developer</Text>
+            </View>
+            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={() => router.push('/feedback-history')}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
+          >
+            <Text style={{ fontSize: 22, marginRight: 15 }}>📋</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Riwayat Feedback</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Pantau status laporan Anda</Text>
+            </View>
+            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text>
+          </TouchableOpacity>
+        </View>
+
       </ScrollView>
 
       {/* Backup Modal Sederhana */}
