@@ -800,7 +800,7 @@ export default function ExportScreen() {
 
       {/* FIXED HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ paddingVertical: 10, paddingRight: 15 }}>
+        <TouchableOpacity activeOpacity={0.9} onPress={() => router.back()} style={{ paddingVertical: 10, paddingRight: 15 }}>
           <Text style={{ color: "#F5A623", fontSize: 16, fontWeight: "700" }}>← Kembali</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Database Manager</Text>
@@ -811,13 +811,13 @@ export default function ExportScreen() {
         {/* SEMBUNYIKAN TAB JIKA SEDANG VALIDASI IMPORT */}
         {!stagedFile && (
           <View style={styles.tabContainer}>
-            <TouchableOpacity onPress={() => setMode('backup')} style={[styles.tabBtn, mode === 'backup' && styles.tabActive]}>
+            <TouchableOpacity activeOpacity={0.9} onPress={() => setMode('backup')} style={[styles.tabBtn, mode === 'backup' && styles.tabActive]}>
               <Text style={[styles.tabTxt, mode === 'backup' && styles.txtActive]}>💾 Backup (.vhdb)</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setMode('pdf')} style={[styles.tabBtn, mode === 'pdf' && styles.tabActive]}>
+            <TouchableOpacity activeOpacity={0.9} onPress={() => setMode('pdf')} style={[styles.tabBtn, mode === 'pdf' && styles.tabActive]}>
               <Text style={[styles.tabTxt, mode === 'pdf' && styles.txtActive]}>📄 Laporan PDF</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setMode('import')} style={[styles.tabBtn, mode === 'import' && styles.tabActive]}>
+            <TouchableOpacity activeOpacity={0.9} onPress={() => setMode('import')} style={[styles.tabBtn, mode === 'import' && styles.tabActive]}>
               <Text style={[styles.tabTxt, mode === 'import' && styles.txtActive]}>📥 Import Data</Text>
             </TouchableOpacity>
           </View>
@@ -844,17 +844,17 @@ export default function ExportScreen() {
             </View>
 
             <View style={{ gap: 12, marginTop: 10 }}>
-              <TouchableOpacity onPress={() => executeRestore('merge')} style={styles.btnPrimary}>
+              <TouchableOpacity activeOpacity={0.9} onPress={() => executeRestore('merge')} style={styles.btnPrimary}>
                 <Text style={styles.btnPrimaryTxt}>A. GABUNGKAN DATA (MERGE AMAN)</Text>
                 <Text style={{ color: 'rgba(0,0,0,0.5)', fontSize: 11, marginTop: 2, textAlign: 'center' }}>Data saat ini tidak dihapus, hanya menutupi yang hilang.</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => executeRestore('replace')} style={[styles.btnPrimary, { backgroundColor: '#FF5252', shadowColor: '#FF5252' }]}>
+              <TouchableOpacity activeOpacity={0.9} onPress={() => executeRestore('replace')} style={[styles.btnPrimary, { backgroundColor: '#FF5252', shadowColor: '#FF5252' }]}>
                 <Text style={[styles.btnPrimaryTxt, { color: '#FFF' }]}>B. TIMPA SEMUA (REPLACE ALL)</Text>
                 <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2, textAlign: 'center' }}>Hapus bersih aplikasi & ganti total dengan isi file ini.</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => { setStagedFile(null); setStagedData(null); }} style={{ padding: 15, alignItems: 'center', marginTop: 5 }}>
+              <TouchableOpacity activeOpacity={0.9} onPress={() => { setStagedFile(null); setStagedData(null); }} style={{ padding: 15, alignItems: 'center', marginTop: 5 }}>
                 <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '700' }}>Batal & Kembali</Text>
               </TouchableOpacity>
             </View>
@@ -864,7 +864,7 @@ export default function ExportScreen() {
              <View style={styles.iconBox}><Text style={{fontSize:30}}>📥</Text></View>
              <Text style={styles.cardTitle}>Restore Database Kendaraan</Text>
              <Text style={styles.cardDesc}>Unggah file berekstensi .vhdb untuk memulihkan seluruh catatan pengisian bensin dan servis garasi Anda.</Text>
-             <TouchableOpacity onPress={handleImport} style={styles.btnPrimary}>
+             <TouchableOpacity activeOpacity={0.9} onPress={handleImport} style={styles.btnPrimary}>
                 <Text style={styles.btnPrimaryTxt}>PILIH FILE RESTORE</Text>
              </TouchableOpacity>
           </View>
@@ -874,11 +874,11 @@ export default function ExportScreen() {
             <View>
               <Text style={styles.sectionLabel}>1. TARGET KENDARAAN</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-             <TouchableOpacity onPress={() => toggleVehicleSelection('all')} style={[styles.pillBtn, selectedVehicles.includes('all') && styles.pillActive]}>
+             <TouchableOpacity activeOpacity={0.9} onPress={() => toggleVehicleSelection('all')} style={[styles.pillBtn, selectedVehicles.includes('all') && styles.pillActive]}>
                <Text style={[styles.pillTxt, selectedVehicles.includes('all') && styles.pillTxtActive]}>Semua Kendaraan</Text>
              </TouchableOpacity>
              {vehicles.map(v => (
-               <TouchableOpacity key={v.id} onPress={() => toggleVehicleSelection(v.id)} style={[styles.pillBtn, selectedVehicles.includes(v.id) && styles.pillActive]}>
+               <TouchableOpacity activeOpacity={0.9} key={v.id} onPress={() => toggleVehicleSelection(v.id)} style={[styles.pillBtn, selectedVehicles.includes(v.id) && styles.pillActive]}>
                  <Text style={[styles.pillTxt, selectedVehicles.includes(v.id) && styles.pillTxtActive]}>{v.name}</Text>
                </TouchableOpacity>
              ))}
@@ -894,6 +894,7 @@ export default function ExportScreen() {
                     {periodOptions.map((p) => (
                       <TouchableOpacity 
                         key={p} 
+                        activeOpacity={0.9}
                         onPress={() => setPeriod(p)} 
                         style={[styles.smallPill, period === p && styles.smallPillActive]}
                       >
@@ -934,13 +935,13 @@ export default function ExportScreen() {
                 <View>
                <Text style={styles.sectionLabel}>📁 KATEGORI DATA</Text>
                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
-                 <TouchableOpacity onPress={() => setExportCategory('all')} style={[styles.smallPill, exportCategory === 'all' && styles.smallPillActive]}>
+                 <TouchableOpacity activeOpacity={0.9} onPress={() => setExportCategory('all')} style={[styles.smallPill, exportCategory === 'all' && styles.smallPillActive]}>
                    <Text style={[styles.smallPillTxt, exportCategory === 'all' && styles.smallPillTxtActive]}>Semua Data</Text>
                  </TouchableOpacity>
-                 <TouchableOpacity onPress={() => setExportCategory('fuel')} style={[styles.smallPill, exportCategory === 'fuel' && styles.smallPillActive]}>
+                 <TouchableOpacity activeOpacity={0.9} onPress={() => setExportCategory('fuel')} style={[styles.smallPill, exportCategory === 'fuel' && styles.smallPillActive]}>
                    <Text style={[styles.smallPillTxt, exportCategory === 'fuel' && styles.smallPillTxtActive]}>Hanya Bensin</Text>
                  </TouchableOpacity>
-                 <TouchableOpacity onPress={() => setExportCategory('service')} style={[styles.smallPill, exportCategory === 'service' && styles.smallPillActive]}>
+                 <TouchableOpacity activeOpacity={0.9} onPress={() => setExportCategory('service')} style={[styles.smallPill, exportCategory === 'service' && styles.smallPillActive]}>
                    <Text style={[styles.smallPillTxt, exportCategory === 'service' && styles.smallPillTxtActive]}>Hanya Servis</Text>
                  </TouchableOpacity>
                </View>
@@ -950,6 +951,7 @@ export default function ExportScreen() {
                   <Text style={styles.sectionLabel}>📐 MODE FORMAT PDF</Text>
                   <View style={{ flexDirection: 'row', gap: 10 }}>
                     <TouchableOpacity 
+                      activeOpacity={0.9}
                       onPress={() => setPdfReportType('summary')} 
                       style={[styles.selectorCard, pdfReportType === 'summary' && styles.selectorActive]}
                     >
@@ -959,6 +961,7 @@ export default function ExportScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity 
+                      activeOpacity={0.9}
                       onPress={() => setPdfReportType('hybrid')} 
                       style={[styles.selectorCard, pdfReportType === 'hybrid' && styles.selectorActive]}
                     >
@@ -1013,7 +1016,7 @@ export default function ExportScreen() {
                 <TouchableOpacity 
                   onPress={mode === 'pdf' ? handleExportPDF : handleExportBackup} 
                   style={[styles.btnPrimary, isDataEmpty && mode === 'pdf' && { backgroundColor: 'rgba(78,205,196,0.3)' }]}
-                  activeOpacity={0.8}
+                  activeOpacity={0.9}
                   disabled={isDataEmpty && mode === 'pdf'}
                 >
                   <Text style={[styles.btnPrimaryTxt, isDataEmpty && mode === 'pdf' && { color: 'rgba(255,255,255,0.3)' }]}>
