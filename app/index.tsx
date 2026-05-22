@@ -1590,15 +1590,20 @@ function AppContent() {
               </TouchableOpacity>
             </View>
 
+            {/* 🚀 FIX: Penambahan flex: 1 dan batasan bawah di View ini */}
             <View
               style={{
+                flex: 1, 
                 paddingHorizontal: 5,
                 paddingVertical: 10,
                 backgroundColor: "rgba(0,0,0,0.1)",
                 borderRadius: 20,
                 marginHorizontal: 10,
+                marginBottom: 15,
+                overflow: 'hidden',
               }}
             >
+              {/* RUMUS ANDA TETAP UTUH 100% */}
               <MaintenanceCalendar
                 repairs={stats.vehicleRepairs}
                 fuelEntries={stats.vehicleFuelEntries}
