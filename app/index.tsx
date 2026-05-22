@@ -105,6 +105,10 @@ function AppContent() {
   const [planName, setPlanName] = useState("");
   const [planInterval, setPlanInterval] = useState("");
   const [showOdoHistory, setShowOdoHistory] = useState(false);
+  // 🚀 STATE UNTUK ADVANCED SEARCH & MODE PENGGUNAAN
+  const [appMode, setAppMode] = useState<'basic' | 'advance'>('basic');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   // --- STATE UNTUK NAMA GARASI CUSTOM ---
   const [appName, setAppName] = useState("");
@@ -135,6 +139,30 @@ function AppContent() {
       await AsyncStorage.setItem("custom_app_name", finalName);
     } catch (e) {
       console.log("Gagal menyimpan nama:", e);
+    }
+  };
+
+  // 🚀 EFFECT: BACA MODE DAN HISTORY SEARCH SAAT BUKA TAB HISTORY
+  useEffect(() => {
+    if (activeTab === 'history') {
+      AsyncStorage.getItem('garasi_app_mode').then(mode => {
+        if (mode) setAppMode(mode as 'basic' | 'advance');
+      });
+      AsyncStorage.getItem('garasi_recent_searches').then(recents => {
+        if (recents) setRecentSearches(JSON.parse(recents));
+      });
+    } else {
+      setSearchQuery(''); // Reset kotak pencarian jika pindah tab
+    }
+  }, [activeTab]);
+
+  // 🚀 FUNGSI EXECUTE PENCARIAN (SIMPAN KE RECENT)
+  const executeSearch = (query: string) => {
+    setSearchQuery(query);
+    if (query.trim() !== '' && !recentSearches.includes(query.trim())) {
+      const newRecents = [query.trim(), ...recentSearches].slice(0, 5); // Simpan max 5 riwayat
+      setRecentSearches(newRecents);
+      AsyncStorage.setItem('garasi_recent_searches', JSON.stringify(newRecents));
     }
   };
 
@@ -618,6 +646,18 @@ function AppContent() {
     }
   };
 
+  // 🚀 ENGINE SMART SEARCH UNTUK HISTORY
+  const filteredHistory = stats.vehicleRepairs.filter(r => {
+    if (appMode === 'advance' && searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = (r.serviceType || '').toLowerCase().includes(q);
+      const matchNotes = (r.notes || '').toLowerCase().includes(q);
+      const matchWorkshop = (r.workshop || '').toLowerCase().includes(q);
+      return matchTitle || matchNotes || matchWorkshop;
+    }
+    return true; // Jika mode basic atau search kosong, tampilkan semua
+  });
+
   const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
 
   return (
@@ -825,8 +865,42 @@ function AppContent() {
 
         {/* TAB 2: HISTORY / SERVICE */}
         <View style={{ display: activeTab === "history" ? "flex" : "none", width: "100%" }}>
+          
+          {/* 🚀 ADVANCED SEARCH UI (Hanya muncul jika Mode Advance aktif) */}
+          {appMode === 'advance' && (
+            <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: searchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
+                <Text style={{ fontSize: 16, marginRight: 10, opacity: 0.5 }}>🔍</Text>
+                <TextInput 
+                  style={{ flex: 1, color: '#FFF', paddingVertical: 12, fontSize: 13 }}
+                  placeholder={lang === 'id' ? "Cari oli, ban, bengkel, atau catatan..." : "Search oil, tire, workshop, notes..."}
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  onSubmitEditing={() => executeSearch(searchQuery)}
+                />
+                {searchQuery !== '' && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 5 }}>
+                    <Text style={{ color: '#FF5252', fontWeight: 'bold' }}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Riwayat Kata Kunci Terakhir */}
+              {searchQuery === '' && recentSearches.length > 0 && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                  {recentSearches.map((kw, idx) => (
+                    <TouchableOpacity key={idx} onPress={() => executeSearch(kw)} style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>🕒 {kw}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
           <RepairHistory
-            repairs={stats.vehicleRepairs}
+            repairs={filteredHistory}
             onEdit={(r) => {
               setEditingRepair(r);
               setShowAddSheet(true);

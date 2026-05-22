@@ -92,12 +92,23 @@ function ProfileContent() {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const [appMode, setAppMode] = useState<'basic' | 'advance'>('basic');
 
   useEffect(() => {
     loadUserProfile().then((p) => {
       if (p) setProfile(p);
     });
+    // Membaca memori mode terakhir kali
+    AsyncStorage.getItem('garasi_app_mode').then(mode => {
+      if (mode) setAppMode(mode as 'basic' | 'advance');
+    });
   }, []);
+
+  // Fungsi penyimpan mode
+  const toggleMode = async (mode: 'basic' | 'advance') => {
+    setAppMode(mode);
+    await AsyncStorage.setItem('garasi_app_mode', mode);
+  };
 
   // 2. Fungsi-fungsi Handler
   const handlePickPhoto = async () => {
@@ -390,6 +401,28 @@ function ProfileContent() {
             </View>
             <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* 🔥 SECTION MODE PENGGUNAAN */}
+        <View style={{ marginHorizontal: 20, marginTop: 25 }}>
+          <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>MODE PENGGUNAAN</Text>
+          <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+            <TouchableOpacity 
+              onPress={() => toggleMode('basic')} 
+              style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'basic' ? '#4ECDC4' : 'transparent' }}
+            >
+              <Text style={{ fontWeight: '800', color: appMode === 'basic' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Basic</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => toggleMode('advance')} 
+              style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'advance' ? '#F5A623' : 'transparent' }}
+            >
+              <Text style={{ fontWeight: '800', color: appMode === 'advance' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Advance</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 8, marginLeft: 5, marginBottom: 15 }}>
+            {appMode === 'basic' ? "Tampilan bersih. Fokus pada fitur utama." : "Membuka fitur tambahan (Advanced Search, dll)."}
+          </Text>
         </View>
 
         {/* 🚀 MENU FEEDBACK & BUG REPORT BARU */}
