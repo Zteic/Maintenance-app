@@ -8,7 +8,7 @@ import {
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { PremiumProvider } from "@/context/PremiumContext";
 import {
   View,
@@ -72,6 +72,7 @@ export default function RootLayout() {
   );
 }
 
+// 🚀 REVISI TOTAL: Optimasi Navigasi Premium Khusus Device Low-End / Kentang
 function AppNavigationOverlay() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -84,10 +85,12 @@ function AppNavigationOverlay() {
     if (pathname.includes("profile")) {
       setActiveTab("profile");
     } else {
-      setActiveTab(params.tab?.toString() || "home");
+      const currentTab = (params as any).tab || (params as any).activeTab || "home";
+      setActiveTab(currentTab.toString());
     }
-  }, [pathname, params.tab]);
+  }, [pathname, JSON.stringify(params)]); 
 
+  // Handler Hardware Back Button Android
   useEffect(() => {
     const onBackPress = () => {
       if (pathname === "/" || pathname.includes("profile")) {
@@ -105,35 +108,37 @@ function AppNavigationOverlay() {
     };
 
     const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
-    
     return () => subscription.remove();
   }, [pathname]);
 
-  const handleNavPress = (tabName: string) => {
-    setActiveTab(tabName); // Optimistic UI Update (Langsung ganti warna)
+  // 🚀 OPTIMASI UTAMA: Memakai teknik Micro-Task scheduling agar UI langsung berubah tanpa lag
+  const handleNavPress = useCallback((tabName: string) => {
+    setActiveTab(tabName); // Optimistic Update (Warna navbar langsung berubah seketika)
     
-    if (tabName === "profile") {
-      if (pathname !== "/profile") router.push("/profile");
-    } else {
-      if (pathname === "/") {
-        router.setParams({ tab: tabName });
+    // Gunakan requestAnimationFrame agar animasi klik selesai dulu sebelum router mengeksekusi perpindahan halaman yang berat
+    requestAnimationFrame(() => {
+      if (tabName === "profile") {
+        if (pathname !== "/profile") router.push("/profile");
       } else {
-        router.replace({
-          pathname: "/",
-          params: { tab: tabName },
-        });
+        if (pathname === "/") {
+          router.setParams({ tab: tabName });
+        } else {
+          router.replace({
+            pathname: "/",
+            params: { tab: tabName },
+          });
+        }
       }
-    }
-  };
+    });
+  }, [pathname]);
 
-  const handleFabAction = () => {
+  const handleFabAction = useCallback(() => {
     if (activeTab === "home") openRepairSheet();
     else if (activeTab === "fuel") openFuelSheet();
-  };
+  }, [activeTab]);
 
   const showFab = activeTab === "home" || activeTab === "fuel";
 
-  // Sembunyikan navbar jika berada di layar selain Home, Profile, dan Export
   if (pathname !== "/" && !pathname.includes("profile") && !pathname.includes("export")) {
     return null; 
   }
@@ -151,13 +156,13 @@ function AppNavigationOverlay() {
         </TouchableOpacity>
       )}
 
-      {/* 2. BOTTOM NAVBAR */}
+      {/* 2. BOTTOM NAVBAR (Optimized Layout Render) */}
       <View
         style={[
           styles.navbar,
           { height: 60 + insets.bottom, paddingBottom: insets.bottom },
         ]}
-        >
+      >
         <TouchableOpacity activeOpacity={0.9} onPress={() => handleNavPress("home")} style={styles.navItem}>
           <Text style={[styles.navEmoji, activeTab === "home" && styles.activeEmoji]}>📊</Text>
           <Text style={[styles.navLabel, activeTab === "home" && styles.activeText]}>Dashboard</Text>
@@ -169,7 +174,7 @@ function AppNavigationOverlay() {
         </TouchableOpacity>
 
         <TouchableOpacity activeOpacity={0.9} onPress={() => handleNavPress("history")} style={styles.navItem}>
-          <Text style={[styles.navEmoji, activeTab === "history" && styles.activeEmoji]}>🔧</Text>
+          <Text style={[styles.navEmoji, activeTab === "history" && styles.activeEmoji]}>🛠️</Text>
           <Text style={[styles.navLabel, activeTab === "history" && styles.activeText]}>Service</Text>
         </TouchableOpacity>
 

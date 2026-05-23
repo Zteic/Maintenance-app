@@ -112,11 +112,56 @@ function AppContent() {
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [activePrefillFeature, setActivePrefillFeature] = useState<{name: string, desc: string} | null>(null);
 
-  // Fungsi pembantu jika ada fitur terkunci yang diklik
-  const handleTriggerPremiumLock = (name: string, desc: string) => {
-    setActivePrefillFeature({ name, desc });
-    setPremiumModalVisible(true);
-  };
+  // 🚀 REVISI SUPER CERDAS: Engine Sinkronisasi Otomatis Kata Kunci Pengingat dengan Cross-Fuzzy Fallback
+  const syncUpcomingReminder = useCallback((serviceType: string, currentOdo: number, nextIntervalKm: number) => {
+    const inputKey = serviceType.toLowerCase().trim();
+    
+    const matchesKeyword = (remType: string) => {
+      const remKey = remType.toLowerCase().trim();
+      
+      // 1. Validasi Dasar: Jika sama persis atau salah satu teks mengandung teks lainnya (Substring Fallback)
+      if (remKey === inputKey || inputKey.includes(remKey) || remKey.includes(inputKey)) return true;
+      
+      // 2. Cross-Matching Kamus Sinonim (Akan mendeteksi silang walaupun kalimatnya acak)
+      const oilKeywords = ['oli', 'oil', 'lubricant', 'pelumas'];
+      if (oilKeywords.some(k => inputKey.includes(k)) && oilKeywords.some(k => remKey.includes(k))) return true;
+      
+      const tireKeywords = ['ban', 'tire', 'roda', 'wheel', 'tyre', 'velg'];
+      if (tireKeywords.some(k => inputKey.includes(k)) && tireKeywords.some(k => remKey.includes(k))) return true;
+      
+      const brakeKeywords = ['brake', 'pad', 'kampas'];
+      if (brakeKeywords.some(k => inputKey.includes(k)) && brakeKeywords.some(k => remKey.includes(k))) return true;
+      
+      const filterKeywords = ['filter', 'saringan', 'udara', 'air filter'];
+      if (filterKeywords.some(k => inputKey.includes(k)) && filterKeywords.some(k => remKey.includes(k))) return true;
+
+      const batteryKeywords = ['aki', 'accu', 'baterai', 'battery'];
+      if (batteryKeywords.some(k => inputKey.includes(k)) && batteryKeywords.some(k => remKey.includes(k))) return true;
+
+      const sparkKeywords = ['busi', 'spark', 'plug'];
+      if (sparkKeywords.some(k => inputKey.includes(k)) && sparkKeywords.some(k => remKey.includes(k))) return true;
+      
+      return false;
+    };
+
+    setReminders((prev) =>
+      prev.map((rem) => {
+        if (rem.vehicleId === selectedVehicleId && matchesKeyword(rem.serviceType)) {
+          const interval = Number(nextIntervalKm) || rem.intervalKm || 10000;
+          return {
+            ...rem,
+            lastServiceOdometer: currentOdo,
+            dueOdometer: currentOdo + interval,
+            intervalKm: interval,
+            status: "safe",
+            lastServiceDate: new Date().toISOString(),
+          };
+        }
+        return rem;
+      })
+    );
+  }, [selectedVehicleId]);
+
   // 🚀 STATE UNTUK ADVANCED SEARCH & MODE PENGGUNAAN
   const [appMode, setAppMode] = useState<'basic' | 'advance'>('basic');
   
@@ -1326,8 +1371,8 @@ function AppContent() {
       <AddRepairSheet
         visible={showAddSheet}
         vehicleId={selectedVehicleId}
-        currentOdometer={stats.selectedVehicle?.currentOdometer || 0}
-        vehicleType={stats.selectedVehicle?.vehicleType || "motorcycle"}
+        currentOdometer={stats.autoLatestOdometer > 0 ? stats.autoLatestOdometer : (stats.selectedVehicle?.currentOdometer || 0)}
+        vehicleType={stats.selectedVehicle?.vehicleType}
         prefillServiceType={prefillServiceType}
         editEntry={editingRepair}
         isHistoryMode={saveToHistoryOnly}
@@ -1428,7 +1473,7 @@ function AppContent() {
       <FuelSheet
         visible={showFuelSheet}
         vehicleId={selectedVehicleId}
-        currentOdometer={stats.selectedVehicle?.currentOdometer || 0}
+        currentOdometer={stats.autoLatestOdometer > 0 ? stats.autoLatestOdometer : (stats.selectedVehicle?.currentOdometer || 0)}
         tankCapacity={stats.selectedVehicle?.tankCapacity}
         editEntry={editingFuel}
         onClose={() => {

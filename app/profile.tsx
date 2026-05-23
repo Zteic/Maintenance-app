@@ -236,7 +236,12 @@ function ProfileContent() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
       <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        contentContainerStyle={{ paddingBottom: 145, paddingTop: 10 }}
+      >
         {/* Header */}
         <View
           style={{
