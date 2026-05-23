@@ -111,11 +111,31 @@ function AppContent() {
   // State Search History Service
   const [searchQuery, setSearchQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [hideSearch, setHideSearch] = useState(false);
+
+  // --- LOGIKA HIDE/SHOW SEARCH ---
+  useEffect(() => {
+    AsyncStorage.getItem('garasi_hide_search').then(val => {
+      if (val) setHideSearch(val === 'true');
+    });
+  }, []);
+
+  const toggleSearch = () => {
+    const newVal = !hideSearch;
+    setHideSearch(newVal);
+    AsyncStorage.setItem('garasi_hide_search', newVal ? 'true' : 'false');
+  };
   
   // 🚀 STATE SEARCH FUEL BARU
   const [fuelSearchQuery, setFuelSearchQuery] = useState('');
   const [recentFuelSearches, setRecentFuelSearches] = useState<string[]>([]);
-  const [fuelFilter, setFuelFilter] = useState<'all' | 'month' | 'full' | 'last'>('all');
+  const [fuelFilter, setFuelFilter] = useState<string>('all');
+  const [fuelCustomStart, setFuelCustomStart] = useState('');
+  const [fuelCustomEnd, setFuelCustomEnd] = useState('');
+  // 🚀 STATE FILTER HISTORY BARU
+  const [historyFilter, setHistoryFilter] = useState<string>('all');
+  const [historyCustomStart, setHistoryCustomStart] = useState('');
+  const [historyCustomEnd, setHistoryCustomEnd] = useState('');
   // --- STATE UNTUK NAMA GARASI CUSTOM ---
   const [appName, setAppName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
@@ -679,22 +699,42 @@ function AppContent() {
     }
   };
 
-  // 🚀 ENGINE SMART SEARCH UNTUK HISTORY
+  // 🚀 ENGINE SMART SEARCH & FILTER UNTUK HISTORY
   const filteredHistory = stats.vehicleRepairs.filter(r => {
-    if (appMode === 'advance' && searchQuery.trim() !== '') {
+    if (appMode === 'basic') return true;
+
+    // 1. Filter dari Search Bar
+    if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
       const matchTitle = (r.serviceType || '').toLowerCase().includes(q);
       const matchNotes = (r.notes || '').toLowerCase().includes(q);
       const matchWorkshop = (r.workshop || '').toLowerCase().includes(q);
-      return matchTitle || matchNotes || matchWorkshop;
+      if (!matchTitle && !matchNotes && !matchWorkshop) return false;
     }
-    return true; // Jika mode basic atau search kosong, tampilkan semua
+
+    // 2. Filter dari Tanggal
+    const d = new Date(r.date);
+    const now = new Date();
+
+    if (historyFilter === 'month') {
+      if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
+    } else if (historyFilter === 'year') {
+      if (d.getFullYear() !== now.getFullYear()) return false;
+    } else if (historyFilter === 'custom') {
+      const s = historyCustomStart ? new Date(historyCustomStart) : new Date('1970-01-01');
+      const e = historyCustomEnd ? new Date(historyCustomEnd) : new Date('2099-12-31');
+      e.setHours(23, 59, 59, 999);
+      if (d < s || d > e) return false;
+    }
+
+    return true;
   });
 
   // 🚀 ENGINE SMART SEARCH & FILTER UNTUK BBM
   const filteredFuel = stats.vehicleFuelEntries.filter(f => {
     if (appMode === 'basic') return true;
 
+    // 1. Filter dari Search Bar
     if (fuelSearchQuery.trim() !== '') {
       const q = fuelSearchQuery.toLowerCase();
       const matchNotes = (f.notes || '').toLowerCase().includes(q);
@@ -703,20 +743,25 @@ function AppContent() {
       if (!matchNotes && !matchType && !matchSpbu) return false;
     }
 
+    // 2. Filter dari Tanggal
+    const d = new Date(f.date);
+    const now = new Date();
+
     if (fuelFilter === 'month') {
-      const d = new Date(f.date);
-      const now = new Date();
       if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
+    } else if (fuelFilter === 'year') {
+      if (d.getFullYear() !== now.getFullYear()) return false;
+    } else if (fuelFilter === 'custom') {
+      const s = fuelCustomStart ? new Date(fuelCustomStart) : new Date('1970-01-01');
+      const e = fuelCustomEnd ? new Date(fuelCustomEnd) : new Date('2099-12-31');
+      e.setHours(23, 59, 59, 999);
+      if (d < s || d > e) return false;
     }
-    // Jika ada properti isFullTank di database Anda, gunakan ini:
-    // if (fuelFilter === 'full' && !f.isFullTank) return false;
     
     return true;
   });
 
-  const finalFuelData = (appMode === 'advance' && fuelFilter === 'last' && filteredFuel.length > 0) 
-    ? [ [...filteredFuel].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] ] 
-    : filteredFuel;
+  const finalFuelData = filteredFuel;
 
   const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
 
@@ -926,9 +971,56 @@ function AppContent() {
         {/* TAB 2: HISTORY / SERVICE */}
         <View style={{ display: activeTab === "history" ? "flex" : "none", width: "100%" }}>
           
-          {/* 🚀 ADVANCED SEARCH UI (Hanya muncul jika Mode Advance aktif) */}
-          {appMode === 'advance' && (
+          {/* 🚀 ADVANCED SEARCH UI (Container & Margin HILANG TOTAL jika di-hide) */}
+          {appMode === 'advance' && !hideSearch && (
             <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
+              
+              {/* 🚀 Quick Filters History */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
+                {[
+                  { id: 'all', label: 'Semua' },
+                  { id: 'month', label: 'Bulan Ini' },
+                  { id: 'year', label: 'Tahun Ini' },
+                  { id: 'custom', label: 'Custom Date' }
+                ].map(f => (
+                  <TouchableOpacity 
+                    key={f.id} 
+                    activeOpacity={0.9}
+                    onPress={() => setHistoryFilter(f.id)}
+                    style={{ backgroundColor: historyFilter === f.id ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}
+                  >
+                    <Text style={{ color: historyFilter === f.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{f.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* 🚀 Input Custom Date History */}
+              {historyFilter === 'custom' && (
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                  <View style={{ flex: 1 }}>
+                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>DARI TANGGAL</Text>
+                     <TextInput 
+                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} 
+                       placeholder="YYYY-MM-DD" 
+                       placeholderTextColor="rgba(255,255,255,0.2)"
+                       value={historyCustomStart}
+                       onChangeText={setHistoryCustomStart}
+                     />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>SAMPAI TANGGAL</Text>
+                     <TextInput 
+                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} 
+                       placeholder="YYYY-MM-DD" 
+                       placeholderTextColor="rgba(255,255,255,0.2)"
+                       value={historyCustomEnd}
+                       onChangeText={setHistoryCustomEnd}
+                     />
+                  </View>
+                </View>
+              )}
+
+              {/* Search Bar History */}
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: searchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
                 <Text style={{ fontSize: 16, marginRight: 10, opacity: 0.5 }}>🔍</Text>
                 <TextInput 
@@ -946,7 +1038,7 @@ function AppContent() {
                 )}
               </View>
 
-              {/* Riwayat Kata Kunci Terakhir */}
+              {/* Riwayat Kata Kunci Terakhir History */}
               {searchQuery === '' && recentSearches.length > 0 && (
                 <View style={{ marginTop: 10 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -972,8 +1064,14 @@ function AppContent() {
             </View>
           )}
 
-          <RepairHistory
+          {/* 🚀 WRAPPER RELATIF: Menempelkan Tombol Toggle Sejajar dengan Judul RepairHistory */}
+          <View style={{ position: 'relative' }}>
+
+            <RepairHistory
             repairs={filteredHistory}
+            appMode={appMode}           /* 🚀 Kirim Prop Baru */
+            hideSearch={hideSearch}     /* 🚀 Kirim Prop Baru */
+            onToggleSearch={toggleSearch} /* 🚀 Kirim Fungsi Toggle Baru */
             onEdit={(r) => {
               setEditingRepair(r);
               setShowAddSheet(true);
@@ -987,25 +1085,28 @@ function AppContent() {
               }
             }}
           />
+          </View>
         </View>
 
         {/* TAB 3: FUEL */}
         <View style={{ display: activeTab === "fuel" ? "flex" : "none", width: "100%" }}>
           
-          {/* 🚀 ADVANCED SEARCH UI & QUICK FILTER BBM */}
-          {appMode === 'advance' && (
+          {/* 🚀 ADVANCED SEARCH UI & QUICK FILTER BBM (Container ini HILANG TOTAL jika di-hide agar TIDAK meninggalkan gap kosong) */}
+          {appMode === 'advance' && !hideSearch && (
             <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
               
-              {/* Quick Filters */}
+              {/* Quick Filters BBM */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
-                {([
+                {[
                   { id: 'all', label: 'Semua' },
                   { id: 'month', label: 'Bulan Ini' },
-                  { id: 'last', label: 'Terakhir' }
-                ] as const).map(f => (
+                  { id: 'year', label: 'Tahun Ini' },
+                  { id: 'custom', label: 'Custom Date' }
+                ].map(f => (
                   <TouchableOpacity 
                     key={f.id} 
-                    onPress={() => setFuelFilter(f.id as any)}
+                    activeOpacity={0.9}
+                    onPress={() => setFuelFilter(f.id)}
                     style={{ backgroundColor: fuelFilter === f.id ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}
                   >
                     <Text style={{ color: fuelFilter === f.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{f.label}</Text>
@@ -1013,7 +1114,33 @@ function AppContent() {
                 ))}
               </ScrollView>
 
-              {/* Search Bar */}
+              {/* Input Custom Date BBM */}
+              {fuelFilter === 'custom' && (
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                  <View style={{ flex: 1 }}>
+                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>DARI TANGGAL</Text>
+                     <TextInput 
+                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} 
+                       placeholder="YYYY-MM-DD" 
+                       placeholderTextColor="rgba(255,255,255,0.2)"
+                       value={fuelCustomStart}
+                       onChangeText={setFuelCustomStart}
+                     />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>SAMPAI TANGGAL</Text>
+                     <TextInput 
+                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} 
+                       placeholder="YYYY-MM-DD" 
+                       placeholderTextColor="rgba(255,255,255,0.2)"
+                       value={fuelCustomEnd}
+                       onChangeText={setFuelCustomEnd}
+                     />
+                  </View>
+                </View>
+              )}
+
+              {/* Search Bar BBM */}
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: fuelSearchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
                 <Text style={{ fontSize: 16, marginRight: 10, opacity: 0.5 }}>🔍</Text>
                 <TextInput 
@@ -1055,6 +1182,8 @@ function AppContent() {
             fuelEntries={finalFuelData}
             vehicle={stats.selectedVehicle}
             appMode={appMode}
+            hideSearch={hideSearch}
+            onToggleSearch={toggleSearch}
             onAdd={() => {
               setEditingFuel(null);
               setShowFuelSheet(true);

@@ -12,6 +12,7 @@ import {
   Image,
   Alert,
 } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from "expo-image-picker";
 import { RepairEntry } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
@@ -94,10 +95,10 @@ export default function AddRepairSheet({
   useEffect(() => {
   if (visible) {
     if (editEntry) {
+      setOdometer(editEntry.odometer.toString());
       setServiceType(editEntry.serviceType);
       setServiceTypeInput(editEntry.serviceType);
       setDate(new Date(editEntry.date).toISOString().split("T")[0]);
-      setOdometer(editEntry.odometer.toString());
       setCost(editEntry.cost.toString());
       setWorkshop(editEntry.workshop);
       
@@ -117,7 +118,7 @@ export default function AddRepairSheet({
       setServiceType(pre);
       setServiceTypeInput(pre);
       setDate(new Date().toISOString().split("T")[0]);
-      setOdometer(currentOdometer ? currentOdometer.toString() : "0");
+      setOdometer(currentOdometer > 0 ? currentOdometer.toString() : "");
       setCost("");
       setWorkshop("");
       setNotes("");

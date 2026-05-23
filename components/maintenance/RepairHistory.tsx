@@ -62,9 +62,19 @@ interface RepairHistoryProps {
   repairs: RepairEntry[];
   onEdit?: (entry: RepairEntry) => void;
   onDelete?: (id: string) => void;
+  appMode?: 'basic' | 'advance';
+  hideSearch?: boolean;
+  onToggleSearch?: () => void;
 }
 
-export default function RepairHistory({ repairs = [], onEdit, onDelete }: RepairHistoryProps) {
+export default function RepairHistory({ 
+  repairs, 
+  onEdit, 
+  onDelete, 
+  appMode = 'basic', 
+  hideSearch = false, 
+  onToggleSearch 
+}: RepairHistoryProps) {
   const [deleteRepairId, setDeleteRepairId] = useState<string | null>(null);
   const { t, lang } = useLanguage();
   const isId = lang === 'id';
@@ -95,33 +105,46 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
   
   return (
     <View style={{ paddingHorizontal: 20, paddingBottom: 30 }}>
+      
+      {/* 🚀 HEADER SATU BARIS (Tanpa padding ganda) */}
       <View style={{ 
         flexDirection: 'row', 
         justifyContent: 'space-between', 
-        alignItems: 'center',
-        paddingHorizontal: 20,
+        alignItems: 'center', // Memastikan tombol dan teks sejajar di tengah
         marginTop: 10,
-        marginBottom: 5
+        marginBottom: 15
       }}>
+        
+        {/* Kiri: Ikon & Judul */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Text style={{ fontSize: 20, lineHeight: 24 }}>🛠️</Text>
+          <Text style={{ fontSize: 20 }}>🛠️</Text>
           <Text style={{ 
             color: '#FFFFFF', 
             fontSize: 18, 
             fontWeight: '800',
             letterSpacing: 0.5,
-            lineHeight: 24 
           }}>
             {isId ? "Riwayat Perbaikan" : "Repair History"}
           </Text>
         </View>
-      </View>
 
-      {/* ROW 2: Statistik Tanggal */}
-      <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
-        <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: 1 }}>
-          {isId ? "CATATAN DARI" : "STATS FROM"}: {new Date().toISOString().split('T')[0]}
-        </Text>
+        {/* Kanan: Tombol Toggle Search */}
+        {appMode === 'advance' && (
+          <TouchableOpacity 
+            activeOpacity={0.9} 
+            onPress={onToggleSearch} 
+            style={{ 
+              paddingHorizontal: 10, 
+              paddingVertical: 6, 
+              backgroundColor: 'rgba(255,255,255,0.05)', 
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>
+              {hideSearch ? '⮛' : '⮙'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {sorted.map((repair) => {
@@ -134,7 +157,7 @@ export default function RepairHistory({ repairs = [], onEdit, onDelete }: Repair
         });
 
         return (
-          <View key={repair.id} style={{ backgroundColor: '#1A2B3C', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',marginBottom: 8 }}>
+          <View key={repair.id} style={{ backgroundColor: '#1A2B3C', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 10 }}>
             <TouchableOpacity 
               onPress={() => setExpandedId(isExpanded ? null : repair.id)} 
               activeOpacity={0.9} 

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, TextInput } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface MaintenanceCalendarProps {
   repairs?: any[];
@@ -67,15 +68,14 @@ export default function MaintenanceCalendar({ repairs = [], fuelEntries = [], on
     allActivities.map(a => new Date(a.actualDate).getFullYear())
   )).filter(y => !isNaN(y) && y < currentYear).sort((a, b) => b - a);
 
-  const periodOptions = ['all', 'this_month', 'last_3_months', 'this_year', ...availableYears.map(String), 'custom'];
+  const periodOptions = ['all', 'this_month', 'this_year', 'custom'];
 
   const getPeriodLabel = (p: string) => {
     if (p === 'all') return 'Semua Waktu';
     if (p === 'this_month') return 'Bulan Ini';
-    if (p === 'last_3_months') return '3 Bulan Terakhir';
     if (p === 'this_year') return 'Tahun Ini';
     if (p === 'custom') return 'Custom Date';
-    return `Tahun ${p}`;
+    return p;
   };
 
   // 🚀 ENGINE 3: HORIZONTAL WEEK GENERATOR
@@ -145,10 +145,10 @@ export default function MaintenanceCalendar({ repairs = [], fuelEntries = [], on
   return (
     <View style={styles.container}>
       
-      {/* 1. QUICK FILTERS DENGAN UI Export PDF (smallPill) */}
+      {/* 1. QUICK FILTERS 1 BARIS RESPONSIVE */}
       <View style={styles.headerBox}>
         <Text style={styles.sectionLabel}>⏱️ PERIODE AKTIVITAS</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20 }}>
           {periodOptions.map((p) => (
             <TouchableOpacity 
               key={p} 
@@ -161,7 +161,7 @@ export default function MaintenanceCalendar({ repairs = [], fuelEntries = [], on
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         {/* INPUT TANGGAL CUSTOM */}
         {period === 'custom' && (

@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FuelEntry, Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
 import {
@@ -21,6 +22,8 @@ interface FuelLogProps {
   fuelEntries: FuelEntry[];
   vehicle?: Vehicle | null;
   appMode?: 'basic' | 'advance';
+  hideSearch?: boolean;
+  onToggleSearch?: () => void;
   onAdd: () => void;
   onEdit?: (entry: FuelEntry) => void;
   onDelete?: (id: string) => void;
@@ -58,6 +61,8 @@ export default function FuelLog({
   fuelEntries,
   vehicle,
   appMode = 'basic',
+  hideSearch = false, 
+  onToggleSearch,
   onAdd,
   onEdit,
   onDelete,
@@ -69,6 +74,19 @@ export default function FuelLog({
   const [showStats, setShowStats] = useState(false); // Default: disembunyikan
   
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [hideStats, setHideStats] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('garasi_hide_fuel_stats').then(val => {
+      if (val === 'true') setHideStats(true);
+    });
+  }, []);
+
+  const toggleStats = () => {
+    const newVal = !hideStats;
+    setHideStats(newVal);
+    AsyncStorage.setItem('garasi_hide_fuel_stats', newVal ? 'true' : 'false');
+  };
 
   // Reset stats state
   const [statsResetDate, setStatsResetDate] = useState<string | null>(null);
@@ -164,10 +182,11 @@ export default function FuelLog({
   };
 
   return (
-    <View style={{ gap: 12 }}>
-      {/* Modal Preview Foto Struk */}
+    <View style={{ paddingHorizontal: 20, paddingBottom: 30 }}>
+
+      {/* Modal Preview Foto Struk (Biarkan isinya utuh) */}
       <Modal visible={!!selectedImage} transparent animationType="fade">
-        <TouchableOpacity activeOpacity={1} onPress={() => setSelectedImage(null)} style={styles.modalOverlay}>
+        <TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedImage(null)} style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             {selectedImage && <Image source={{ uri: selectedImage }} style={styles.fullImage} resizeMode="contain" />}
             <TouchableOpacity onPress={() => setSelectedImage(null)} style={styles.closeButton}>
@@ -177,16 +196,57 @@ export default function FuelLog({
         </TouchableOpacity>
       </Modal>
 
-      {/* Header */}
-      <View style={styles.header}>
-          <Text style={{ color: "#FFFFFF", fontSize: 20, lineHeight: 24 }}>
-          ⛽ {isId ? "Catatan BBM" : "Fuel Log"}
-        </Text>
+      {/* --- HEADER UTAMA --- */}
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 10,
+        marginBottom: 15
+      }}>
+        {/* Kiri: Ikon, Judul & Toggle Stats */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ fontSize: 20 }}>⛽</Text>
+          <Text style={{
+            color: '#FFFFFF',
+            fontSize: 18,
+            fontWeight: '800',
+            letterSpacing: 0.5,
+          }}>
+            {isId ? "Riwayat BBM" : "Fuel Log"}
+          </Text>
+
+          {appMode === 'advance' && fuelEntries.length > 0 && (
+            <TouchableOpacity activeOpacity={0.9} onPress={toggleStats} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, marginLeft: 2 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>{hideStats ? '⮛' : '⮙'}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Kanan: Tombol Toggle Search & Tambah */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {appMode === 'advance' && (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={onToggleSearch}
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>
+                {hideSearch ? '⮛' : '⮙'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {/* Stats Summary (Konsumsi KM/L & Reset) - HANYA TAMPIL DI ADVANCE MODE */}
-      {appMode === 'advance' && fuelEntries.length > 0 && (
-        <View style={{ paddingHorizontal: 20, marginBottom: 15 }}>
+       {/* Stats Summary - HANYA TAMPIL DI ADVANCE MODE & JIKA TIDAK DI-HIDE */}
+      {appMode === 'advance' && !hideStats && fuelEntries.length > 0 && (
+        <View style={{ marginBottom: 15 }}>
           
           {/* Banner Konsumsi */}
           <View style={{
@@ -226,15 +286,15 @@ export default function FuelLog({
             </Text>
             
             {!showResetConfirm ? (
-              <TouchableOpacity onPress={() => setShowResetConfirm(true)} activeOpacity={0.7} style={{ padding: 4 }}>
+              <TouchableOpacity onPress={() => setShowResetConfirm(true)} activeOpacity={0.9} style={{ padding: 4 }}>
                 <Text style={{ color: '#FF5252', fontSize: 10, fontWeight: '800' }}>🔄 {isId ? "Reset" : "Reset"}</Text>
               </TouchableOpacity>
             ) : (
               <View style={{ flexDirection: 'row', gap: 15 }}>
-                <TouchableOpacity onPress={handleUndoReset} activeOpacity={0.7} style={{ padding: 4 }}>
+                <TouchableOpacity onPress={handleUndoReset} activeOpacity={0.9} style={{ padding: 4 }}>
                   <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '800' }}>↶ {isId ? "Batal" : "Undo"}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={confirmReset} activeOpacity={0.7} style={{ padding: 4 }}>
+                <TouchableOpacity onPress={confirmReset} activeOpacity={0.9} style={{ padding: 4 }}>
                   <Text style={{ color: '#4ECDC4', fontSize: 10, fontWeight: '800' }}>✓ {isId ? "Simpan" : "Save"}</Text>
                 </TouchableOpacity>
               </View>
@@ -299,7 +359,7 @@ export default function FuelLog({
               setDeleteId(null);
             }
           }}
-          activeOpacity={0.8}
+          activeOpacity={0.9}
           style={{ 
             width: '100%', 
             paddingVertical: 16, 
@@ -320,7 +380,7 @@ export default function FuelLog({
         {/* Tombol Batal - Dibuat Tanpa Background (Ghost Button) */}
         <TouchableOpacity 
           onPress={() => setDeleteId(null)}
-          activeOpacity={0.6}
+          activeOpacity={0.9}
           style={{ 
             width: '100%', 
             paddingVertical: 16, 
@@ -339,7 +399,7 @@ export default function FuelLog({
 </Modal>
 
       {/* List View */}
-      <View style={{ gap: 8, paddingHorizontal: 20 }}>
+      <View style={{ gap: 10 }}>
         {sorted.map((entry) => {
           const providerName = entry.provider || entry.notes || ""; 
           const logo = getFuelLogo(providerName);
@@ -365,7 +425,7 @@ export default function FuelLog({
     
     {/* 1. BAGIAN HEADER (Selalu Tampil & Bisa Diklik) */}
     <TouchableOpacity 
-      activeOpacity={0.7}
+      activeOpacity={0.9}
       onPress={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
       style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}
     >
@@ -434,7 +494,7 @@ export default function FuelLog({
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 4, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 12 }}>
           <TouchableOpacity 
             onPress={() => onEdit?.(entry)}
-            activeOpacity={0.7}
+            activeOpacity={0.9}
             style={{ 
               flex: 1, height: 45, backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: 12, 
               borderWidth: 1, borderColor: 'rgba(245,166,35,0.2)', alignItems: 'center', 
@@ -447,7 +507,7 @@ export default function FuelLog({
 
           <TouchableOpacity 
             onPress={() => handleDelete(entry.id)}
-            activeOpacity={0.7}
+            activeOpacity={0.9}
             style={{ 
               flex: 1, height: 45, backgroundColor: 'rgba(255,82,82,0.1)', borderRadius: 12, 
               borderWidth: 1, borderColor: 'rgba(255,82,82,0.2)', alignItems: 'center', 
@@ -465,12 +525,26 @@ export default function FuelLog({
         })}
       </View>
     </View>
-    );
-}
+  );
+} // 🚀 KUNCI PERBAIKAN: Kurung ini wajib ada untuk menutup fungsi FuelLog sebelum masuk ke styles!
 
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20 },
-  addButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(78,205,196,0.15)", borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: "rgba(78,205,196,0.3)" },
+  header: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center" 
+  },
+  addButton: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    gap: 6, 
+    backgroundColor: "rgba(78,205,196,0.15)", 
+    borderRadius: 10, 
+    paddingVertical: 7, 
+    paddingHorizontal: 12, 
+    borderWidth: 1, 
+    borderColor: "rgba(78,205,196,0.3)" 
+  },
   
   // --- STATS CARD STYLES ---
   statCard: { flex: 1, backgroundColor: "#1A2B3C", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center" },
@@ -486,7 +560,16 @@ const styles = StyleSheet.create({
   undoBtnText: { color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: "700" },
   saveResetBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center", backgroundColor: "rgba(78,205,196,0.2)", borderWidth: 1, borderColor: "#4ECDC4" },
   saveResetBtnText: { color: "#4ECDC4", fontSize: 12, fontWeight: "700" },
-  entryCard: { backgroundColor: "#1A2B3C", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", gap: 12 },
+  
+  entryCard: { 
+    backgroundColor: "#1A2B3C", 
+    borderRadius: 16, 
+    padding: 16, 
+    borderWidth: 1, 
+    borderColor: "rgba(255,255,255,0.05)", 
+    gap: 12 
+  },
+  
   actionHeader: { flexDirection: "row", justifyContent: "flex-end", gap: 15, marginBottom: -5 },
   editText: { color: "#4ECDC4", fontSize: 11, fontWeight: "700", opacity: 0.8 },
   deleteText: { color: "#FF5252", fontSize: 11, fontWeight: "700", opacity: 0.8 },
