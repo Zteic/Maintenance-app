@@ -1,6 +1,7 @@
 import PremiumSection, { AccountStatsGrid } from "@/components/Premium/PremiumSection";
 import PremiumGateWrapper from "@/components/Premium/PremiumGateWrapper";
 import PremiumPurchaseModal from "@/components/Premium/PremiumPurchaseModal";
+import { usePremium } from "@/context/PremiumContext";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -84,6 +85,8 @@ function ProfileContent() {
   const { t, lang } = useLanguage();
   const router = useRouter();
   const isId = lang === "id";
+  
+  const { isPremium, setIsPremium } = usePremium();
 
   // 1. Definisikan semua Hook di atas (Jangan ada 'if return' sebelum ini)
   const [showPriceUpdate, setShowPriceUpdate] = useState(false);
@@ -255,18 +258,44 @@ function ProfileContent() {
             <Text style={{ color: "#F5A623", fontSize: 16 }}>← Kembali</Text>
           </TouchableOpacity>
 
-          <Text
-            style={{
-              color: "#FFFFFF",
-              fontSize: 20,
-              fontWeight: "800",
-              flex: 1,
-              textAlign: "center",
-              marginRight: 80,
-            }}
-          >
-            {t("myProfile")}
-          </Text>
+          {/* Judul Profil Standar (Kembali Normal & Aman) */}
+          <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginRight: 40 }}>
+            <Text
+              style={{
+                color: "#FFFFFF",
+                fontSize: 20,
+                fontWeight: "800",
+                textAlign: "center",
+              }}
+            >
+              {t("myProfile")}
+            </Text>
+
+            {/* 🛠️ TOMBOL KHUSUS DEVELOPER SWITCHER (Hanya muncul saat coding/__DEV__) */}
+            {__DEV__ && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={async () => {
+                  const targetStatus = !isPremium;
+                  await setIsPremium(targetStatus);
+                  Alert.alert(
+                    "🔧 Dev Mode Switcher",
+                    `Status berhasil diubah ke: ${targetStatus ? "PREMIUM 👑" : "FREE 🚗"}`
+                  );
+                }}
+                style={{
+                  backgroundColor: isPremium ? '#F5A623' : '#4ECDC4',
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 6,
+                }}
+              >
+                <Text style={{ color: '#0D1B2A', fontSize: 10, fontWeight: '900' }}>
+                  {isPremium ? "SET FREE" : "SET PREMIUM"}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Profile Card */}

@@ -9,7 +9,6 @@ interface PremiumSectionProps {
   onOpenPremiumPage: () => void;
 }
 
-// 👑 KOMPONEN 1: BANNER MEMBERSHIP (Poin 1, 2, & 11)
 export default function PremiumSection({ onOpenPremiumPage }: PremiumSectionProps) {
   const { isPremium } = usePremium();
 
