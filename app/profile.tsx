@@ -1,3 +1,6 @@
+import PremiumSection, { AccountStatsGrid } from "@/components/Premium/PremiumSection";
+import PremiumGateWrapper from "@/components/Premium/PremiumGateWrapper";
+import PremiumPurchaseModal from "@/components/Premium/PremiumPurchaseModal";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -93,7 +96,17 @@ function ProfileContent() {
   const [editEmail, setEditEmail] = useState("");
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [appMode, setAppMode] = useState<'basic' | 'advance'>('basic');
-  // 🚀 STATE UNTUK STORAGE & LEGAL
+  
+  // 🚀 STATE UNTUK PREMIUM SYSTEM MODAL
+  const [premiumModalVisible, setPremiumModalVisible] = useState(false);
+  const [activePrefillFeature, setActivePrefillFeature] = useState<{name: string, desc: string} | null>(null);
+
+  const handleTriggerPremiumLock = (name: string, desc: string) => {
+    setActivePrefillFeature({ name, desc });
+    setPremiumModalVisible(true);
+  };
+
+  // State Storage & Legal
   const [storageSize, setStorageSize] = useState('0.00 MB');
 
   useEffect(() => {
@@ -352,6 +365,17 @@ function ProfileContent() {
           )}
         </View>
 
+        {/* 🚀 LAKUKAN PENEMPATAN 1: GRID STATISTIK AKUN (Di bawah Profile Card) */}
+        <AccountStatsGrid />
+
+        {/* 🚀 LAKUKAN PENEMPATAN 2: BANNER PREMIUM LIFETIME CARD (Di atas menu Action Buttons) */}
+        <PremiumSection 
+          onOpenPremiumPage={() => { 
+            setActivePrefillFeature(null); 
+            setPremiumModalVisible(true); 
+          }} 
+        />
+
         {/* Action Buttons */}
         <View style={{ marginHorizontal: 20, marginTop: 16, gap: 12 }}>
           <TouchableOpacity
@@ -402,43 +426,43 @@ function ProfileContent() {
           </TouchableOpacity>
 
           <TouchableOpacity
-  onPress={() => router.push('/export')} // Navigasi ke halaman export
-  style={{
-    backgroundColor: "#1A2B3C",
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    borderWidth: 1,
-    borderColor: "rgba(78,205,196,0.3)", // Neon teal border
-    shadowColor: "#4ECDC4",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-  }}
->
-  <View style={{
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: "rgba(78,205,196,0.1)",
-    alignItems: "center",
-    justifyContent: "center"
-  }}>
-    <Text style={{ fontSize: 22 }}>📊</Text>
-  </View>
-  <View style={{ flex: 1 }}>
-    <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>
-      Backup and Restore
-    </Text>
-    <Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>
-      Backup seluruh data kendaraan ke .vhdb
-    </Text>
-    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>
-      💽 Penggunaan Memori: {storageSize}
-    </Text>
-  </View>
+            onPress={() => router.push('/export')} // Navigasi ke halaman export
+            style={{
+              backgroundColor: "#1A2B3C",
+              borderRadius: 16,
+              padding: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 16,
+              borderWidth: 1,
+              borderColor: "rgba(78,205,196,0.3)", // Neon teal border
+              shadowColor: "#4ECDC4",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 10,
+            }}
+          >
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              backgroundColor: "rgba(78,205,196,0.1)",
+              alignItems: "center",
+              justifyContent: "center"
+            }}>
+              <Text style={{ fontSize: 22 }}>📊</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>
+                Backup and Restore
+              </Text>
+              <Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>
+                Backup seluruh data kendaraan ke .vhdb
+              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>
+                💽 Penggunaan Memori: {storageSize}
+              </Text>
+            </View>
             <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
           </TouchableOpacity>
         </View>
@@ -456,13 +480,22 @@ function ProfileContent() {
               <Text style={{ fontWeight: '800', color: appMode === 'basic' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Basic</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              activeOpacity={0.9} // 🚀 FIX: Mencegah efek tombol nyangkut redup di Android
-              onPress={() => toggleMode('advance')} 
-              style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'advance' ? '#F5A623' : 'transparent' }}
-            >
-              <Text style={{ fontWeight: '800', color: appMode === 'advance' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Advance</Text>
-            </TouchableOpacity>
+            {/* 🚀 LAKUKAN PENEMPATAN 3: PROTEKSI TOMBOL ADVANCE MENGGUNAKAN GATE WRAPPER */}
+            <View style={{ flex: 1 }}>
+              <PremiumGateWrapper
+                featureName="Mode Advance (Advanced Search)"
+                featureDescription="Membuka filter riwayat perbaikan mendalam, pencarian kata kunci multi-tab bensin, serta modul log analitik cerdas seumur hidup."
+                onLockedPress={(name, desc) => handleTriggerPremiumLock(name, desc)}
+              >
+                <TouchableOpacity 
+                  activeOpacity={0.9} 
+                  onPress={() => toggleMode('advance')} 
+                  style={{ width: '100%', paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'advance' ? '#F5A623' : 'transparent' }}
+                >
+                  <Text style={{ fontWeight: '800', color: appMode === 'advance' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Advance</Text>
+                </TouchableOpacity>
+              </PremiumGateWrapper>
+            </View>
 
           </View>
           <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 8, marginLeft: 5, marginBottom: 15 }}>
@@ -600,11 +633,20 @@ function ProfileContent() {
           </View>
         </View>
       </Modal>
+
+      {/* 🚀 LAKUKAN PENEMPATAN 4: LEMBAR MODAL PEMBELIAN PREMIUM (Di tumpukan paling bawah SafeAreaView) */}
+      <PremiumPurchaseModal 
+        visible={premiumModalVisible} 
+        prefillFeature={activePrefillFeature}
+        onClose={() => {
+          setPremiumModalVisible(false);
+          setActivePrefillFeature(null);
+        }}
+      />
     
     </SafeAreaView>
   );
 }
-
 
 // --- Komponen Utama ---
 export default function ProfileScreen() {

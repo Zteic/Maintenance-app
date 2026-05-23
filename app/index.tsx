@@ -42,6 +42,7 @@ import {
   loadNotifications,
   saveNotifications,
 } from "@/utils/storage";
+import { usePremium } from '@/context/PremiumContext';
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
 import VehicleSwitcher from "@/components/maintenance/VehicleSwitcher";
 import VehicleProfileCard from "@/components/maintenance/VehicleProfileCard";
@@ -52,6 +53,8 @@ import AddRepairSheet from "@/components/maintenance/AddRepairSheet";
 import VehicleEditModal from "@/components/maintenance/VehicleEditModal";
 import FuelLog from "@/components/maintenance/FuelLog";
 import FuelSheet from "@/components/maintenance/FuelSheet";
+import PremiumSection, { AccountStatsGrid } from "@/components/Premium/PremiumSection";
+import PremiumPurchaseModal from "@/components/Premium/PremiumPurchaseModal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaintenanceCalendar from "../components/maintenance/MaintenanceCalendar";
 import NotifCenter from '@/components/maintenance/NotifCenter';
@@ -77,6 +80,7 @@ function AppContent() {
   const { t, lang, setLang } = useLanguage();
   const now = new Date();
   const insets = useSafeAreaInsets();
+  const { isPremium } = usePremium();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
@@ -105,6 +109,14 @@ function AppContent() {
   const [planName, setPlanName] = useState("");
   const [planInterval, setPlanInterval] = useState("");
   const [showOdoHistory, setShowOdoHistory] = useState(false);
+  const [premiumModalVisible, setPremiumModalVisible] = useState(false);
+  const [activePrefillFeature, setActivePrefillFeature] = useState<{name: string, desc: string} | null>(null);
+
+  // Fungsi pembantu jika ada fitur terkunci yang diklik
+  const handleTriggerPremiumLock = (name: string, desc: string) => {
+    setActivePrefillFeature({ name, desc });
+    setPremiumModalVisible(true);
+  };
   // 🚀 STATE UNTUK ADVANCED SEARCH & MODE PENGGUNAAN
   const [appMode, setAppMode] = useState<'basic' | 'advance'>('basic');
   
@@ -768,7 +780,6 @@ function AppContent() {
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
       <StatusBar barStyle="light-content" />
-
       {/* HEADER & TOP NAVIGATION SECTION */}
       <View style={{ paddingTop: insets.top, backgroundColor: "#0D1B2A" }}>
         <View
@@ -779,17 +790,19 @@ function AppContent() {
             paddingHorizontal: 20,
             paddingTop: 10,
             paddingBottom: 16,
-          }}
-        >
+          }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>            
             <View>
               {isEditingName ? (
                 <TextInput
                   value={appName}
                   onChangeText={setAppName}
-                  onBlur={saveAppName} // Simpan saat klik di luar kotak
-                  onSubmitEditing={saveAppName} // Simpan saat tekan tombol Enter/Done di keyboard
-                  autoFocus // Langsung munculkan keyboard
+                  // Simpan saat klik di luar kotak
+                  onBlur={saveAppName}
+                  // Simpan saat tekan tombol Enter/Done di keyboard
+                  onSubmitEditing={saveAppName}
+                  // Langsung munculkan keyboard
+                  autoFocus
                   style={{ 
                     color: "#FFFFFF", 
                     fontSize: 22, 
@@ -798,14 +811,26 @@ function AppContent() {
                     borderBottomWidth: 1, 
                     borderBottomColor: '#4ECDC4',
                     minWidth: 100
-                  }}
-                />
+                  }} />
               ) : (
-                <TouchableOpacity 
-                  activeOpacity={0.7} 
-                  onPress={() => setIsEditingName(true)} // Ubah jadi mode edit saat diklik
-                >
-                  <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800" }}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  // Ubah jadi mode edit saat diklik
+                  onPress={() => setIsEditingName(true)}
+                  // 🚀 Membuat logo & teks berjejer rapi
+                  style={{ flexDirection: "row", alignItems: "center", gap: 1 }}>
+                  {/* 🚀 INDIKATOR LOGO PREMIUM VS FREE */}
+                  <View
+                    style={{
+                      paddingHorizontal: 6,
+                      paddingVertical: 4,
+                    }}>
+                    <Text style={{ fontSize: 30 }}>{isPremium ? "👑" : "🔒"}</Text>
+                  </View>
+
+                  <Text
+                    style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800",marginTop: 14 }}
+                    className="w-[184px] h-[34px]">
                     {appName}
                   </Text>
                 </TouchableOpacity>
@@ -824,8 +849,7 @@ function AppContent() {
                   borderColor: "rgba(255,255,255,0.1)",
                   position: "relative",
                   transform: [{ scale: bellScale }],
-                }}
-              >
+                }}>
                 <Text style={{ fontSize: 18 }}>🔔</Text>
                 {unreadNotifsCount > 0 && (
                   <View
@@ -841,8 +865,7 @@ function AppContent() {
                       justifyContent: "center",
                       borderWidth: 2,
                       borderColor: "#0D1B2A",
-                    }}
-                  >
+                    }}>
                     <Text style={{ color: "#FFF", fontSize: 10, fontWeight: "bold" }}>
                       {unreadNotifsCount > 9 ? "9+" : unreadNotifsCount}
                     </Text>
@@ -860,8 +883,7 @@ function AppContent() {
                 padding: 10,
                 borderWidth: 1,
                 borderColor: "rgba(255,255,255,0.1)",
-              }}
-            >
+              }}>
               <Text style={{ fontSize: 18 }}>{lang === "id" ? "🇮🇩" : "🇬🇧"}</Text>
             </TouchableOpacity>
           </View>
@@ -875,11 +897,9 @@ function AppContent() {
             onAddVehicle={() => {
               setEditingVehicle(null);
               setShowVehicleModal(true);
-            }}
-          />
+            }} />
         </View>
       </View>
-
       {/* BODY CONTENT */}
       <ScrollView
         overScrollMode="never"
@@ -889,29 +909,32 @@ function AppContent() {
         contentContainerStyle={{
           paddingBottom: 150,
           paddingTop: 10,
-        }}
-      >
+        }}>
         {/* 🚀 PERBAIKAN 4: Gunakan "display: flex/none" agar tab pindah secara instan tanpa loading ulang komponen */}
         
         {/* TAB 1: HOME */}
-        <View style={{ display: activeTab === "home" ? "flex" : "none", width: "100%", gap: 20 }}>
+        <View
+          style={{ display: activeTab === "home" ? "flex" : "none", width: "100%", gap: 20 }}>
           {stats.selectedVehicle ? (
             <>
               <VehicleProfileCard
                 vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
                 onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }}
-                onOdometerPress={() => setShowOdoHistory(true)}
-              />
+                onOdometerPress={() => setShowOdoHistory(true)} />
 
               <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
-                <View style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>
+                <View
+                  style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                  <Text
+                    style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>
                     {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
                   </Text>
-                  <Text style={{ color: "#F5A623", fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>
+                  <Text
+                    style={{ color: "#F5A623", fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>
                     {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(stats.monthlyCost)}
                   </Text>
-                  <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, gap: 4 }}>
+                  <View
+                    style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, gap: 4 }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                       <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}</Text>
                       <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalFuelMonthly.toLocaleString("id-ID")}</Text>
@@ -921,25 +944,36 @@ function AppContent() {
                       <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalRepairMonthly.toLocaleString("id-ID")}</Text>
                     </View>
                   </View>
-                  <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: "italic" }}>
+                  <Text
+                    style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: "italic" }}>
                     {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
                   </Text>
                 </View>
 
-                <TouchableOpacity onPress={() => setShowCalendarModal(true)} activeOpacity={0.7} style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600" }}>{t("servicesDone")}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowCalendarModal(true)}
+                  activeOpacity={0.7}
+                  style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                  <View
+                    style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text
+                      style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600" }}>{t("servicesDone")}</Text>
                     <Text style={{ fontSize: 14 }}>📅</Text>
                   </View>
-                  <Text style={{ color: "#4ECDC4", fontSize: 16, fontWeight: "800", marginTop: 2 }}>
-                    {stats.monthlyServicesDone} <Text style={{ fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>{t("records")}</Text>
+                  <Text
+                    style={{ color: "#4ECDC4", fontSize: 16, fontWeight: "800", marginTop: 2 }}>
+                    {stats.monthlyServicesDone} <Text
+                    style={{ fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>{t("records")}</Text>
                   </Text>
-                  <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, marginTop: 8, gap: 4 }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <View
+                    style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, marginTop: 8, gap: 4 }}>
+                    <View
+                      style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                       <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ Total Liter</Text>
                       <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>{stats.totalLitersMonthly.toFixed(1)} L</Text>
                     </View>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <View
+                      style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                       <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛣️ {lang === "id" ? "Jarak" : "Distance"}</Text>
                       <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>+{stats.monthlyDistance.toLocaleString("id-ID")} km</Text>
                     </View>
@@ -953,8 +987,7 @@ function AppContent() {
               <MaintenanceStatusBar
                 reminders={stats.vehicleReminders}
                 currentOdometer={stats.autoLatestOdometer}
-                accentColor={stats.selectedVehicle?.color}
-              />
+                accentColor={stats.selectedVehicle?.color} />
               <UpcomingReminders
                 reminders={stats.vehicleReminders}
                 currentOdometer={stats.autoLatestOdometer}
@@ -962,34 +995,37 @@ function AppContent() {
                 onAddReminder={() => setShowPlanModal(true)}
                 onEditReminder={handleEdit}
                 onDeleteReminder={handleDelete}
-                onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }}
-              />
+                onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }} />
             </>
           ) : null}
         </View>
 
         {/* TAB 2: HISTORY / SERVICE */}
-        <View style={{ display: activeTab === "history" ? "flex" : "none", width: "100%" }}>
+        <View
+          style={{ display: activeTab === "history" ? "flex" : "none", width: "100%" }}>
           
           {/* 🚀 ADVANCED SEARCH UI (Container & Margin HILANG TOTAL jika di-hide) */}
           {appMode === 'advance' && !hideSearch && (
             <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
               
               {/* 🚀 Quick Filters History */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
                 {[
                   { id: 'all', label: 'Semua' },
                   { id: 'month', label: 'Bulan Ini' },
                   { id: 'year', label: 'Tahun Ini' },
                   { id: 'custom', label: 'Custom Date' }
                 ].map(f => (
-                  <TouchableOpacity 
-                    key={f.id} 
+                  <TouchableOpacity
+                    key={f.id}
                     activeOpacity={0.9}
                     onPress={() => setHistoryFilter(f.id)}
-                    style={{ backgroundColor: historyFilter === f.id ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}
-                  >
-                    <Text style={{ color: historyFilter === f.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{f.label}</Text>
+                    style={{ backgroundColor: historyFilter === f.id ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}>
+                    <Text
+                      style={{ color: historyFilter === f.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{f.label}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -998,39 +1034,39 @@ function AppContent() {
               {historyFilter === 'custom' && (
                 <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
                   <View style={{ flex: 1 }}>
-                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>DARI TANGGAL</Text>
-                     <TextInput 
-                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} 
-                       placeholder="YYYY-MM-DD" 
+                     <Text
+                       style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>DARI TANGGAL</Text>
+                     <TextInput
+                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                       placeholder="YYYY-MM-DD"
                        placeholderTextColor="rgba(255,255,255,0.2)"
                        value={historyCustomStart}
-                       onChangeText={setHistoryCustomStart}
-                     />
+                       onChangeText={setHistoryCustomStart} />
                   </View>
                   <View style={{ flex: 1 }}>
-                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>SAMPAI TANGGAL</Text>
-                     <TextInput 
-                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} 
-                       placeholder="YYYY-MM-DD" 
+                     <Text
+                       style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>SAMPAI TANGGAL</Text>
+                     <TextInput
+                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                       placeholder="YYYY-MM-DD"
                        placeholderTextColor="rgba(255,255,255,0.2)"
                        value={historyCustomEnd}
-                       onChangeText={setHistoryCustomEnd}
-                     />
+                       onChangeText={setHistoryCustomEnd} />
                   </View>
                 </View>
               )}
 
               {/* Search Bar History */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: searchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: searchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
                 <Text style={{ fontSize: 16, marginRight: 10, opacity: 0.5 }}>🔍</Text>
-                <TextInput 
+                <TextInput
                   style={{ flex: 1, color: '#FFF', paddingVertical: 12, fontSize: 13 }}
                   placeholder={lang === 'id' ? "Cari oli, ban, bengkel..." : "Search oil, tire, workshop..."}
                   placeholderTextColor="rgba(255,255,255,0.3)"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
-                  onSubmitEditing={() => executeSearch(searchQuery, 'service')}
-                />
+                  onSubmitEditing={() => executeSearch(searchQuery, 'service')} />
                 {searchQuery !== '' && (
                   <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 5 }}>
                     <Text style={{ color: '#FF5252', fontWeight: 'bold' }}>✕</Text>
@@ -1041,19 +1077,28 @@ function AppContent() {
               {/* Riwayat Kata Kunci Terakhir History */}
               {searchQuery === '' && recentSearches.length > 0 && (
                 <View style={{ marginTop: 10 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '700' }}>Pencarian Terakhir</Text>
-                    <TouchableOpacity onPress={() => { setRecentSearches([]); AsyncStorage.removeItem('garasi_recent_searches'); }}>
+                  <View
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <Text
+                      style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '700' }}>Pencarian Terakhir</Text>
+                    <TouchableOpacity
+                      onPress={() => { setRecentSearches([]); AsyncStorage.removeItem('garasi_recent_searches'); }}>
                       <Text style={{ color: '#FF5252', fontSize: 11, fontWeight: '700' }}>Bersihkan</Text>
                     </TouchableOpacity>
                   </View>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                     {recentSearches.map((kw, idx) => (
-                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, paddingLeft: 12 }}>
-                        <TouchableOpacity onPress={() => executeSearch(kw, 'service')} style={{ paddingVertical: 8, paddingRight: 8 }}>
+                      <View
+                        key={idx}
+                        style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, paddingLeft: 12 }}>
+                        <TouchableOpacity
+                          onPress={() => executeSearch(kw, 'service')}
+                          style={{ paddingVertical: 8, paddingRight: 8 }}>
                           <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🕒 {kw}</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => removeRecentSearch(kw, 'service')} style={{ padding: 8, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.05)' }}>
+                        <TouchableOpacity
+                          onPress={() => removeRecentSearch(kw, 'service')}
+                          style={{ padding: 8, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.05)' }}>
                           <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>✕</Text>
                         </TouchableOpacity>
                       </View>
@@ -1068,48 +1113,54 @@ function AppContent() {
           <View style={{ position: 'relative' }}>
 
             <RepairHistory
-            repairs={filteredHistory}
-            appMode={appMode}           /* 🚀 Kirim Prop Baru */
-            hideSearch={hideSearch}     /* 🚀 Kirim Prop Baru */
-            onToggleSearch={toggleSearch} /* 🚀 Kirim Fungsi Toggle Baru */
-            onEdit={(r) => {
-              setEditingRepair(r);
-              setShowAddSheet(true);
-            }}
-            onDelete={(id) => {
-              const deletedItem = stats.vehicleRepairs.find((r) => r.id === id);
-              setRepairs((prev) => prev.filter((r) => r.id !== id));
-              if (deletedItem) {
-                addNotification('DELETE', "Riwayat Dihapus", `Menghapus riwayat [${deletedItem.serviceType}].`, "vehicle", selectedVehicleId, deletedItem.odometer, undefined, 'Perbaikan Kendaraan');
-                evaluateOdometerRollback(deletedItem.odometer, id, 'Perbaikan Kendaraan');
-              }
-            }}
-          />
+              repairs={filteredHistory}
+              appMode={appMode}
+              /* 🚀 Kirim Prop Baru */
+              hideSearch={hideSearch}
+              /* 🚀 Kirim Prop Baru */
+              onToggleSearch={toggleSearch}
+              /* 🚀 Kirim Fungsi Toggle Baru */
+              onEdit={(r) => {
+                setEditingRepair(r);
+                setShowAddSheet(true);
+              }}
+              onDelete={(id) => {
+                const deletedItem = stats.vehicleRepairs.find((r) => r.id === id);
+                setRepairs((prev) => prev.filter((r) => r.id !== id));
+                if (deletedItem) {
+                  addNotification('DELETE', "Riwayat Dihapus", `Menghapus riwayat [${deletedItem.serviceType}].`, "vehicle", selectedVehicleId, deletedItem.odometer, undefined, 'Perbaikan Kendaraan');
+                  evaluateOdometerRollback(deletedItem.odometer, id, 'Perbaikan Kendaraan');
+                }
+              }} />
           </View>
         </View>
 
         {/* TAB 3: FUEL */}
-        <View style={{ display: activeTab === "fuel" ? "flex" : "none", width: "100%" }}>
+        <View
+          style={{ display: activeTab === "fuel" ? "flex" : "none", width: "100%" }}>
           
           {/* 🚀 ADVANCED SEARCH UI & QUICK FILTER BBM (Container ini HILANG TOTAL jika di-hide agar TIDAK meninggalkan gap kosong) */}
           {appMode === 'advance' && !hideSearch && (
             <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
               
               {/* Quick Filters BBM */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
                 {[
                   { id: 'all', label: 'Semua' },
                   { id: 'month', label: 'Bulan Ini' },
                   { id: 'year', label: 'Tahun Ini' },
                   { id: 'custom', label: 'Custom Date' }
                 ].map(f => (
-                  <TouchableOpacity 
-                    key={f.id} 
+                  <TouchableOpacity
+                    key={f.id}
                     activeOpacity={0.9}
                     onPress={() => setFuelFilter(f.id)}
-                    style={{ backgroundColor: fuelFilter === f.id ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}
-                  >
-                    <Text style={{ color: fuelFilter === f.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{f.label}</Text>
+                    style={{ backgroundColor: fuelFilter === f.id ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}>
+                    <Text
+                      style={{ color: fuelFilter === f.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{f.label}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -1118,39 +1169,39 @@ function AppContent() {
               {fuelFilter === 'custom' && (
                 <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
                   <View style={{ flex: 1 }}>
-                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>DARI TANGGAL</Text>
-                     <TextInput 
-                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} 
-                       placeholder="YYYY-MM-DD" 
+                     <Text
+                       style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>DARI TANGGAL</Text>
+                     <TextInput
+                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                       placeholder="YYYY-MM-DD"
                        placeholderTextColor="rgba(255,255,255,0.2)"
                        value={fuelCustomStart}
-                       onChangeText={setFuelCustomStart}
-                     />
+                       onChangeText={setFuelCustomStart} />
                   </View>
                   <View style={{ flex: 1 }}>
-                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>SAMPAI TANGGAL</Text>
-                     <TextInput 
-                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} 
-                       placeholder="YYYY-MM-DD" 
+                     <Text
+                       style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>SAMPAI TANGGAL</Text>
+                     <TextInput
+                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                       placeholder="YYYY-MM-DD"
                        placeholderTextColor="rgba(255,255,255,0.2)"
                        value={fuelCustomEnd}
-                       onChangeText={setFuelCustomEnd}
-                     />
+                       onChangeText={setFuelCustomEnd} />
                   </View>
                 </View>
               )}
 
               {/* Search Bar BBM */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: fuelSearchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: fuelSearchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
                 <Text style={{ fontSize: 16, marginRight: 10, opacity: 0.5 }}>🔍</Text>
-                <TextInput 
+                <TextInput
                   style={{ flex: 1, color: '#FFF', paddingVertical: 12, fontSize: 13 }}
                   placeholder="Cari Pertamax, Shell, atau SPBU..."
                   placeholderTextColor="rgba(255,255,255,0.3)"
                   value={fuelSearchQuery}
                   onChangeText={setFuelSearchQuery}
-                  onSubmitEditing={() => executeSearch(fuelSearchQuery, 'fuel')}
-                />
+                  onSubmitEditing={() => executeSearch(fuelSearchQuery, 'fuel')} />
                 {fuelSearchQuery !== '' && (
                   <TouchableOpacity onPress={() => setFuelSearchQuery('')} style={{ padding: 5 }}>
                     <Text style={{ color: '#FF5252', fontWeight: 'bold' }}>✕</Text>
@@ -1163,11 +1214,17 @@ function AppContent() {
                 <View style={{ marginTop: 10 }}>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                     {recentFuelSearches.map((kw, idx) => (
-                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, paddingLeft: 12 }}>
-                        <TouchableOpacity onPress={() => executeSearch(kw, 'fuel')} style={{ paddingVertical: 8, paddingRight: 8 }}>
+                      <View
+                        key={idx}
+                        style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, paddingLeft: 12 }}>
+                        <TouchableOpacity
+                          onPress={() => executeSearch(kw, 'fuel')}
+                          style={{ paddingVertical: 8, paddingRight: 8 }}>
                           <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🕒 {kw}</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => removeRecentSearch(kw, 'fuel')} style={{ padding: 8, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.05)' }}>
+                        <TouchableOpacity
+                          onPress={() => removeRecentSearch(kw, 'fuel')}
+                          style={{ padding: 8, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.05)' }}>
                           <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>✕</Text>
                         </TouchableOpacity>
                       </View>
@@ -1201,11 +1258,70 @@ function AppContent() {
               }
               setShowFuelSheet(false);
               setEditingFuel(null);
-            }}
-          />
+            }} />
         </View>
-      </ScrollView>
 
+        {/* 👤 TAB 4: PROFILE SYSTEM (Poin 1, 2, 10 & 11) */}
+        <View
+          style={{ display: activeTab === "profile" ? "flex" : "none", width: "100%", paddingHorizontal: 20, gap: 15 }}>
+          
+          {/* Header Judul Halaman Profile */}
+          <Text
+            style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginTop: 10, marginBottom: 5 }}>
+            {lang === 'id' ? 'Profil Saya' : 'My Profile'}
+          </Text>
+
+          {/* 🚀 INDIKATOR METADATA AKUN (Poin 10) */}
+          <AccountStatsGrid />
+
+          {/* 🚀 BANNER PREMIUM MEMBERSHIP SECTION (Poin 1 & 2) */}
+          <PremiumSection
+            onOpenPremiumPage={() => { 
+              setActivePrefillFeature(null); 
+              setPremiumModalVisible(true); 
+            }} />
+
+          {/* 🔒 PREVIEW FITUR TERKUNCI (Poin 3 & 4) */}
+          <Text
+            style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '800', marginTop: 15, letterSpacing: 0.5 }}>
+            EKSKLUSIF PREMIUM FEATURES
+          </Text>
+
+          {/* Contoh Fitur 1: Advanced Fuel Analytics */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => handleTriggerPremiumLock('Advanced Fuel Analytics', 'Analisis mendalam konsumsi bahan bakar, grafik efisiensi, dan kalkulasi emisi performa mesin bulanan.')}
+            style={{ backgroundColor: '#1A2B3C', padding: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.02)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={{ fontSize: 18 }}>📈</Text>
+              <View>
+                <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '700' }}>Advanced Fuel Analytics</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Grafik efisiensi BBM mendalam</Text>
+              </View>
+            </View>
+            <Text
+              style={{ color: '#F5A623', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(245,166,35,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>🔒 PRO</Text>
+          </TouchableOpacity>
+
+          {/* Contoh Fitur 2: Export PDF Premium */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => handleTriggerPremiumLock('Export PDF Premium', 'Ekspor seluruh riwayat perawatan dan catatan log bensin kendaraan ke format berkas PDF cetak profesional tanpa watermark.')}
+            style={{ backgroundColor: '#1A2B3C', padding: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.02)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={{ fontSize: 18 }}>📄</Text>
+              <View>
+                <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '700' }}>Export PDF Laporan</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Cetak berkas laporan tanpa watermark</Text>
+              </View>
+            </View>
+            <Text
+              style={{ color: '#F5A623', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(245,166,35,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>🔒 PRO</Text>
+          </TouchableOpacity>
+
+        </View>
+
+      </ScrollView>
       {/* MODALS SECTION */}
       <AddRepairSheet
         visible={showAddSheet}
@@ -1308,9 +1424,7 @@ function AppContent() {
           setShowAddSheet(false);
           setEditingRepair(null);
           setPrefillServiceType(undefined);
-        }}
-      />
-
+        }} />
       <FuelSheet
         visible={showFuelSheet}
         vehicleId={selectedVehicleId}
@@ -1368,31 +1482,28 @@ function AppContent() {
           }
           setShowFuelSheet(false);
           setEditingFuel(null);
-        }}
-      />
-
+        }} />
       <VehicleEditModal
         visible={showVehicleModal}
         vehicle={editingVehicle}
         onClose={() => setShowVehicleModal(false)}
         onSave={handleVehicleSave}
-        onDelete={handleVehicleDelete}
-      />
-
-      <Modal 
-        visible={showOdoHistory} 
-        transparent 
-        animationType="slide" 
-        onRequestClose={() => setShowOdoHistory(false)}
-       >
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" }}>
-          <View style={{ height: "70%", backgroundColor: "#0D1B2A", borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        onDelete={handleVehicleDelete} />
+      <Modal
+        visible={showOdoHistory}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowOdoHistory(false)}>
+        <View
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" }}>
+          <View
+            style={{ height: "70%", backgroundColor: "#0D1B2A", borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20 }}>
+            <View
+              style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <Text style={{ color: "#FFF", fontSize: 20, fontWeight: "800" }}>Riwayat Odometer</Text>
-              <TouchableOpacity 
-                onPress={() => setShowOdoHistory(false)} 
-                style={{ backgroundColor: "rgba(255,255,255,0.1)", padding: 10, borderRadius: 15 }}
-              >
+              <TouchableOpacity
+                onPress={() => setShowOdoHistory(false)}
+                style={{ backgroundColor: "rgba(255,255,255,0.1)", padding: 10, borderRadius: 15 }}>
                 <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "bold" }}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -1400,7 +1511,9 @@ function AppContent() {
               {[...stats.vehicleRepairs.map(r => ({...r, source: 'Perbaikan', icon: '🛠️'})), ...stats.vehicleFuelEntries.map(f => ({...f, source: 'Bensin', icon: '⛽'}))]
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                 .map((item, idx) => (
-                  <View key={idx} style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 15, marginBottom: 10, alignItems: 'center' }}>
+                  <View
+                    key={idx}
+                    style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 15, marginBottom: 10, alignItems: 'center' }}>
                     <Text style={{ fontSize: 20, marginRight: 15 }}>{item.icon}</Text>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{item.source === 'Perbaikan' ? item.serviceType : `Isi ${item.liters} Liter`}</Text>
@@ -1413,9 +1526,13 @@ function AppContent() {
           </View>
         </View>
       </Modal>
-
-      <Modal visible={showPlanModal} transparent animationType="none" onRequestClose={() => setShowPlanModal(false)}>
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.9)", justifyContent: "center", alignItems: "center" }}>
+      <Modal
+        visible={showPlanModal}
+        transparent
+        animationType="none"
+        onRequestClose={() => setShowPlanModal(false)}>
+        <View
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.9)", justifyContent: "center", alignItems: "center" }}>
           <View
             style={{
               backgroundColor: "#1A2B3C",
@@ -1424,13 +1541,14 @@ function AppContent() {
               width: "85%",
               borderWidth: 1,
               borderColor: "rgba(255,255,255,0.1)",
-            }}
-          >
-            <Text style={{ color: "#FFF", fontSize: 18, fontWeight: "800", marginBottom: 20, textAlign: "center" }}>
+            }}>
+            <Text
+              style={{ color: "#FFF", fontSize: 18, fontWeight: "800", marginBottom: 20, textAlign: "center" }}>
               {lang === "id" ? "Tambah Rencana Perawatan" : "Add Maintenance Plan"}
             </Text>
 
-            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 8, fontWeight: "700" }}>
+            <Text
+              style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 8, fontWeight: "700" }}>
               {lang === "id" ? "NAMA PERBAIKAN" : "SERVICE NAME"}
             </Text>
             <TextInput
@@ -1446,10 +1564,10 @@ function AppContent() {
               placeholder="Contoh: Ganti Aki, Radiator..."
               placeholderTextColor="rgba(255,255,255,0.2)"
               value={planName}
-              onChangeText={setPlanName}
-            />
+              onChangeText={setPlanName} />
 
-            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 8, fontWeight: "700" }}>
+            <Text
+              style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 8, fontWeight: "700" }}>
               {lang === "id" ? "INTERVAL (SETIAP BERAPA KM?)" : "INTERVAL (KM)"}
             </Text>
             <TextInput
@@ -1466,14 +1584,12 @@ function AppContent() {
               placeholderTextColor="rgba(255,255,255,0.2)"
               keyboardType="numeric"
               value={planInterval}
-              onChangeText={(text) => setPlanInterval(text)}
-            />
+              onChangeText={(text) => setPlanInterval(text)} />
 
             <View style={{ flexDirection: "row", gap: 12 }}>
               <TouchableOpacity
                 onPress={() => setShowPlanModal(false)}
-                style={{ flex: 1, paddingVertical: 15, alignItems: "center" }}
-              >
+                style={{ flex: 1, paddingVertical: 15, alignItems: "center" }}>
                 <Text style={{ color: "rgba(255,255,255,0.4)", fontWeight: "700" }}>
                   {lang === "id" ? "Batal" : "Cancel"}
                 </Text>
@@ -1487,8 +1603,7 @@ function AppContent() {
                   borderRadius: 14,
                   paddingVertical: 15,
                   alignItems: "center",
-                }}
-              >
+                }}>
                 <Text style={{ color: "#0D1B2A", fontWeight: "800" }}>
                   {lang === "id" ? "Simpan Rencana" : "Save Plan"}
                 </Text>
@@ -1497,8 +1612,11 @@ function AppContent() {
           </View>
         </View>
       </Modal>
-
-      <Modal visible={showLangModal} transparent animationType="none" onRequestClose={() => setShowLangModal(false)}>
+      <Modal
+        visible={showLangModal}
+        transparent
+        animationType="none"
+        onRequestClose={() => setShowLangModal(false)}>
         <TouchableWithoutFeedback onPress={() => setShowLangModal(false)}>
           <View
             style={{
@@ -1506,8 +1624,7 @@ function AppContent() {
               backgroundColor: "rgba(0,0,0,0.8)",
               justifyContent: "center",
               alignItems: "center",
-            }}
-          >
+            }}>
             <TouchableWithoutFeedback>
               <View
                 style={{
@@ -1518,8 +1635,7 @@ function AppContent() {
                   maxWidth: 320,
                   borderWidth: 1,
                   borderColor: "rgba(255,255,255,0.1)",
-                }}
-              >
+                }}>
                 <Text
                   style={{
                     color: "#FFF",
@@ -1527,8 +1643,7 @@ function AppContent() {
                     fontWeight: "800",
                     textAlign: "center",
                     marginBottom: 24,
-                  }}
-                >
+                  }}>
                   {lang === "id" ? "Pilih Bahasa" : "Select Language"}
                 </Text>
                 {(["id", "en"] as const).map((l) => (
@@ -1546,16 +1661,14 @@ function AppContent() {
                       backgroundColor: lang === l ? "#F5A623" : "rgba(255,255,255,0.03)",
                       borderRadius: 16,
                       marginBottom: 12,
-                    }}
-                  >
+                    }}>
                     <Text style={{ fontSize: 22, marginRight: 12 }}>{l === "id" ? "🇮🇩" : "🇬🇧"}</Text>
                     <Text
                       style={{
                         color: lang === l ? "#0D1B2A" : "#FFFFFF",
                         fontSize: 16,
                         fontWeight: "800",
-                      }}
-                    >
+                      }}>
                       {l === "id" ? "Indonesia" : "English"}
                     </Text>
                   </TouchableOpacity>
@@ -1565,16 +1678,18 @@ function AppContent() {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-
-      <Modal visible={showDeleteConfirm} transparent animationType="none" onRequestClose={() => setShowDeleteConfirm(false)}>
+      <Modal
+        visible={showDeleteConfirm}
+        transparent
+        animationType="none"
+        onRequestClose={() => setShowDeleteConfirm(false)}>
         <View
           style={{
             flex: 1,
             backgroundColor: "rgba(7, 18, 28, 0.95)",
             justifyContent: "center",
             alignItems: "center",
-          }}
-        >
+          }}>
           <View
             style={{
               width: "85%",
@@ -1582,8 +1697,7 @@ function AppContent() {
               borderRadius: 32,
               padding: 30,
               alignItems: "center",
-            }}
-          >
+            }}>
             <View
               style={{
                 width: 40,
@@ -1591,8 +1705,7 @@ function AppContent() {
                 backgroundColor: "rgba(255,255,255,0.1)",
                 borderRadius: 2,
                 marginBottom: 25,
-              }}
-            />
+              }} />
 
             <Text
               style={{
@@ -1600,8 +1713,7 @@ function AppContent() {
                 fontSize: 20,
                 fontWeight: "800",
                 marginBottom: 10,
-              }}
-            >
+              }}>
               {lang === "id" ? "Hapus Riwayat?" : "Delete History?"}
             </Text>
 
@@ -1612,8 +1724,7 @@ function AppContent() {
                 fontSize: 14,
                 lineHeight: 22,
                 marginBottom: 35,
-              }}
-            >
+              }}>
               {lang === "id"
                 ? "Catatan pemeliharaan ini akan dihapus secara permanen dari riwayat kendaraan Anda."
                 : "This maintenance record will be permanently removed from your vehicle history."}
@@ -1629,8 +1740,7 @@ function AppContent() {
                   borderRadius: 20,
                   backgroundColor: "#FF5252",
                   alignItems: "center",
-                }}
-              >
+                }}>
                 <Text style={{ color: "#FFF", fontWeight: "800", fontSize: 16 }}>
                   {lang === "id" ? "Ya, Hapus Riwayat" : "Yes, Delete History"}
                 </Text>
@@ -1644,15 +1754,13 @@ function AppContent() {
                   paddingVertical: 16,
                   borderRadius: 20,
                   alignItems: "center",
-                }}
-              >
+                }}>
                 <Text
                   style={{
                     color: "rgba(255,255,255,0.4)",
                     fontWeight: "700",
                     fontSize: 15,
-                  }}
-                >
+                  }}>
                   {lang === "id" ? "Batal" : "Cancel"}
                 </Text>
               </TouchableOpacity>
@@ -1660,20 +1768,17 @@ function AppContent() {
           </View>
         </View>
       </Modal>
-
       <Modal
         visible={showCalendarModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowCalendarModal(false)}
-      >
+        onRequestClose={() => setShowCalendarModal(false)}>
         <View
           style={{
             flex: 1,
             backgroundColor: "rgba(0,0,0,0.85)",
             justifyContent: "center",
-          }}
-        >
+          }}>
           <View
             style={{
               margin: 20,
@@ -1683,8 +1788,7 @@ function AppContent() {
               overflow: "hidden",
               borderWidth: 1,
               borderColor: "rgba(255,255,255,0.1)",
-            }}
-          >
+            }}>
             <View
               style={{
                 flexDirection: "row",
@@ -1694,8 +1798,7 @@ function AppContent() {
                 backgroundColor: "rgba(255,255,255,0.02)",
                 borderBottomWidth: 1,
                 borderBottomColor: "rgba(255,255,255,0.05)",
-              }}
-            >
+              }}>
               <Text style={{ color: "#FFF", fontSize: 18, fontWeight: "800" }}>Jejak Kendaraan</Text>
               <TouchableOpacity onPress={() => setShowCalendarModal(false)}>
                 <View
@@ -1704,15 +1807,13 @@ function AppContent() {
                     paddingHorizontal: 12,
                     paddingVertical: 6,
                     borderRadius: 10,
-                  }}
-                >
+                  }}>
                   <Text
                     style={{
                       color: "#FF5252",
                       fontWeight: "800",
                       fontSize: 12,
-                    }}
-                  >
+                    }}>
                     TUTUP
                   </Text>
                 </View>
@@ -1730,8 +1831,7 @@ function AppContent() {
                 marginHorizontal: 10,
                 marginBottom: 15,
                 overflow: 'hidden',
-              }}
-            >
+              }}>
               {/* RUMUS ANDA TETAP UTUH 100% */}
               <MaintenanceCalendar
                 repairs={stats.vehicleRepairs}
@@ -1749,13 +1849,11 @@ function AppContent() {
                     ...fuelsOnDate.map((item) => ({ ...item, category: "fuel" })),
                   ];
                   setSelectedDateRecords(combined);
-                }}
-              />
+                }} />
             </View>
           </View>
         </View>
       </Modal>
-
       <NotifCenter
         visible={showNotifModal}
         onClose={() => setShowNotifModal(false)}
@@ -1764,8 +1862,14 @@ function AppContent() {
           setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
         }
         onMarkAllAsRead={() => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
-        onDelete={(id) => setNotifications((prev) => prev.filter((n) => n.id !== id))}
-      />
+        onDelete={(id) => setNotifications((prev) => prev.filter((n) => n.id !== id))} />
+      <PremiumPurchaseModal
+        visible={premiumModalVisible}
+        prefillFeature={activePrefillFeature}
+        onClose={() => {
+          setPremiumModalVisible(false);
+          setActivePrefillFeature(null);
+        }} />
     </View>
   );
 }

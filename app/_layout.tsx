@@ -9,6 +9,7 @@ import {
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
+import { PremiumProvider } from "@/context/PremiumContext";
 import {
   View,
   TouchableOpacity,
@@ -31,7 +32,8 @@ import { openFuelSheet, openRepairSheet } from "./index";
 const { width } = Dimensions.get("window");
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+// 1. Ubah fungsi utama Anda menjadi fungsi konten internal biasa (Hilangkan kata export default)
+function RootLayoutContent() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
@@ -58,6 +60,15 @@ export default function RootLayout() {
         <StatusBar style="light" />
       </ThemeProvider>
     </SafeAreaProvider>
+  );
+}
+
+// 2. KUNCI UTAMA: Jadikan PremiumProvider sebagai Root terluar yang diexport ke sistem Expo
+export default function RootLayout() {
+  return (
+    <PremiumProvider>
+      <RootLayoutContent />
+    </PremiumProvider>
   );
 }
 
