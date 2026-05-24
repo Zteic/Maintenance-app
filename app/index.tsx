@@ -14,6 +14,7 @@ import {
   Animated,
   TextInput,
   Alert,
+  Image,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Notifications from "expo-notifications";
@@ -868,14 +869,23 @@ function AppContent() {
                   <View
                     style={{
                       paddingHorizontal: 6,
-                      paddingVertical: 4,
+                      justifyContent: 'center',
+                      alignItems: 'center'
                     }}>
-                    <Text style={{ fontSize: 30 }}>{isPremium ? "👑" : "🔒"}</Text>
-                  </View>
+  <Image
+    source={isPremium ? require('../assets/images/Premium-Logo.png') : require('../assets/images/Basic-Logo.png')}
+    style={{ 
+      width: 50,
+      height: 26,  
+      transform: [{ scale: 3.3 }]
+    }}
+    resizeMode="contain"
+    className=" w-[175px] h-[86px]" />
+</View>
 
                   <Text
-                    style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800",marginTop: 14 }}
-                    className="w-[184px] h-[34px]">
+                    style={{ color: "#FFFFFF", fontSize: 22, marginLeft: 10,marginTop:0, fontFamily: "Windpower" }}
+                    className="w-[316px] h-[25px]">
                     {appName}
                   </Text>
                 </TouchableOpacity>
