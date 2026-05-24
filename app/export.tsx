@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  TextInput, Dimensions, ActivityIndicator, Alert, StatusBar, Platform 
+  TextInput, Dimensions, ActivityIndicator, Alert, StatusBar, Platform, LayoutAnimation, UIManager
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 // 🚀 PERBAIKAN: Menggunakan modul legacy agar fungsi getInfoAsync berjalan lancar di Expo 54
@@ -16,6 +16,10 @@ const { width } = Dimensions.get('window');
 
 const CURRENT_APP_NAME = "GarasiKu";
 const CURRENT_SCHEMA_VERSION = "2.1.0";
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function ExportScreen() {
   const router = useRouter();
@@ -63,6 +67,17 @@ export default function ExportScreen() {
     loadAllData();
   }, []);
 
+  useEffect(() => {
+    if (exportDone) {
+      const timer = setTimeout(() => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setExportDone(false);
+      }, 5000); 
+      
+      return () => clearTimeout(timer);
+    }
+  }, [exportDone]);
+
   // =========================================================
   // SMART DYNAMIC YEAR FINDER
   // =========================================================
@@ -89,11 +104,9 @@ export default function ExportScreen() {
       setSelectedVehicles(['all']);
     } else {
       setSelectedVehicles((prev) => {
-        // Hilangkan tanda 'all' jika user mulai memilih kendaraan spesifik
         const filtered = prev.filter(v => v !== 'all');
         if (filtered.includes(id)) {
           const next = filtered.filter(v => v !== id);
-          // Jika semua kendaraan batal dipilih, otomatis kembalikan ke 'all'
           return next.length === 0 ? ['all'] : next;
         } else {
           return [...filtered, id];
@@ -109,7 +122,6 @@ export default function ExportScreen() {
     let filteredRepairs = [...repairs];
     let filteredFuels = [...fuels];
 
-    // Perbaikan Multi-Vehicle Filter
     if (!selectedVehicles.includes('all')) {
       filteredRepairs = filteredRepairs.filter(r => selectedVehicles.includes(r.vehicleId));
       filteredFuels = filteredFuels.filter(f => selectedVehicles.includes(f.vehicleId));
@@ -177,10 +189,8 @@ export default function ExportScreen() {
       setProgressText("🔄 Preparing & Filtering Data...");
       await new Promise(r => setTimeout(r, 500));
 
-      // 1. Ambil daftar kendaraan yang ikut diexport
       const exportedVehicles = selectedVehicles.includes('all') ? vehicles : vehicles.filter(v => selectedVehicles.includes(v.id));
 
-      // 2. Hitung statistik spesifik untuk MASING-MASING kendaraan
       const vehicleStats = exportedVehicles.map(v => {
         const vRepairs = filteredRepairs.filter(r => r.vehicleId === v.id);
         const vFuels = filteredFuels.filter(f => f.vehicleId === v.id);
@@ -208,7 +218,6 @@ export default function ExportScreen() {
         };
       });
 
-      // 3. Totalkan untuk keperluan diagram batang (Bar Chart)
       const totalFuelCost = filteredFuels.reduce((sum, item) => sum + (item.totalCost || 0), 0);
       const totalServiceCost = filteredRepairs.reduce((sum, item) => sum + (item.cost || 0), 0);
       const totalExpense = totalFuelCost + totalServiceCost;
@@ -237,16 +246,12 @@ export default function ExportScreen() {
       const servPct = totalExpense > 0 ? Math.round((totalServiceCost / totalExpense) * 100) : 0;
       const formatRp = (num: number) => `Rp ${num.toLocaleString('id-ID')}`;
       const showVehicleBadge = selectedVehicles.includes('all') || selectedVehicles.length > 1;
-      // 🚀 LOGIKA GENERATOR QR CODE VERIFIKASI UNIK
+      
       const qrData = `GarasiKu|VERIFIED|Date:${new Date().toISOString().split('T')[0]}|Vehicles:${selectedVehicles.join('-')}|TotalCost:${totalExpense}`;
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(qrData)}`;
 
-      // 🚀 LOGIKA PENGUMPULAN FOTO AKTIVITAS & KENDARAAN
       let photosHTML = '';
-      
-      // Ambil foto dari riwayat aktivitas perbaikan/bensin yang memiliki property gambar
       const activitiesWithPhotos = allActivities.filter((a: any) => a.imageUri || a.photo || a.image || a.receiptImage);
-      // Ambil foto profil kendaraan jika ada
       const vehiclesWithPhotos = exportedVehicles.filter((v: any) => v.imageUri || v.photo || v.image);
 
       if (activitiesWithPhotos.length > 0 || vehiclesWithPhotos.length > 0) {
@@ -301,64 +306,93 @@ export default function ExportScreen() {
         `;
       }
 
+      const reportId = `VHDB-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+      const dateNow = new Date();
+      const footerTimestamp = `${dateNow.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} • ${dateNow.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB`;
+      
+      const isMultiVehicle = selectedVehicles.includes('all') || selectedVehicles.length > 1;
+      const vehicleFooterLabel = isMultiVehicle 
+        ? "Multi Vehicle Report" 
+        : (exportedVehicles.length === 1 ? `${exportedVehicles[0].name} • ${exportedVehicles[0].plate || exportedVehicles[0].plateNumber || '-'}` : "Multi Vehicle Report");
+
+      // 🚀 SOLUSI 2: Diberikan 'padding-top' & 'background' agar tidak saling tumpang tindih dengan data table
+      const runningFooterHTML = `
+        <tfoot class="report-footer">
+          <tr>
+            <td style="padding-top: 20px; background-color: #fff;">
+              <div class="footer-wrapper">
+                <div class="f-left">
+                  <div class="f-id">Report ID: ${reportId}</div>
+                  <div class="f-veh">${vehicleFooterLabel}</div>
+                </div>
+                <div class="f-center">
+                  <div class="f-title">Official Vehicle Analytics Report</div>
+                  <div style="font-size: 8px; margin-top: 2px;">Generated automatically by GarasiKu<br>${footerTimestamp}</div>
+                </div>
+                <div class="f-right">
+                  <span class="page-num"></span>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+      `;
+
     let appendixHTML = '';
       if (pdfReportType === 'hybrid') {
+        // 🚀 SOLUSI 1: ch-right dikosongkan agar nomor halaman tidak ganda
         appendixHTML = `
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div style="page-break-before: always; break-before: page;"></div>
-
-            <table class="report-wrapper">
-              <thead class="report-header">
-                <tr>
-                  <td>
-                    <div class="header">
-                      <div class="brand">
-                        <h1>${CURRENT_APP_NAME.toUpperCase()}</h1>
-                        <p>EXECUTIVE VEHICLE ANALYTICS</p>
-                      </div>
-                      <div class="doc-meta">
-                        <b>Generated:</b> ${new Date().toLocaleDateString('id-ID')}<br>
-                        <b>Report Scope:</b> Hybrid Premium Report<br>
-                        <b>Data Filter:</b> ${getPeriodLabel(period)}
-                      </div>
+          <div style="page-break-before: always; break-before: page;"></div>
+          
+          <table class="report-wrapper">
+            <thead class="report-header">
+              <tr>
+                <td>
+                  <div class="compact-header">
+                    <div class="ch-left">
+                      <span class="ch-brand">GARASIKU</span>
+                      <span class="ch-sub">Executive Vehicle Analytics</span>
                     </div>
-                  </td>
-                </tr>
-              </thead>
-              <tbody class="report-body">
-                <tr>
-                  <td>
-                    <h2 class="section-title">📊 LAMPIRAN HISTORI DATA LENGKAP (APPENDIX)</h2>
-                    <p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">Berikut adalah audit data log mentah dari database internal sistem GarasiKu.</p>
-                    <table class="detail-table">
-                      <thead>
+                    <div class="ch-center">LAMPIRAN HISTORY DATA LENGKAP (APPENDIX)</div>
+                    <div class="ch-right"></div>
+                  </div>
+                </td>
+              </tr>
+            </thead>
+            <tbody class="report-body">
+              <tr>
+                <td>
+                  <p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">Berikut adalah audit data log mentah dari database internal sistem GarasiKu.</p>
+                  <table class="detail-table">
+                    <thead>
+                      <tr>
+                        <th>Tanggal</th>
+                        ${showVehicleBadge ? '<th>Kendaraan</th>' : ''}
+                        <th>Kategori</th>
+                        <th>Aktivitas / Keterangan</th>
+                        <th>Odometer</th>
+                        <th>Total Biaya</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${allActivities.map(item => `
                         <tr>
-                          <th>Tanggal</th>
-                          ${showVehicleBadge ? '<th>Kendaraan</th>' : ''}
-                          <th>Kategori</th>
-                          <th>Aktivitas / Keterangan</th>
-                          <th>Odometer</th>
-                          <th>Total Biaya</th>
+                          <td>${new Date(item.date).toLocaleDateString('id-ID')}</td>
+                          ${showVehicleBadge ? `<td>${item.vehicleName}</td>` : ''}
+                          <td><b>${item.type}</b></td>
+                          <td>${item.icon} ${item.title}</td>
+                          <td>${item.odometer.toLocaleString('id-ID')} km</td>
+                          <td>${formatRp(item.displayCost)}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        ${allActivities.map(item => `
-                          <tr>
-                            <td>${new Date(item.date).toLocaleDateString('id-ID')}</td>
-                            ${showVehicleBadge ? `<td>${item.vehicleName}</td>` : ''}
-                            <td><b>${item.type}</b></td>
-                            <td>${item.icon} ${item.title}</td>
-                            <td>${item.odometer.toLocaleString('id-ID')} km</td>
-                            <td>${formatRp(item.displayCost)}</td>
-                          </tr>
-                        `).join('')}
-                      </tbody>
-                    </table>
-                    `;
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            </tbody>
+            ${runningFooterHTML}
+          </table>
+        `;
       }
 
       const htmlContent = `
@@ -371,7 +405,6 @@ export default function ExportScreen() {
           body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: #fff; color: #1B2C3C; margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
           .page { padding: 50px; box-sizing: border-box; background: #fff; min-height: 297mm; }
           
-          /* KODE CSS ANDA ASLI 100% TIDAK ADA YANG DIHAPUS */
           .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #0D1B2A; padding-bottom: 20px; margin-bottom: 25px; }
           .brand h1 { margin: 0; color: #0D1B2A; font-size: 26px; font-weight: 900; letter-spacing: 0.5px; }
           .brand p { margin: 4px 0 0; color: #4ECDC4; font-weight: 800; font-size: 12px; letter-spacing: 1px; }
@@ -427,17 +460,70 @@ export default function ExportScreen() {
           .qr-wrapper { display: block; margin: 15px auto 5px auto; text-align: center; }
           .qr-wrapper img { width: 85px; height: 85px; padding: 5px; border: 1px solid #eee; background: #fff; border-radius: 6px; }
 
-          /* 🚀 TAMBAHAN CSS UNTUK REPEATING HEADER */
-          table.report-wrapper { width: 100%; border-collapse: collapse; }
+          table.report-wrapper { width: 100%; border-collapse: collapse; page-break-inside: auto; }
           thead.report-header { display: table-header-group; }
+          thead.report-header td { padding-top: 50px; } 
           tbody.report-body { display: table-row-group; }
+          
+          body { counter-reset: page; }
+          tfoot.report-footer { display: table-footer-group; }
+          tfoot.report-footer td { padding-bottom: 50px; }
+          
+          .footer-wrapper {
+            margin-top: 15px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(0,0,0,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 9px;
+            color: #7f8c8d;
+          }
+          .f-left { text-align: left; line-height: 1.4; width: 33%; }
+          .f-center { text-align: center; line-height: 1.4; width: 33%; opacity: 0.85; }
+          .f-right { text-align: right; line-height: 1.4; width: 33%; }
+          .f-id { font-weight: 800; color: #0D1B2A; }
+          .f-veh { font-size: 8px; font-weight: 700; text-transform: uppercase; margin-top: 1px; color: #7f8c8d; }
+          .f-title { font-weight: 800; color: #0D1B2A; letter-spacing: 0.3px; font-size: 9px; }
+          
+          /* 🚀 SOLUSI 1: Nomor halaman eksklusif untuk tfoot saja */
+          .page-num::before { 
+            counter-increment: page; 
+            content: "Page " counter(page); 
+            font-weight: 800; 
+            color: #0D1B2A; 
+          }
+          
+          .final-verification {
+            text-align: center; 
+            font-size: 10px; 
+            color: #bdc3c7; 
+            padding-top: 30px; 
+            page-break-inside: avoid;
+          }
+
+          .compact-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1.5px solid #0D1B2A;
+            padding-bottom: 8px;
+            margin-bottom: 20px;
+            width: 100%;
+          }
+          .ch-left { text-align: left; flex: 1; }
+          .ch-brand { font-size: 13px; font-weight: 900; color: #0D1B2A; letter-spacing: 0.5px; display: block; }
+          .ch-sub { font-size: 8px; color: #4ECDC4; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+          .ch-center { text-align: center; flex: 1; font-size: 10px; font-weight: 800; color: #0D1B2A; letter-spacing: 0.5px; text-transform: uppercase; }
+          .ch-right { text-align: right; flex: 1; font-size: 10px; color: #7f8c8d; font-weight: 700; }
+
         </style>
       </head>
       <body>
         <div class="page">
+          
           <table class="report-wrapper">
-            
-            <thead class="report-header">
+            <tbody class="report-body">
               <tr>
                 <td>
                   <div class="header">
@@ -451,13 +537,7 @@ export default function ExportScreen() {
                       <b>Data Filter:</b> ${getPeriodLabel(period)}
                     </div>
                   </div>
-                </td>
-              </tr>
-            </thead>
-            
-            <tbody class="report-body">
-              <tr>
-                <td>
+
                   <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; margin-bottom: 25px; width: 100%;">
                     ${vehicleStats.map(vs => `
                       <div class="vehicle-card" style="margin-bottom: 0; background: transparent !important; border: 1px solid rgba(0, 0, 0, 0.25); border-radius: 12px; padding: 12px 15px; flex: 1; min-width: 200px; display: flex; justify-content: space-between; align-items: center; box-shadow: none;">
@@ -538,25 +618,55 @@ export default function ExportScreen() {
                         </div>
                      </div>
                   </div>
-
-                  <h2 class="section-title">📅 TIMELINE AKUMULASI BULANAN</h2>
-                  ${timelineHTML || `<p style="color:#7f8c8d; font-size:12px;">${isId ? 'Tidak ada data aktivitas di periode ini.' : 'No activities recorded in this period.'}</p>`}
-                  
-                  ${photosHTML}
-                  ${appendixHTML}
-
-                  <div class="footer">
-                    <div class="qr-wrapper">
-                      <img src="${qrCodeUrl}" alt="QR Verification" />
-                      <div style="font-size: 8px; color: #bdc3c7; margin-top: 4px; font-weight: bold; letter-spacing: 0.5px;">SECURE VERIFICATION QR</div>
-                    </div>
-                    Laporan ini dibuat secara otomatis dan sah melalui enkripsi local database GarasiKu v${CURRENT_SCHEMA_VERSION}.<br>
-                    &copy; ${new Date().getFullYear()} GarasiKu App. All rights reserved.
-                  </div>
                 </td>
               </tr>
             </tbody>
+            ${runningFooterHTML}
           </table>
+
+          <div style="page-break-before: always; break-before: page;"></div>
+          
+          <table class="report-wrapper">
+            <thead class="report-header">
+              <tr>
+                <td>
+                  <div class="compact-header">
+                    <div class="ch-left">
+                      <span class="ch-brand">GARASIKU</span>
+                      <span class="ch-sub">Executive Vehicle Analytics</span>
+                    </div>
+                    <div class="ch-center">TIMELINE AKUMULASI BULANAN</div>
+                    <div class="ch-right"></div>
+                  </div>
+                </td>
+              </tr>
+            </thead>
+            <tbody class="report-body">
+              <tr>
+                <td>
+                  ${timelineHTML || `<p style="color:#7f8c8d; font-size:12px;">${isId ? 'Tidak ada data aktivitas di periode ini.' : 'No activities recorded in this period.'}</p>`}
+                  ${photosHTML}
+                </td>
+              </tr>
+            </tbody>
+            ${runningFooterHTML}
+          </table>
+
+          ${appendixHTML}
+
+          <div style="page-break-before: always; break-before: page;"></div>
+          <div class="final-verification">
+            <div class="qr-wrapper">
+              <img src="${qrCodeUrl}" alt="QR Verification" />
+              <div style="font-size: 8px; color: #bdc3c7; margin-top: 4px; font-weight: bold; letter-spacing: 0.5px;">SECURE VERIFICATION QR</div>
+            </div>
+            <b style="color: #0D1B2A; letter-spacing: 1px; font-size: 11px;">ENCRYPTED VERIFICATION NOTICE</b><br>
+            <span style="font-size: 10px; color: #7f8c8d; line-height: 1.6; display: block; margin-top: 8px;">
+              Laporan ini dibuat secara otomatis dan sah melalui enkripsi local database GarasiKu v${CURRENT_SCHEMA_VERSION}.<br>
+              &copy; ${new Date().getFullYear()} GarasiKu App. All rights reserved.
+            </span>
+          </div>
+
         </div>
       </body>
       </html>
@@ -567,13 +677,11 @@ export default function ExportScreen() {
       const finalFilename = 'JagaGarasimu_Laporan';
 
       if (Platform.OS === 'web') {
-        // 🚀 SOLUSI WEB: Download sebagai file .html agar langsung terunduh otomatis
-        // karena browser tidak bisa membuat .pdf di background tanpa dialog Print.
         const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = finalFilename + '.html'; // Disimpan sebagai Laporan HTML
+        a.download = finalFilename + '.html'; 
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -625,30 +733,24 @@ export default function ExportScreen() {
       const allData = await AsyncStorage.multiGet(garasiKeys);
       let backupObj = Object.fromEntries(allData);
 
-      // 🚀 FILTER KHUSUS MULTI-VEHICLE BACKUP (.VHDB)
       if (!selectedVehicles.includes('all')) {
         try {
-          // Filter tabel vehicles
           if (backupObj.garasi_vehicles) {
             const allV = JSON.parse(backupObj.garasi_vehicles);
             backupObj.garasi_vehicles = JSON.stringify(allV.filter((v: any) => selectedVehicles.includes(v.id)));
           }
-          // Filter tabel repairs
           if (backupObj.garasi_repairs) {
             const allR = JSON.parse(backupObj.garasi_repairs);
             backupObj.garasi_repairs = JSON.stringify(allR.filter((r: any) => selectedVehicles.includes(r.vehicleId)));
           }
-          // Filter tabel fuels
           if (backupObj.garasi_fuel_entries) {
             const allF = JSON.parse(backupObj.garasi_fuel_entries);
             backupObj.garasi_fuel_entries = JSON.stringify(allF.filter((f: any) => selectedVehicles.includes(f.vehicleId)));
           }
-          // Filter tabel reminders
           if (backupObj.garasi_reminders) {
             const allRem = JSON.parse(backupObj.garasi_reminders);
             backupObj.garasi_reminders = JSON.stringify(allRem.filter((rem: any) => selectedVehicles.includes(rem.vehicleId)));
           }
-          // Filter tabel notifications
           if (backupObj.garasi_notifications) {
              const allNotif = JSON.parse(backupObj.garasi_notifications);
              backupObj.garasi_notifications = JSON.stringify(allNotif.filter((n: any) => !n.vehicleId || selectedVehicles.includes(n.vehicleId)));
@@ -685,7 +787,6 @@ export default function ExportScreen() {
         URL.revokeObjectURL(url);
         setExportDone(true);
       } else if (Platform.OS === 'android') {
-        // 🚀 OPSI DIRECT DOWNLOAD UNTUK ANDROID MENGGUNAKAN SAF
         const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (permissions.granted) {
           const savedUri = await FileSystem.StorageAccessFramework.createFileAsync(permissions.directoryUri, finalFilename, 'application/octet-stream');
@@ -696,7 +797,6 @@ export default function ExportScreen() {
           return;
         }
       } else {
-        // 🚀 OPSI IOS (Menggunakan Share Dialog)
         const fileUri = FileSystem.documentDirectory + finalFilename + '.vhdb';
         const fileInfo = await FileSystem.getInfoAsync(fileUri);
         if (fileInfo.exists) await FileSystem.deleteAsync(fileUri);
@@ -731,13 +831,10 @@ export default function ExportScreen() {
         const asset = result.assets[0];
         let content = "";
 
-        // 🚀 LOGIKA KHUSUS WEB VS MOBILE UNTUK BACA FILE
         if (Platform.OS === 'web') {
-          // Di Web, file yang dipilih menghasilkan Blob URI. Kita baca menggunakan fetch bawaan browser.
           const response = await fetch(asset.uri);
           content = await response.text();
         } else {
-          // Di Mobile (Android/iOS), baca file langsung dari memori
           content = await FileSystem.readAsStringAsync(asset.uri);
         }
         
@@ -748,12 +845,10 @@ export default function ExportScreen() {
           throw new Error("CORRUPTED");
         }
 
-        // Integrity Check (Mencegah file asing masuk ke sistem)
         if (!decrypted.meta || !decrypted.data || decrypted.meta.app_name !== CURRENT_APP_NAME) {
           throw new Error("INVALID_FORMAT");
         }
 
-        // Tampilkan antarmuka validasi (Staging Mode)
         setStagedFile({
           name: asset.name || 'Backup_Database.vhdb',
           version: decrypted.meta.schema_version,
@@ -763,7 +858,6 @@ export default function ExportScreen() {
         setStagedData(decrypted);
       }
     } catch (e: any) {
-       // Penanganan Error yang aman untuk Web & Mobile
        const isCorrupted = e.message === "CORRUPTED";
        const isInvalid = e.message === "INVALID_FORMAT";
        const title = isCorrupted ? "File Rusak" : (isInvalid ? "Format Tidak Dikenali" : "Error");
@@ -824,7 +918,6 @@ export default function ExportScreen() {
       setStagedData(null);
       setStagedFile(null);
       
-      // 🚀 Notifikasi Sukses yang aman untuk Web & Mobile
       if (Platform.OS === 'web') {
         window.alert("Restore Sukses!\n\nDatabase kendaraan telah berhasil dipulihkan.");
       } else {
