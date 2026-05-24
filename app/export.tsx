@@ -304,34 +304,61 @@ export default function ExportScreen() {
     let appendixHTML = '';
       if (pdfReportType === 'hybrid') {
         appendixHTML = `
-          <div style="page-break-before: always;"></div>
-          <h2 class="section-title">📊 LAMPIRAN HISTORI DATA LENGKAP (APPENDIX)</h2>
-          <p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">Berikut adalah audit data log mentah dari database internal sistem GarasiKu.</p>
-          <table class="detail-table">
-            <thead>
-              <tr>
-                <th>Tanggal</th>
-                ${showVehicleBadge ? '<th>Kendaraan</th>' : ''}
-                <th>Kategori</th>
-                <th>Aktivitas / Keterangan</th>
-                <th>Odometer</th>
-                <th>Total Biaya</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${allActivities.map(item => `
-                <tr>
-                  <td>${new Date(item.date).toLocaleDateString('id-ID')}</td>
-                  ${showVehicleBadge ? `<td>${item.vehicleName}</td>` : ''}
-                  <td><b>${item.type}</b></td>
-                  <td>${item.icon} ${item.title}</td>
-                  <td>${item.odometer.toLocaleString('id-ID')} km</td>
-                  <td>${formatRp(item.displayCost)}</td>
+                  </td>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
+              </tbody>
+            </table>
+
+            <div style="page-break-before: always; break-before: page;"></div>
+
+            <table class="report-wrapper">
+              <thead class="report-header">
+                <tr>
+                  <td>
+                    <div class="header">
+                      <div class="brand">
+                        <h1>${CURRENT_APP_NAME.toUpperCase()}</h1>
+                        <p>EXECUTIVE VEHICLE ANALYTICS</p>
+                      </div>
+                      <div class="doc-meta">
+                        <b>Generated:</b> ${new Date().toLocaleDateString('id-ID')}<br>
+                        <b>Report Scope:</b> Hybrid Premium Report<br>
+                        <b>Data Filter:</b> ${getPeriodLabel(period)}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </thead>
+              <tbody class="report-body">
+                <tr>
+                  <td>
+                    <h2 class="section-title">📊 LAMPIRAN HISTORI DATA LENGKAP (APPENDIX)</h2>
+                    <p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">Berikut adalah audit data log mentah dari database internal sistem GarasiKu.</p>
+                    <table class="detail-table">
+                      <thead>
+                        <tr>
+                          <th>Tanggal</th>
+                          ${showVehicleBadge ? '<th>Kendaraan</th>' : ''}
+                          <th>Kategori</th>
+                          <th>Aktivitas / Keterangan</th>
+                          <th>Odometer</th>
+                          <th>Total Biaya</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${allActivities.map(item => `
+                          <tr>
+                            <td>${new Date(item.date).toLocaleDateString('id-ID')}</td>
+                            ${showVehicleBadge ? `<td>${item.vehicleName}</td>` : ''}
+                            <td><b>${item.type}</b></td>
+                            <td>${item.icon} ${item.title}</td>
+                            <td>${item.odometer.toLocaleString('id-ID')} km</td>
+                            <td>${formatRp(item.displayCost)}</td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                    `;
       }
 
       const htmlContent = `
@@ -343,6 +370,8 @@ export default function ExportScreen() {
           @page { size: A4 portrait; margin: 0; }
           body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: #fff; color: #1B2C3C; margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
           .page { padding: 50px; box-sizing: border-box; background: #fff; min-height: 297mm; }
+          
+          /* KODE CSS ANDA ASLI 100% TIDAK ADA YANG DIHAPUS */
           .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #0D1B2A; padding-bottom: 20px; margin-bottom: 25px; }
           .brand h1 { margin: 0; color: #0D1B2A; font-size: 26px; font-weight: 900; letter-spacing: 0.5px; }
           .brand p { margin: 4px 0 0; color: #4ECDC4; font-weight: 800; font-size: 12px; letter-spacing: 1px; }
@@ -391,129 +420,147 @@ export default function ExportScreen() {
           .mini-list-item .v-name { font-size: 10px; color: #7f8c8d; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
           .mini-list-item .v-val { font-size: 13px; color: #0D1B2A; font-weight: 900; margin-top: 3px; }
           .insight-item .mini-list { border-top-color: rgba(245,166,35,0.2); }
-          /* CSS Khusus Layout Media Foto & QR Code */
           .photo-grid { width: 100%; text-align: left; margin-top: 10px; }
           .photo-box { display: inline-block; width: 155px; margin: 8px; border: 1px solid #e1e8ed; padding: 6px; border-radius: 8px; vertical-align: top; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
           .photo-box img { width: 100%; height: 110px; object-fit: cover; border-radius: 6px; background: #f5f7f8; }
           .photo-box .photo-caption { font-size: 9px; color: #555; margin-top: 6px; line-height: 12px; text-align: center; word-wrap: break-word; }
           .qr-wrapper { display: block; margin: 15px auto 5px auto; text-align: center; }
           .qr-wrapper img { width: 85px; height: 85px; padding: 5px; border: 1px solid #eee; background: #fff; border-radius: 6px; }
+
+          /* 🚀 TAMBAHAN CSS UNTUK REPEATING HEADER */
+          table.report-wrapper { width: 100%; border-collapse: collapse; }
+          thead.report-header { display: table-header-group; }
+          tbody.report-body { display: table-row-group; }
         </style>
       </head>
       <body>
         <div class="page">
-          <div class="header">
-            <div class="brand">
-              <h1>${CURRENT_APP_NAME.toUpperCase()}</h1>
-              <p>EXECUTIVE VEHICLE ANALYTICS</p>
-            </div>
-            <div class="doc-meta">
-              <b>Generated:</b> ${new Date().toLocaleDateString('id-ID')}<br>
-              <b>Report Scope:</b> ${pdfReportType === 'summary' ? 'Summary Executive Only' : 'Hybrid Premium Report'}<br>
-              <b>Data Filter:</b> ${getPeriodLabel(period)}
-            </div>
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px;">
-            ${vehicleStats.map(vs => `
-              <div class="vehicle-card" style="margin-bottom: 0;">
-                <div class="v-info">
-                  <h2>🚗 ${vs.name}</h2>
-                  <p>${vs.brand || ''} ${vs.model || ''} &bull; Plat: ${vs.plate || '-'}</p>
-                </div>
-                <div class="v-stats">
-                  <h3>${vs.vCurrentOdo.toLocaleString('id-ID')} km</h3>
-                  <p>Current Odometer</p>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-
-          <div class="dashboard">
-            <div class="stat-card">
-              <span>Total Pengeluaran</span>
-              <div class="mini-list">
-                ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">${formatRp(vs.vTotalExpense)}</div></div>`).join('')}
-              </div>
-            </div>
-            <div class="stat-card">
-              <span>Log Pengisian BBM</span>
-              <div class="mini-list">
-                ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">${vs.vFuelCount}x Fill (${vs.vFuelLiters.toFixed(1)}L)</div></div>`).join('')}
-              </div>
-            </div>
-            <div class="stat-card">
-              <span>Log Servis/Mekanik</span>
-              <div class="mini-list">
-                ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">${vs.vServiceCount}x Aktivitas</div></div>`).join('')}
-              </div>
-            </div>
-            <div class="stat-card">
-              <span>Kenaikan Jarak</span>
-              <div class="mini-list">
-                ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">+${vs.vOdoIncrease.toLocaleString('id-ID')} km</div></div>`).join('')}
-              </div>
-            </div>
-          </div>
-
-          <div class="chart-section">
-            <h3>📈 Distribusi Anggaran Pemeliharaan</h3>
-            <div class="bar-wrap">
-              <div class="bar-label">⛽ Biaya Bensin</div>
-              <div class="bar-track"><div class="bar-fill fuel"></div></div>
-              <div class="bar-val">${formatRp(totalFuelCost)} (${fuelPct}%)</div>
-            </div>
-            <div class="bar-wrap">
-              <div class="bar-label">🛠️ Biaya Servis</div>
-              <div class="bar-track"><div class="bar-fill serv"></div></div>
-              <div class="bar-val">${formatRp(totalServiceCost)} (${servPct}%)</div>
-            </div>
-          </div>
-
-          <div class="insight-card">
-             <div class="insight-item" style="border-right: 1px dashed rgba(245,166,35,0.3); padding-right:10px;">
-                <h4>💡 Pengeluaran Bengkel Terbesar</h4>
-                <div class="mini-list">
-                  ${vehicleStats.map(vs => `
-                    <div class="mini-list-item">
-                      <div class="v-name">${vs.name}</div>
-                      <div class="v-val">${vs.vMaxService.serviceType !== '-' ? `${vs.vMaxService.serviceType} <br><span style="font-weight:600; color:#7f8c8d; font-size:11px;">${formatRp(vs.vMaxService.cost)}</span>` : '-'}</div>
+          <table class="report-wrapper">
+            
+            <thead class="report-header">
+              <tr>
+                <td>
+                  <div class="header">
+                    <div class="brand">
+                      <h1>${CURRENT_APP_NAME.toUpperCase()}</h1>
+                      <p>EXECUTIVE VEHICLE ANALYTICS</p>
                     </div>
-                  `).join('')}
-                </div>
-             </div>
-             <div class="insight-item">
-                <h4>⛽ Transaksi BBM Tertinggi</h4>
-                <div class="mini-list">
-                  ${vehicleStats.map(vs => `
-                    <div class="mini-list-item">
-                      <div class="v-name">${vs.name}</div>
-                      <div class="v-val">${vs.vMaxFuel > 0 ? formatRp(vs.vMaxFuel) : '-'}</div>
+                    <div class="doc-meta">
+                      <b>Generated:</b> ${new Date().toLocaleDateString('id-ID')}<br>
+                      <b>Report Scope:</b> ${pdfReportType === 'summary' ? 'Summary Executive Only' : 'Hybrid Premium Report'}<br>
+                      <b>Data Filter:</b> ${getPeriodLabel(period)}
                     </div>
-                  `).join('')}
-                </div>
-             </div>
-          </div>
+                  </div>
+                </td>
+              </tr>
+            </thead>
+            
+            <tbody class="report-body">
+              <tr>
+                <td>
+                  <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; margin-bottom: 25px; width: 100%;">
+                    ${vehicleStats.map(vs => `
+                      <div class="vehicle-card" style="margin-bottom: 0; background: transparent !important; border: 1px solid rgba(0, 0, 0, 0.25); border-radius: 12px; padding: 12px 15px; flex: 1; min-width: 200px; display: flex; justify-content: space-between; align-items: center; box-shadow: none;">
+                        <div class="v-info">
+                          <h2 style="font-size: 16px; margin: 0 0 2px 0; color: #000000;"> ${vs.name}</h2>
+                          <p style="font-size: 11px; margin: 0; color: #000000; opacity: 0.6;">${vs.brand || ''} ${vs.model || ''} &bull; ${vs.plate || '-'}</p>
+                        </div>
+                        <div class="v-stats" style="text-align: right;">
+                          <h3 style="font-size: 16px; margin: 0; color: #4ECDC4; font-family: monospace;">${vs.vCurrentOdo.toLocaleString('id-ID')} km</h3>
+                          <p style="font-size: 9px; margin: 0; color: #000000; opacity: 0.5; text-transform: uppercase; font-weight: bold;">Odometer</p>
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
 
-          <h2 class="section-title">📅 TIMELINE AKUMULASI BULANAN</h2>
-          ${timelineHTML || `<p style="color:#7f8c8d; font-size:12px;">${isId ? 'Tidak ada data aktivitas di periode ini.' : 'No activities recorded in this period.'}</p>`}
-          
-          ${photosHTML}
-          ${appendixHTML}
+                  <div class="dashboard">
+                    <div class="stat-card">
+                      <span>Total Pengeluaran</span>
+                      <div class="mini-list">
+                        ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">${formatRp(vs.vTotalExpense)}</div></div>`).join('')}
+                      </div>
+                    </div>
+                    <div class="stat-card">
+                      <span>Log Pengisian BBM</span>
+                      <div class="mini-list">
+                        ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">${vs.vFuelCount}x Fill (${vs.vFuelLiters.toFixed(1)}L)</div></div>`).join('')}
+                      </div>
+                    </div>
+                    <div class="stat-card">
+                      <span>Log Servis/Mekanik</span>
+                      <div class="mini-list">
+                        ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">${vs.vServiceCount}x Aktivitas</div></div>`).join('')}
+                      </div>
+                    </div>
+                    <div class="stat-card">
+                      <span>Kenaikan Jarak</span>
+                      <div class="mini-list">
+                        ${vehicleStats.map(vs => `<div class="mini-list-item"><div class="v-name">${vs.name}</div><div class="v-val">+${vs.vOdoIncrease.toLocaleString('id-ID')} km</div></div>`).join('')}
+                      </div>
+                    </div>
+                  </div>
 
-          <div class="footer">
-            <div class="qr-wrapper">
-              <img src="${qrCodeUrl}" alt="QR Verification" />
-              <div style="font-size: 8px; color: #bdc3c7; margin-top: 4px; font-weight: bold; letter-spacing: 0.5px;">SECURE VERIFICATION QR</div>
-            </div>
-            Laporan ini dibuat secara otomatis dan sah melalui enkripsi local database GarasiKu v${CURRENT_SCHEMA_VERSION}.<br>
-            &copy; ${new Date().getFullYear()} GarasiKu App. All rights reserved.
-          </div>
+                  <div class="chart-section">
+                    <h3>📈 Distribusi Anggaran Pemeliharaan</h3>
+                    <div class="bar-wrap">
+                      <div class="bar-label">⛽ Biaya Bensin</div>
+                      <div class="bar-track"><div class="bar-fill fuel"></div></div>
+                      <div class="bar-val">${formatRp(totalFuelCost)} (${fuelPct}%)</div>
+                    </div>
+                    <div class="bar-wrap">
+                      <div class="bar-label">🛠️ Biaya Servis</div>
+                      <div class="bar-track"><div class="bar-fill serv"></div></div>
+                      <div class="bar-val">${formatRp(totalServiceCost)} (${servPct}%)</div>
+                    </div>
+                  </div>
+
+                  <div class="insight-card">
+                     <div class="insight-item" style="border-right: 1px dashed rgba(245,166,35,0.3); padding-right:10px;">
+                        <h4>💡 Pengeluaran Bengkel Terbesar</h4>
+                        <div class="mini-list">
+                          ${vehicleStats.map(vs => `
+                            <div class="mini-list-item">
+                              <div class="v-name">${vs.name}</div>
+                              <div class="v-val">${vs.vMaxService.serviceType !== '-' ? `${vs.vMaxService.serviceType} <br><span style="font-weight:600; color:#7f8c8d; font-size:11px;">${formatRp(vs.vMaxService.cost)}</span>` : '-'}</div>
+                            </div>
+                          `).join('')}
+                        </div>
+                     </div>
+                     <div class="insight-item">
+                        <h4>⛽ Transaksi BBM Tertinggi</h4>
+                        <div class="mini-list">
+                          ${vehicleStats.map(vs => `
+                            <div class="mini-list-item">
+                              <div class="v-name">${vs.name}</div>
+                              <div class="v-val">${vs.vMaxFuel > 0 ? formatRp(vs.vMaxFuel) : '-'}</div>
+                            </div>
+                          `).join('')}
+                        </div>
+                     </div>
+                  </div>
+
+                  <h2 class="section-title">📅 TIMELINE AKUMULASI BULANAN</h2>
+                  ${timelineHTML || `<p style="color:#7f8c8d; font-size:12px;">${isId ? 'Tidak ada data aktivitas di periode ini.' : 'No activities recorded in this period.'}</p>`}
+                  
+                  ${photosHTML}
+                  ${appendixHTML}
+
+                  <div class="footer">
+                    <div class="qr-wrapper">
+                      <img src="${qrCodeUrl}" alt="QR Verification" />
+                      <div style="font-size: 8px; color: #bdc3c7; margin-top: 4px; font-weight: bold; letter-spacing: 0.5px;">SECURE VERIFICATION QR</div>
+                    </div>
+                    Laporan ini dibuat secara otomatis dan sah melalui enkripsi local database GarasiKu v${CURRENT_SCHEMA_VERSION}.<br>
+                    &copy; ${new Date().getFullYear()} GarasiKu App. All rights reserved.
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </body>
       </html>
       `;
-
       setProgressText("🚀 Finalizing PDF Document...");
       await new Promise(r => setTimeout(r, 400));
 
