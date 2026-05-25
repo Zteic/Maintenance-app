@@ -38,6 +38,8 @@ import {
   saveFuelEntries,
   loadNotifications,
   saveNotifications,
+  loadFuelStatsResetDate,
+   saveFuelStatsResetDate,
 } from "@/utils/storage";
 import { usePremium } from '@/context/PremiumContext';
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
@@ -165,6 +167,16 @@ function AppContent() {
   const [historyCustomStart, setHistoryCustomStart] = useState('');
   const [historyCustomEnd, setHistoryCustomEnd] = useState('');
   const [appName, setAppName] = useState("");
+
+  // 🚀 STATE KHUSUS FUEL STATS (Diangkat agar tidak bikin lag di Tab Fuel)
+  const [hideFuelStats, setHideFuelStats] = useState(false);
+  const [statsResetDate, setStatsResetDate] = useState<string | null>(null);
+
+  const toggleFuelStats = () => {
+    const newVal = !hideFuelStats;
+    setHideFuelStats(newVal);
+    AsyncStorage.setItem('garasi_hide_fuel_stats', newVal ? 'true' : 'false');
+  };
   const [isEditingName, setIsEditingName] = useState(false);
 
   // Load Nama Aplikasi & Smart Reminders
@@ -172,6 +184,8 @@ function AppContent() {
     AsyncStorage.getItem('garasi_hide_search').then(val => { if (val) setHideSearch(val === 'true'); });
     AsyncStorage.getItem('garasi_smart_reminders').then(data => { if (data) setOneTimeReminders(JSON.parse(data)); });
     AsyncStorage.getItem("custom_app_name").then(savedName => { setAppName(savedName || t("appName")); });
+    AsyncStorage.getItem('garasi_hide_fuel_stats').then(val => { if (val === 'true') setHideFuelStats(true); });
+    loadFuelStatsResetDate().then((d) => setStatsResetDate(d));
   }, []);
 
   // Save Smart Reminders
@@ -494,7 +508,7 @@ function AppContent() {
         
         {/* TAB 1: HOME */}
         {activeTab === "home" && (
-          <ScrollView overScrollMode="never" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 150, paddingTop: 10, gap: 20 }}>
+          <ScrollView key="tab-home" overScrollMode="never" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 150, paddingTop: 10, gap: 20 }}>
             {stats.selectedVehicle ? (
               <>
                 <VehicleProfileCard vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }} onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }} onOdometerPress={() => setShowOdoHistory(true)} />
@@ -502,7 +516,11 @@ function AppContent() {
                 <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
                   <View style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
                     <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>{t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}</Text>
-                    <Text style={{ color: "#F5A623", fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>
+                    <Text 
+  numberOfLines={1} 
+  adjustsFontSizeToFit 
+  style={{ color: "#F5A623", fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}
+>
                       {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(stats.monthlyCost)}
                     </Text>
                     <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, gap: 4 }}>
@@ -545,7 +563,7 @@ function AppContent() {
 
         {/* TAB 2: HISTORY */}
         {activeTab === "history" && (
-          <View style={{ flex: 1 }}>
+          <View key="tab-history" style={{ flex: 1, paddingTop: 10 }}>
             {appMode === 'advance' && !hideSearch && (
               <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
@@ -603,7 +621,7 @@ function AppContent() {
 
         {/* TAB 3: FUEL */}
         {activeTab === "fuel" && (
-          <View style={{ flex: 1 }}>
+          <View key="tab-fuel" style={{ flex: 1, paddingTop: 10 }}>
             {appMode === 'advance' && !hideSearch && (
               <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
@@ -642,6 +660,13 @@ function AppContent() {
             <View style={{ flex: 1 }}>
               <FuelLog
                 fuelEntries={finalFuelData} vehicle={stats.selectedVehicle} appMode={appMode} hideSearch={hideSearch} onToggleSearch={toggleSearch}
+                hideStats={hideFuelStats}
+                onToggleStats={toggleFuelStats}
+                statsResetDate={statsResetDate}
+                onUpdateResetDate={(date) => {
+                  setStatsResetDate(date);
+                  saveFuelStatsResetDate(date);
+                }}
                 onAdd={() => { setEditingFuel(null); setShowFuelSheet(true); }}
                 onEdit={(entry) => { setEditingFuel(entry); setShowFuelSheet(true); }}
                 onDelete={(id) => {
@@ -659,7 +684,7 @@ function AppContent() {
 
         {/* TAB 4: PROFILE */}
         {activeTab === "profile" && (
-          <ScrollView overScrollMode="never" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 150, paddingTop: 10, paddingHorizontal: 20, gap: 15 }}>
+          <ScrollView key="tab-profile" overScrollMode="never" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 150, paddingTop: 10, paddingHorizontal: 20, gap: 15 }}>
             <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginTop: 10, marginBottom: 5 }}>{lang === 'id' ? 'Profil Saya' : 'My Profile'}</Text>
             <AccountStatsGrid />
             <PremiumSection onOpenPremiumPage={() => { setActivePrefillFeature(null); setPremiumModalVisible(true); }} />

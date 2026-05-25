@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, Alert, Modal, Dimensions, Platform, FlatList } from 'react-native';
 import { RepairEntry } from '@/types/maintenance';
 import { useLanguage } from '@/context/LanguageContext';
@@ -97,11 +97,13 @@ function RepairHistoryComponent({
     }).map((r) => (r.date instanceof Date ? r.date : new Date(r.date)).getDate())
   );
 
-  const sorted = [...repairs].sort((a, b) => {
-    const dA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
-    const dB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
-    return dB - dA;
-  });
+  const sorted = useMemo(() => {
+    return [...repairs].sort((a, b) => {
+      const dA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
+      const dB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
+      return dB - dA;
+    });
+  }, [repairs]);
   
   return (
     <View style={{ flex: 1, paddingHorizontal: 20 }}>
