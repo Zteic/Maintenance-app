@@ -112,12 +112,12 @@ function AppNavigationOverlay() {
     return () => subscription.remove();
   }, [pathname]);
 
-  // 🚀 OPTIMASI UTAMA: Memakai teknik Micro-Task scheduling agar UI langsung berubah tanpa lag
+  // 🚀 REVISI OPTIMASI: Menggunakan suspensi jeda mikro agar transisi warna navbar instan dan mulus di Android
   const handleNavPress = useCallback((tabName: string) => {
-    setActiveTab(tabName); // Optimistic Update (Warna navbar langsung berubah seketika)
+    setActiveTab(tabName); // Optimistic Update (Warna navbar langsung berubah seketika tanpa delay)
     
-    // Gunakan requestAnimationFrame agar animasi klik selesai dulu sebelum router mengeksekusi perpindahan halaman yang berat
-    requestAnimationFrame(() => {
+    // Memberikan napas bagi UI Thread selama 20 milidetik sebelum memproses logika router yang berat
+    setTimeout(() => {
       if (tabName === "profile") {
         if (pathname !== "/profile") router.push("/profile");
       } else {
@@ -130,7 +130,7 @@ function AppNavigationOverlay() {
           });
         }
       }
-    });
+    }, 20);
   }, [pathname]);
 
   const handleFabAction = useCallback(() => {

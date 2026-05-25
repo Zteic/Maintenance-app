@@ -67,7 +67,7 @@ interface RepairHistoryProps {
   onToggleSearch?: () => void;
 }
 
-export default function RepairHistory({ 
+function RepairHistoryComponent({ 
   repairs, 
   onEdit, 
   onDelete, 
@@ -491,3 +491,5 @@ export default function RepairHistory({
     </View>
   );
 }
+
+export default React.memo(RepairHistoryComponent);

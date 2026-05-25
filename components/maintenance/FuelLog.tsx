@@ -57,7 +57,7 @@ const getFuelLogo = (providerName: string) => {
   return null; // Balik ke ikon standar jika tidak cocok
 };
 
-export default function FuelLog({
+function FuelLogComponent({
   fuelEntries,
   vehicle,
   appMode = 'basic',
@@ -586,3 +586,5 @@ const styles = StyleSheet.create({
   fullImage: { width: "100%", height: "100%" },
   closeButton: { position: "absolute", bottom: 40, alignSelf: "center", backgroundColor: "rgba(255,255,255,0.2)", paddingVertical: 10, paddingHorizontal: 30, borderRadius: 20 },
 });
+
+export default React.memo(FuelLogComponent);
