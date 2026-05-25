@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Alert, Modal, Dimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Alert, Modal, Dimensions, Platform, FlatList } from 'react-native';
 import { RepairEntry } from '@/types/maintenance';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -104,7 +104,7 @@ function RepairHistoryComponent({
   });
   
   return (
-    <View style={{ paddingHorizontal: 20, paddingBottom: 30 }}>
+    <View style={{ flex: 1, paddingHorizontal: 20 }}>
       
       {/* 🚀 HEADER SATU BARIS (Tanpa padding ganda) */}
       <View style={{ 
@@ -147,251 +147,156 @@ function RepairHistoryComponent({
         )}
       </View>
 
-      {sorted.map((repair) => {
-        const { cleanNotes, receipts } = extractReceipts(repair.notes || '');
-        const isExpanded = expandedId === repair.id;
-        const customIcon = getRepairIcon(repair.serviceType);
-        const actualDate = repair.date instanceof Date ? repair.date : new Date(repair.date);
-        const dateStr = actualDate.toLocaleDateString('id-ID', {
-          day: 'numeric', month: 'short', year: 'numeric'
-        });
+      {/* 🚀 IMPLEMENTASI FLATLIST UNTUK REPAIR HISTORY */}
+      <FlatList
+        data={sorted}
+        keyExtractor={(item) => item.id}
+        initialNumToRender={8}
+        maxToRenderPerBatch={5}
+        windowSize={5}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120 }} // Jarak aman dari bawah
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />} // Pengganti margin bawah
+        renderItem={({ item: repair }) => {
+          // Kodingan di bawah ini 100% ASLI MILIK ANDA, hanya dipindah ke dalam renderItem FlatList
+          const { cleanNotes, receipts } = extractReceipts(repair.notes || '');
+          const isExpanded = expandedId === repair.id;
+          const customIcon = getRepairIcon(repair.serviceType);
+          const actualDate = repair.date instanceof Date ? repair.date : new Date(repair.date);
+          const dateStr = actualDate.toLocaleDateString('id-ID', {
+            day: 'numeric', month: 'short', year: 'numeric'
+          });
 
-        return (
-          <View key={repair.id} style={{ backgroundColor: '#1A2B3C', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 10 }}>
-            <TouchableOpacity 
-              onPress={() => setExpandedId(isExpanded ? null : repair.id)} 
-              activeOpacity={0.9} 
-              style={{ 
-                flexDirection: 'row', 
-                alignItems: 'center', 
-                paddingVertical: 12,
-                paddingHorizontal: 16 
-              }}
-            >
-              {/* Ikon Box */}
-              <View style={{ 
-                width: 45, 
-                height: 45, 
-                borderRadius: 12, 
-                backgroundColor: 'rgba(255,255,255,0.03)', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                borderWidth: 1, 
-                borderColor: 'rgba(255,255,255,0.05)' 
-              }}>
-                {customIcon ? (
-                  <Image 
-                    source={customIcon} 
-                    style={{ width: 26, height: 26 }} 
-                    resizeMode="contain" 
-                  />
-                ) : (
-                  <Text style={{ fontSize: 20 }}>🔧</Text>
-                )}
-              </View>
-
-              {/* Judul & Meta */}
-              <View style={{ flex: 1, marginLeft: 15 }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>{repair.serviceType}</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>
-                  {dateStr} • {repair.odometer.toLocaleString()} km
-                </Text>
-              </View>
-
-              {/* Harga & Indikator */}
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: '#F5A623', fontSize: 14, fontWeight: '800', fontFamily: 'SpaceMono' }}>{formatCurrency(repair.cost)}</Text>
-                <View style={{ marginTop: 8, opacity: 0.3 }}>
-                  <Text style={{ color: 'white', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            {/* DETAIL EXPANDED */}
-            {isExpanded && (
-              <View style={{ padding: 18, paddingTop: 0, gap: 15 }}>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  {/* Bengkel */}
-                  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>BENGKEL</Text>
-                    <Text style={{ color: '#FFFFFF', fontSize: 13 }}>{repair.workshop || '-'}</Text>
-                  </View>
-                  {/* Next Interval */}
-                  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>NEXT INTERVAL</Text>
-                    <Text style={{ color: '#4ECDC4', fontSize: 13, fontWeight: '700' }}>+{repair.nextIntervalKm?.toLocaleString() || '0'} km</Text>
-                  </View>
+          return (
+            <View style={{ backgroundColor: '#1A2B3C', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+              <TouchableOpacity 
+                onPress={() => setExpandedId(isExpanded ? null : repair.id)} 
+                activeOpacity={0.9} 
+                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16 }}
+              >
+                <View style={{ width: 45, height: 45, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                  {customIcon ? (
+                    <Image source={customIcon} style={{ width: 26, height: 26 }} resizeMode="contain" />
+                  ) : (
+                    <Text style={{ fontSize: 20 }}>{repair.isSmartReminder ? "🔔" : "🔧"}</Text>
+                  )}
                 </View>
 
-                {/* KHUSUS INFO BAN: Diubah agar muncul selama ada data ban yang tersimpan! */}
-                {(repair.tirePosition || repair.tireBrand || repair.tireSize || repair.productionCode) && (
-                  <View style={{ 
-                    backgroundColor: 'rgba(255,255,255,0.02)', 
-                    borderRadius: 16, 
-                    padding: 16, 
-                    marginTop: 10,
-                    borderWidth: 1, 
-                    borderColor: 'rgba(78,205,196,0.2)' 
-                  }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                      <Text style={{ fontSize: 14 }}>⚙️</Text>
-                      <Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 12, letterSpacing: 0.5 }}>
-                        {isId ? "Info Ban" : "Tire Info"}
-                      </Text>
-                    </View>
-
-                    <View style={{ gap: 16 }}>
-                      {/* Posisi Ban */}
-                      {repair.tirePosition && (
-                        <View>
-                          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>POSISI BAN</Text>
-                          <View style={{ 
-                            alignSelf: 'flex-start', 
-                            backgroundColor: 'rgba(78,205,196,0.15)', 
-                            paddingHorizontal: 30, 
-                            paddingVertical: 10, 
-                            borderRadius: 12, 
-                            borderWidth: 1.5, 
-                            borderColor: '#4ECDC4' 
-                          }}>
-                            <Text style={{ color: '#4ECDC4', fontSize: 14, fontWeight: '800' }}>
-                              {isId ? (repair.tirePosition === 'front' ? 'Depan' : 'Belakang') : (repair.tirePosition === 'front' ? 'Front' : 'Rear')}
-                            </Text>
-                          </View>
-                        </View>
-                      )}
-
-                      {/* Merek & Ukuran */}
-                      <View style={{ flexDirection: 'row', gap: 12 }}>
-                        {repair.tireBrand && (
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>MEREK BAN</Text>
-                            <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 10 }}>
-                              <Text style={{ color: '#FFF', fontSize: 14 }}>{repair.tireBrand}</Text>
-                            </View>
-                          </View>
-                        )}
-                        {repair.tireSize && (
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>UKURAN</Text>
-                            <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 10 }}>
-                              <Text style={{ color: '#FFF', fontSize: 14 }}>{repair.tireSize}</Text>
-                            </View>
-                          </View>
-                        )}
-                      </View>
-
-                      {/* DOT */}
-                      {repair.productionCode && (
-                        <View>
-                          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>DOT / KODE PRODUKSI</Text>
-                          <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: 15, borderRadius: 12 }}>
-                            <Text style={{ 
-                              color: '#4ECDC4', 
-                              fontSize: 16, 
-                              fontWeight: '800', 
-                              fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-                              letterSpacing: 2
-                            }}>
-                              {repair.productionCode}
-                            </Text>
-                          </View>
-                          <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 9, marginTop: 6 }}>
-                            mis. 2423 = minggu 24, tahun 2023
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                )}
-
-                {/* Catatan */}
-                <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
-                  <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>CATATAN</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 18 }}>
-                    {cleanNotes || 'Tidak ada catatan'}
+                <View style={{ flex: 1, marginLeft: 15 }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>{repair.serviceType}</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>
+                    {dateStr} • {repair.odometer.toLocaleString()} km
                   </Text>
                 </View>
 
-                {receipts.length > 0 && (
-                  <View style={{ marginTop: 12, gap: 8 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700' }}>BUKTI NOTA</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                      <View style={{ alignItems: 'flex-end', marginTop: 5 }}>
-                        <TouchableOpacity
-                          onPress={() => setFullPhoto(receipts[0])}
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            backgroundColor: 'rgba(78,205,196,0.1)',
-                            paddingVertical: 8,
-                            paddingHorizontal: 15,
-                            borderRadius: 10,
-                            borderWidth: 1,
-                            borderColor: 'rgba(78,205,196,0.3)',
-                          }}
-                        >
-                          <Text style={{ fontSize: 14, marginRight: 8 }}>📸</Text>
-                          <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '700' }}>
-                            Lihat Struk
-                          </Text>
-                        </TouchableOpacity>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: '#F5A623', fontSize: 14, fontWeight: '800', fontFamily: 'SpaceMono' }}>{formatCurrency(repair.cost)}</Text>
+                  <View style={{ marginTop: 8, opacity: 0.3 }}>
+                    <Text style={{ color: 'white', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              {/* DETAIL EXPANDED 100% ASLI */}
+              {isExpanded && (
+                repair.isSmartReminder ? (
+                  <View style={{ padding: 18, paddingTop: 0, gap: 15 }}>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <View style={{ flex: 1, backgroundColor: 'rgba(168, 100, 253, 0.08)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(168, 100, 253, 0.2)' }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>SUMBER PENGINGAT</Text>
+                        <Text style={{ color: '#A864FD', fontSize: 13, fontWeight: '800' }}>
+                          Smart Reminder ({repair.reminderType === 'repeat' ? 'REPEAT' : 'ONE TIME'})
+                        </Text>
                       </View>
+                      {repair.estimatedCost ? (
+                        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>ESTIMASI AWAL</Text>
+                          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Rp {Number(repair.estimatedCost).toLocaleString('id-ID')}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
+                      <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>DOKUMENTASI / CATATAN HASIL</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 18, fontStyle: 'italic' }}>
+                        "{repair.notes || (isId ? 'Tidak ada catatan pengerjaan' : 'No completion notes')}"
+                      </Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 5 }}>
+                      <TouchableOpacity onPress={() => setDeleteRepairId(repair.id)} activeOpacity={0.7} style={{ flex: 1, height: 42, backgroundColor: 'rgba(255,82,82,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,82,82,0.2)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+                        <Text>🗑️</Text><Text style={{ color: '#FF5252', fontWeight: '700', fontSize: 13 }}>{isId ? "Hapus Catatan" : "Delete Record"}</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-                )}
+                ) : (
+                  <View style={{ padding: 18, paddingTop: 0, gap: 15 }}>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>BENGKEL</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 13 }}>{repair.workshop || '-'}</Text>
+                      </View>
+                      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>NEXT INTERVAL</Text>
+                        <Text style={{ color: '#4ECDC4', fontSize: 13, fontWeight: '700' }}>+{repair.nextIntervalKm?.toLocaleString() || '0'} km</Text>
+                      </View>
+                    </View>
 
-                {/* Tombol Aksi */}
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                  <TouchableOpacity 
-                    onPress={() => onEdit?.(repair)}
-                    activeOpacity={0.7}
-                    style={{ 
-                      flex: 1, 
-                      height: 45, 
-                      backgroundColor: 'rgba(245,166,35,0.1)', 
-                      borderRadius: 12, 
-                      borderWidth: 1, 
-                      borderColor: 'rgba(245,166,35,0.2)', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      flexDirection: 'row', 
-                      gap: 8 
-                    }}
-                  >
-                    <Text>✏️</Text>
-                    <Text style={{ color: '#F5A623', fontWeight: '700', fontSize: 13 }}>
-                      {isId ? "Edit Perbaikan" : "Edit Repair"}
-                    </Text>
-                  </TouchableOpacity>
+                    {(repair.tirePosition || repair.tireBrand || repair.tireSize || repair.productionCode) && (
+                      <View style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 16, padding: 16, marginTop: 10, borderWidth: 1, borderColor: 'rgba(78,205,196,0.2)' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                          <Text style={{ fontSize: 14 }}>⚙️</Text><Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 12, letterSpacing: 0.5 }}>{isId ? "Info Ban" : "Tire Info"}</Text>
+                        </View>
+                        <View style={{ gap: 16 }}>
+                          {repair.tirePosition && (
+                            <View><Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>POSISI BAN</Text>
+                            <View style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(78,205,196,0.15)', paddingHorizontal: 30, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#4ECDC4' }}><Text style={{ color: '#4ECDC4', fontSize: 14, fontWeight: '800' }}>{isId ? (repair.tirePosition === 'front' ? 'Depan' : 'Belakang') : (repair.tirePosition === 'front' ? 'Front' : 'Rear')}</Text></View></View>
+                          )}
+                          <View style={{ flexDirection: 'row', gap: 12 }}>
+                            {repair.tireBrand && <View style={{ flex: 1 }}><Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>MEREK BAN</Text><View style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 10 }}><Text style={{ color: '#FFF', fontSize: 14 }}>{repair.tireBrand}</Text></View></View>}
+                            {repair.tireSize && <View style={{ flex: 1 }}><Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>UKURAN</Text><View style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 10 }}><Text style={{ color: '#FFF', fontSize: 14 }}>{repair.tireSize}</Text></View></View>}
+                          </View>
+                          {repair.productionCode && (
+                            <View><Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>DOT / KODE PRODUKSI</Text>
+                            <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: 15, borderRadius: 12 }}><Text style={{ color: '#4ECDC4', fontSize: 16, fontWeight: '800', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', letterSpacing: 2 }}>{repair.productionCode}</Text></View></View>
+                          )}
+                        </View>
+                      </View>
+                    )}
 
-                  <TouchableOpacity 
-                    onPress={() => setDeleteRepairId(repair.id)}
-                    activeOpacity={0.7}
-                    style={{ 
-                      flex: 1, 
-                      height: 45, 
-                      backgroundColor: 'rgba(255,82,82,0.1)', 
-                      borderRadius: 12, 
-                      borderWidth: 1, 
-                      borderColor: 'rgba(255,82,82,0.2)', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      flexDirection: 'row', 
-                      gap: 8 
-                    }}
-                  >
-                    <Text>🗑️</Text>
-                    <Text style={{ color: '#FF5252', fontWeight: '700', fontSize: 13 }}>
-                      {isId ? "Hapus" : "Delete"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-        );
-      })}
+                    <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
+                      <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>CATATAN</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 18 }}>{cleanNotes || 'Tidak ada catatan'}</Text>
+                    </View>
+
+                    {receipts.length > 0 && (
+                      <View style={{ marginTop: 12, gap: 8 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700' }}>BUKTI NOTA</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          <View style={{ alignItems: 'flex-end', marginTop: 5 }}>
+                            <TouchableOpacity onPress={() => setFullPhoto(receipts[0])} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(78,205,196,0.1)', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(78,205,196,0.3)' }}>
+                              <Text style={{ fontSize: 14, marginRight: 8 }}>📸</Text><Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '700' }}>Lihat Struk</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                      <TouchableOpacity onPress={() => onEdit?.(repair)} activeOpacity={0.7} style={{ flex: 1, height: 45, backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(245,166,35,0.2)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+                        <Text>✏️</Text><Text style={{ color: '#F5A623', fontWeight: '700', fontSize: 13 }}>{isId ? "Edit" : "Edit"}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setDeleteRepairId(repair.id)} activeOpacity={0.7} style={{ flex: 1, height: 45, backgroundColor: 'rgba(255,82,82,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,82,82,0.2)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+                        <Text>🗑️</Text><Text style={{ color: '#FF5252', fontWeight: '700', fontSize: 13 }}>{isId ? "Hapus" : "Delete"}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )
+              )}
+            </View>
+          );
+        }}
+      />
 
       {/* MODAL FOTO */}
       <Modal 

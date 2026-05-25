@@ -9,6 +9,7 @@ import {
   Dimensions,
   StyleSheet,
   Alert,
+  FlatList,
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FuelEntry, Vehicle } from "@/types/maintenance";
@@ -182,225 +183,88 @@ function FuelLogComponent({
   };
 
   return (
-    <View style={{ paddingHorizontal: 20, paddingBottom: 30 }}>
+    <View style={{ flex: 1 }}>
+      
+      {/* 🚀 IMPLEMENTASI FLATLIST UNTUK FUEL LOG */}
+      <FlatList
+        data={sorted}
+        keyExtractor={(item) => item.id}
+        initialNumToRender={8}
+        maxToRenderPerBatch={5}
+        windowSize={5}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }} // Jarak aman dari tombol FAB
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />} // Pengganti jarak antar item
+        
+        // --- HEADER & STATS DIPINDAH KE SINI ---
+        ListHeaderComponent={
+          <>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, marginBottom: 15 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Text style={{ fontSize: 20 }}>⛽</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 }}>
+                  {isId ? "Riwayat BBM" : "Fuel Log"}
+                </Text>
 
-      {/* Modal Preview Foto Struk (Biarkan isinya utuh) */}
-      <Modal visible={!!selectedImage} transparent animationType="fade">
-        <TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedImage(null)} style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {selectedImage && <Image source={{ uri: selectedImage }} style={styles.fullImage} resizeMode="contain" />}
-            <TouchableOpacity onPress={() => setSelectedImage(null)} style={styles.closeButton}>
-              <Text style={{ color: "#FFF", fontWeight: "bold" }}>{isId ? "TUTUP" : "CLOSE"}</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+                {appMode === 'advance' && fuelEntries.length > 0 && (
+                  <TouchableOpacity activeOpacity={0.9} onPress={toggleStats} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, marginLeft: 2 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>{hideStats ? '⮛' : '⮙'}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
 
-      {/* --- HEADER UTAMA --- */}
-      <View style={{
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 10,
-        marginBottom: 15
-      }}>
-        {/* Kiri: Ikon, Judul & Toggle Stats */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Text style={{ fontSize: 20 }}>⛽</Text>
-          <Text style={{
-            color: '#FFFFFF',
-            fontSize: 18,
-            fontWeight: '800',
-            letterSpacing: 0.5,
-          }}>
-            {isId ? "Riwayat BBM" : "Fuel Log"}
-          </Text>
-
-          {appMode === 'advance' && fuelEntries.length > 0 && (
-            <TouchableOpacity activeOpacity={0.9} onPress={toggleStats} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, marginLeft: 2 }}>
-              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>{hideStats ? '⮛' : '⮙'}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Kanan: Tombol Toggle Search & Tambah */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {appMode === 'advance' && (
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={onToggleSearch}
-              style={{
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                borderRadius: 8,
-              }}
-            >
-              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>
-                {hideSearch ? '⮛' : '⮙'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-       {/* Stats Summary - HANYA TAMPIL DI ADVANCE MODE & JIKA TIDAK DI-HIDE */}
-      {appMode === 'advance' && !hideStats && fuelEntries.length > 0 && (
-        <View style={{ marginBottom: 15 }}>
-          
-          {/* Banner Konsumsi */}
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: 'rgba(78,205,196,0.08)',
-            paddingHorizontal: 20,
-            paddingVertical: 18,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: 'rgba(78,205,196,0.3)',
-            marginBottom: 8 // Memberi jarak dengan teks reset di bawahnya
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Text style={{ fontSize: 24 }}>⛽</Text>
-              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, letterSpacing: 1, fontWeight: "800" }}>
-                {isId ? "RATA-RATA KONSUMSI" : "AVG CONSUMPTION"}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                {appMode === 'advance' && (
+                  <TouchableOpacity activeOpacity={0.9} onPress={onToggleSearch} style={{ paddingHorizontal: 10, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>{hideSearch ? '⮛' : '⮙'}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-            <Text style={{ color: "#4ECDC4", fontSize: 22, fontWeight: "900", fontFamily: "SpaceMono" }}>
-              {/* Akan benar-benar tampil 0.0 jika avgKmPerL bernilai 0 */}
-              {avgKmPerL > 0 ? avgKmPerL.toFixed(1) : "0.0"} <Text style={{ fontSize: 12, fontWeight: "600", color: "rgba(255,255,255,0.4)" }}>km/L</Text>
-            </Text>
-          </View>
 
-          {/* Baris Informasi Tanggal & Tombol Reset */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 }}>
-            <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: 1, fontWeight: '700' }}>
-              {(() => {
-                const resetEntry = statsResetDate ? fuelEntries.find(e => e.id === statsResetDate) : null;
-                if (resetEntry) {
-                  return isId ? `DIHITUNG SETELAH: ${resetEntry.date}` : `CALCULATING AFTER: ${resetEntry.date}`;
-                }
-                return isId ? "PERHITUNGAN AKTIF" : "CALCULATION ACTIVE";
-              })()}
-            </Text>
-            
-            {!showResetConfirm ? (
-              <TouchableOpacity onPress={() => setShowResetConfirm(true)} activeOpacity={0.9} style={{ padding: 4 }}>
-                <Text style={{ color: '#FF5252', fontSize: 10, fontWeight: '800' }}>🔄 {isId ? "Reset" : "Reset"}</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={{ flexDirection: 'row', gap: 15 }}>
-                <TouchableOpacity onPress={handleUndoReset} activeOpacity={0.9} style={{ padding: 4 }}>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '800' }}>↶ {isId ? "Batal" : "Undo"}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={confirmReset} activeOpacity={0.9} style={{ padding: 4 }}>
-                  <Text style={{ color: '#4ECDC4', fontSize: 10, fontWeight: '800' }}>✓ {isId ? "Simpan" : "Save"}</Text>
-                </TouchableOpacity>
+            {appMode === 'advance' && !hideStats && fuelEntries.length > 0 && (
+              <View style={{ marginBottom: 15 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(78,205,196,0.08)', paddingHorizontal: 20, paddingVertical: 18, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(78,205,196,0.3)', marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Text style={{ fontSize: 24 }}>⛽</Text>
+                    <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, letterSpacing: 1, fontWeight: "800" }}>{isId ? "RATA-RATA KONSUMSI" : "AVG CONSUMPTION"}</Text>
+                  </View>
+                  <Text style={{ color: "#4ECDC4", fontSize: 22, fontWeight: "900", fontFamily: "SpaceMono" }}>
+                    {avgKmPerL > 0 ? avgKmPerL.toFixed(1) : "0.0"} <Text style={{ fontSize: 12, fontWeight: "600", color: "rgba(255,255,255,0.4)" }}>km/L</Text>
+                  </Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, letterSpacing: 1, fontWeight: '700' }}>
+                    {(() => {
+                      const resetEntry = statsResetDate ? fuelEntries.find(e => e.id === statsResetDate) : null;
+                      if (resetEntry) return isId ? `DIHITUNG SETELAH: ${resetEntry.date}` : `CALCULATING AFTER: ${resetEntry.date}`;
+                      return isId ? "PERHITUNGAN AKTIF" : "CALCULATION ACTIVE";
+                    })()}
+                  </Text>
+                  
+                  {!showResetConfirm ? (
+                    <TouchableOpacity onPress={() => setShowResetConfirm(true)} activeOpacity={0.9} style={{ padding: 4 }}>
+                      <Text style={{ color: '#FF5252', fontSize: 10, fontWeight: '800' }}>🔄 {isId ? "Reset" : "Reset"}</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={{ flexDirection: 'row', gap: 15 }}>
+                      <TouchableOpacity onPress={handleUndoReset} activeOpacity={0.9} style={{ padding: 4 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '800' }}>↶ {isId ? "Batal" : "Undo"}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={confirmReset} activeOpacity={0.9} style={{ padding: 4 }}>
+                        <Text style={{ color: '#4ECDC4', fontSize: 10, fontWeight: '800' }}>✓ {isId ? "Simpan" : "Save"}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
               </View>
             )}
-          </View>
-
-        </View>
-      )}
-
-      {/* Custom Delete Confirmation Modal - Minimalist Version */}
-<Modal visible={!!deleteId} transparent animationType="fade">
-  <View style={{ 
-    flex: 1, 
-    backgroundColor: 'rgba(7, 18, 28, 0.95)', // Backdrop lebih gelap & solid
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  }}>
-    <View style={{ 
-      width: '85%', 
-      backgroundColor: '#162431', 
-      borderRadius: 32, 
-      padding: 30,
-      alignItems: 'center',
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.3,
-      shadowRadius: 20,
-      elevation: 10,
-    }}>
-      {/* Indicator Garis Tipis di Atas (Gaya iOS) */}
-      <View style={{ width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, marginBottom: 25 }} />
-
-      <Text style={{ 
-        color: '#FFF', 
-        fontSize: 20, 
-        fontWeight: '800', 
-        marginBottom: 10,
-        letterSpacing: -0.5 
-      }}>
-        {isId ? "Hapus Catatan" : "Delete Record"}
-      </Text>
-      
-      <Text style={{ 
-        color: 'rgba(255,255,255,0.4)', 
-        textAlign: 'center', 
-        fontSize: 14,
-        lineHeight: 22, 
-        marginBottom: 35,
-        paddingHorizontal: 10
-      }}>
-        {isId 
-          ? "Tindakan ini tidak dapat dibatalkan. Data bensin akan hilang dari riwayat." 
-          : "This action cannot be undone. Fuel data will be removed from history."}
-      </Text>
-
-      <View style={{ width: '100%', gap: 12 }}>
-        {/* Tombol Hapus - Dibuat Bold & Utama */}
-        <TouchableOpacity 
-          onPress={() => {
-            if (deleteId) {
-              onDelete?.(deleteId);
-              setDeleteId(null);
-            }
-          }}
-          activeOpacity={0.9}
-          style={{ 
-            width: '100%', 
-            paddingVertical: 16, 
-            borderRadius: 20, 
-            backgroundColor: '#FF5252',
-            alignItems: 'center',
-            shadowColor: "#FF5252",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-          }}
-        >
-          <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 16 }}>
-            {isId ? "Ya, Hapus Data" : "Yes, Delete Data"}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Tombol Batal - Dibuat Tanpa Background (Ghost Button) */}
-        <TouchableOpacity 
-          onPress={() => setDeleteId(null)}
-          activeOpacity={0.9}
-          style={{ 
-            width: '100%', 
-            paddingVertical: 16, 
-            borderRadius: 20, 
-            backgroundColor: 'transparent',
-            alignItems: 'center' 
-          }}
-        >
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '700', fontSize: 15 }}>
-            {isId ? "Mungkin Nanti" : "Maybe Later"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-</Modal>
-
-      {/* List View */}
-      <View style={{ gap: 10 }}>
-        {sorted.map((entry) => {
+          </>
+        }
+        
+        // --- ISI LIST KARTU BBM 100% ASLI MILIK ANDA ---
+        renderItem={({ item: entry }) => {
           const providerName = entry.provider || entry.notes || ""; 
           const logo = getFuelLogo(providerName);
           const isExpanded = expandedId === entry.id;
@@ -421,109 +285,97 @@ function FuelLogComponent({
           const isFlagged = eff?.isFlagged || entry.isFlagged;
 
           return (
-  <View key={entry.id} style={[styles.entryCard, isFlagged && { borderColor: "rgba(255,82,82,0.4)" }]}>
-    
-    {/* 1. BAGIAN HEADER (Selalu Tampil & Bisa Diklik) */}
-    <TouchableOpacity 
-      activeOpacity={0.9}
-      onPress={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
-      style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}
-    >
-      {/* Container Sisi Kiri (Ikon + Teks Utama) */}
-      <View style={{ flexDirection: "row", gap: 10, flex: 1 }}>
-        <View style={styles.iconBox}>
-          {logo ? (
-            <Image 
-              source={logo} 
-              style={{ width: 24, height: 24 }} 
-              resizeMode="contain" 
-            />
-          ) : (
-            <Text style={{ fontSize: 18 }}>⛽</Text>
-          )}
-        </View>
+            <View style={[styles.entryCard, isFlagged && { borderColor: "rgba(255,82,82,0.4)" }]}>
+              <TouchableOpacity activeOpacity={0.9} onPress={() => setExpandedId(expandedId === entry.id ? null : entry.id)} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <View style={{ flexDirection: "row", gap: 10, flex: 1 }}>
+                  <View style={styles.iconBox}>
+                    {logo ? <Image source={logo} style={{ width: 24, height: 24 }} resizeMode="contain" /> : <Text style={{ fontSize: 18 }}>⛽</Text>}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "800" }}>{entry.liters.toFixed(1)} L</Text>
+                      <Text style={{ color: "#F5A623", fontSize: 12, fontWeight: "700" }}>• {fuelInfo}</Text>
+                    </View>
+                    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{entry.date} · {entry.odometer.toLocaleString()} km</Text>
+                  </View>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                  <Text style={styles.totalPriceText}>{formatCurrency(entry.totalCost)}</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>{expandedId === entry.id ? '▲' : '▼'}</Text>
+                </View>
+              </TouchableOpacity>
 
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "800" }}>{entry.liters.toFixed(1)} L</Text>
-            <Text style={{ color: "#F5A623", fontSize: 12, fontWeight: "700" }}>• {fuelInfo}</Text>
-          </View>
-          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>
-            {entry.date} · {entry.odometer.toLocaleString()} km
-          </Text>
-        </View>
-      </View>
+              {expandedId === entry.id && (
+                <View style={{ marginTop: 16, gap: 12 }}>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    <View style={styles.miniStatBox}>
+                      <Text style={styles.miniLabel}>HARGA/L</Text>
+                      <Text style={styles.miniValue}>{formatCurrency(entry.pricePerLiter)}</Text>
+                    </View>
+                    {eff && (
+                      <View style={styles.miniStatBox}>
+                        <Text style={styles.miniLabel}>KM/LITER</Text>
+                        <Text style={[styles.miniValue, { color: isFlagged ? "#FF5252" : "#4ECDC4" }]}>{eff.kmPerL.toFixed(1)}</Text>
+                      </View>
+                    )}
+                  </View>
 
-      {/* Container Sisi Kanan (Harga & Indikator Panah) */}
-      <View style={{ alignItems: 'flex-end', gap: 4 }}>
-        <Text style={styles.totalPriceText}>{formatCurrency(entry.totalCost)}</Text>
-        <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>
-          {expandedId === entry.id ? '▲' : '▼'}
-        </Text>
-      </View>
-    </TouchableOpacity>
+                  {userDescription ? <Text style={styles.descriptionText}>"{userDescription}"</Text> : null}
+                  
+                  {receiptUrl && (
+                    <TouchableOpacity onPress={() => setSelectedImage(receiptUrl)} style={styles.receiptButton}>
+                      <Text style={styles.receiptButtonText}>📸 {isId ? "Lihat Struk" : "View Receipt"}</Text>
+                    </TouchableOpacity>
+                  )}
 
-    {/* 2. BAGIAN DETAIL (Hanya Muncul Jika expandedId cocok) */}
-    {expandedId === entry.id && (
-      <View style={{ marginTop: 16, gap: 12 }}>
-        
-        {/* Statistik Kecil */}
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <View style={styles.miniStatBox}>
-            <Text style={styles.miniLabel}>HARGA/L</Text>
-            <Text style={styles.miniValue}>{formatCurrency(entry.pricePerLiter)}</Text>
-          </View>
-          {eff && (
-            <View style={styles.miniStatBox}>
-              <Text style={styles.miniLabel}>KM/LITER</Text>
-              <Text style={[styles.miniValue, { color: isFlagged ? "#FF5252" : "#4ECDC4" }]}>{eff.kmPerL.toFixed(1)}</Text>
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 4, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 12 }}>
+                    <TouchableOpacity onPress={() => onEdit?.(entry)} activeOpacity={0.9} style={{ flex: 1, height: 45, backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(245,166,35,0.2)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+                      <Text>✏️</Text><Text style={{ color: '#F5A623', fontWeight: '700', fontSize: 13 }}>{isId ? "Edit" : "Edit"}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setDeleteId(entry.id)} activeOpacity={0.9} style={{ flex: 1, height: 45, backgroundColor: 'rgba(255,82,82,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,82,82,0.2)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+                      <Text>🗑️</Text><Text style={{ color: '#FF5252', fontWeight: '700', fontSize: 13 }}>{isId ? "Hapus" : "Delete"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </View>
-          )}
+          );
+        }}
+      />
+
+      {/* --- MODAL TETAP BERADA DI LUAR FLATLIST AGAR AMAN --- */}
+      <Modal visible={!!selectedImage} transparent animationType="fade">
+        <TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedImage(null)} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {selectedImage && <Image source={{ uri: selectedImage }} style={styles.fullImage} resizeMode="contain" />}
+            <TouchableOpacity onPress={() => setSelectedImage(null)} style={styles.closeButton}>
+              <Text style={{ color: "#FFF", fontWeight: "bold" }}>{isId ? "TUTUP" : "CLOSE"}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={!!deleteId} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(7, 18, 28, 0.95)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ width: '85%', backgroundColor: '#162431', borderRadius: 32, padding: 30, alignItems: 'center', shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10 }}>
+            <View style={{ width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, marginBottom: 25 }} />
+            <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '800', marginBottom: 10, letterSpacing: -0.5 }}>{isId ? "Hapus Catatan" : "Delete Record"}</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', fontSize: 14, lineHeight: 22, marginBottom: 35, paddingHorizontal: 10 }}>
+              {isId ? "Tindakan ini tidak dapat dibatalkan. Data bensin akan hilang dari riwayat." : "This action cannot be undone. Fuel data will be removed."}
+            </Text>
+
+            <View style={{ width: '100%', gap: 12 }}>
+              <TouchableOpacity onPress={() => { if (deleteId) { onDelete?.(deleteId); setDeleteId(null); } }} activeOpacity={0.9} style={{ width: '100%', paddingVertical: 16, borderRadius: 20, backgroundColor: '#FF5252', alignItems: 'center' }}>
+                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 16 }}>{isId ? "Ya, Hapus Data" : "Yes, Delete Data"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setDeleteId(null)} activeOpacity={0.9} style={{ width: '100%', paddingVertical: 16, borderRadius: 20, backgroundColor: 'transparent', alignItems: 'center' }}>
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '700', fontSize: 15 }}>{isId ? "Mungkin Nanti" : "Maybe Later"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
+      </Modal>
 
-        {/* Catatan & Struk */}
-        {userDescription ? <Text style={styles.descriptionText}>"{userDescription}"</Text> : null}
-        
-        {receiptUrl && (
-          <TouchableOpacity onPress={() => setSelectedImage(receiptUrl)} style={styles.receiptButton}>
-            <Text style={styles.receiptButtonText}>📸 {isId ? "Lihat Struk" : "View Receipt"}</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Tombol Aksi */}
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 12 }}>
-          <TouchableOpacity 
-            onPress={() => onEdit?.(entry)}
-            activeOpacity={0.9}
-            style={{ 
-              flex: 1, height: 45, backgroundColor: 'rgba(245,166,35,0.1)', borderRadius: 12, 
-              borderWidth: 1, borderColor: 'rgba(245,166,35,0.2)', alignItems: 'center', 
-              justifyContent: 'center', flexDirection: 'row', gap: 8 
-            }}
-          >
-            <Text>✏️</Text>
-            <Text style={{ color: '#F5A623', fontWeight: '700', fontSize: 13 }}>{isId ? "Edit" : "Edit"}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            onPress={() => handleDelete(entry.id)}
-            activeOpacity={0.9}
-            style={{ 
-              flex: 1, height: 45, backgroundColor: 'rgba(255,82,82,0.1)', borderRadius: 12, 
-              borderWidth: 1, borderColor: 'rgba(255,82,82,0.2)', alignItems: 'center', 
-              justifyContent: 'center', flexDirection: 'row', gap: 8 
-            }}
-          >
-            <Text>🗑️</Text>
-            <Text style={{ color: '#FF5252', fontWeight: '700', fontSize: 13 }}>{isId ? "Hapus" : "Delete"}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    )}
-  </View>
-);
-        })}
-      </View>
     </View>
   );
 } // 🚀 KUNCI PERBAIKAN: Kurung ini wajib ada untuk menutup fungsi FuelLog sebelum masuk ke styles!
