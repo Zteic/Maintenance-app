@@ -227,10 +227,22 @@ function ProfileContent() {
       Alert.alert("Error", "Backup failed.");
     }
   };
+  useEffect(() => {
+    if (showPriceUpdate) {
+      router.setParams({ hideNavbar: 'true' });
+    } else {
+      router.setParams({ hideNavbar: 'false' });
+    }
+  }, [showPriceUpdate]);
 
-  // 3. Conditional Return (Letakkan di sini agar tidak melanggar aturan Hook)
   if (showPriceUpdate) {
-    return <FuelPriceUpdate onBack={() => setShowPriceUpdate(false)} />;
+    return (
+      <FuelPriceUpdate 
+        onBack={() => {
+          setShowPriceUpdate(false);
+        }} 
+      />
+    );
   }
 
   return (

@@ -140,8 +140,17 @@ function AppNavigationOverlay() {
 
   const showFab = activeTab === "home" || activeTab === "fuel";
 
-  if (pathname !== "/" && !pathname.includes("profile") && !pathname.includes("export")) {
-    return null; 
+  const isBensinUpdateActive = params?.hideNavbar === 'true';
+
+  const isMainPage = pathname === "/";
+  const isProfilePage = pathname.includes("profile");
+
+  if (!isMainPage && !isProfilePage) {
+    return null;
+  }
+
+  if (isBensinUpdateActive) {
+    return null;
   }
 
   return (
