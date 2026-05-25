@@ -956,6 +956,7 @@ function AppContent() {
         </View>
       </View>
       {/* BODY CONTENT */}
+      {/* BODY CONTENT */}
       <ScrollView
         overScrollMode="never"
         removeClippedSubviews={true}
@@ -965,384 +966,380 @@ function AppContent() {
           paddingBottom: 150,
           paddingTop: 10,
         }}>
-        {/* 🚀 PERBAIKAN 4: Gunakan "display: flex/none" agar tab pindah secara instan tanpa loading ulang komponen */}
         
-        {/* TAB 1: HOME */}
-        <View
-          style={{ display: activeTab === "home" ? "flex" : "none", width: "100%", gap: 20 }}>
-          {stats.selectedVehicle ? (
-            <>
-              <VehicleProfileCard
-                vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
-                onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }}
-                onOdometerPress={() => setShowOdoHistory(true)} />
+        {/* ========================================== */}
+        {/* TAB 1: HOME                                */}
+        {/* ========================================== */}
+        {activeTab === "home" && stats.selectedVehicle && (
+          <View style={{ width: "100%", gap: 20 }}>
+            <VehicleProfileCard
+              vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
+              onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }}
+              onOdometerPress={() => setShowOdoHistory(true)} />
 
-              <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
+            <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
+              <View
+                style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                <Text
+                  style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>
+                  {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
+                </Text>
+                <Text
+                  style={{ color: "#F5A623", fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>
+                  {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(stats.monthlyCost)}
+                </Text>
                 <View
-                  style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
-                  <Text
-                    style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>
-                    {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
-                  </Text>
-                  <Text
-                    style={{ color: "#F5A623", fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>
-                    {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(stats.monthlyCost)}
-                  </Text>
-                  <View
-                    style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, gap: 4 }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}</Text>
-                      <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalFuelMonthly.toLocaleString("id-ID")}</Text>
-                    </View>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}</Text>
-                      <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalRepairMonthly.toLocaleString("id-ID")}</Text>
-                    </View>
+                  style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, gap: 4 }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}</Text>
+                    <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalFuelMonthly.toLocaleString("id-ID")}</Text>
                   </View>
-                  <Text
-                    style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: "italic" }}>
-                    {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
-                  </Text>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}</Text>
+                    <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalRepairMonthly.toLocaleString("id-ID")}</Text>
+                  </View>
                 </View>
+                <Text
+                  style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: "italic" }}>
+                  {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
+                </Text>
+              </View>
 
-                <TouchableOpacity
-                  onPress={() => setShowCalendarModal(true)}
-                  activeOpacity={0.7}
-                  style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+              <TouchableOpacity
+                onPress={() => setShowCalendarModal(true)}
+                activeOpacity={0.7}
+                style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                <View
+                  style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text
+                    style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600" }}>{t("servicesDone")}</Text>
+                  <Text style={{ fontSize: 14 }}>📅</Text>
+                </View>
+                <Text
+                  style={{ color: "#4ECDC4", fontSize: 16, fontWeight: "800", marginTop: 2 }}>
+                  {stats.monthlyServicesDone} <Text
+                  style={{ fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>{t("records")}</Text>
+                </Text>
+                <View
+                  style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, marginTop: 8, gap: 4 }}>
                   <View
                     style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text
-                      style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600" }}>{t("servicesDone")}</Text>
-                    <Text style={{ fontSize: 14 }}>📅</Text>
+                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ Total Liter</Text>
+                    <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>{stats.totalLitersMonthly.toFixed(1)} L</Text>
                   </View>
-                  <Text
-                    style={{ color: "#4ECDC4", fontSize: 16, fontWeight: "800", marginTop: 2 }}>
-                    {stats.monthlyServicesDone} <Text
-                    style={{ fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>{t("records")}</Text>
-                  </Text>
                   <View
-                    style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, marginTop: 8, gap: 4 }}>
-                    <View
-                      style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ Total Liter</Text>
-                      <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>{stats.totalLitersMonthly.toFixed(1)} L</Text>
-                    </View>
-                    <View
-                      style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛣️ {lang === "id" ? "Jarak" : "Distance"}</Text>
-                      <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>+{stats.monthlyDistance.toLocaleString("id-ID")} km</Text>
-                    </View>
-                  </View>
-                  <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10 }}>
-                    {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <MaintenanceStatusBar
-                reminders={stats.vehicleReminders}
-                currentOdometer={stats.autoLatestOdometer}
-                accentColor={stats.selectedVehicle?.color} />
-              <UpcomingReminders
-                reminders={stats.vehicleReminders}
-                currentOdometer={stats.autoLatestOdometer}
-                vehicle={stats.selectedVehicle}
-                onAddReminder={() => setShowPlanModal(true)}
-                onEditReminder={handleEdit}
-                onDeleteReminder={handleDelete}
-                onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }} />
-            </>
-          ) : null}
-        </View>
-
-        {/* TAB 2: HISTORY / SERVICE */}
-        <View
-          style={{ display: activeTab === "history" ? "flex" : "none", width: "100%" }}>
-          
-          {/* 🚀 ADVANCED SEARCH UI (Container & Margin HILANG TOTAL jika di-hide) */}
-          {appMode === 'advance' && !hideSearch && (
-            <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
-              
-              {/* 🚀 Quick Filters History */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
-                {[
-                  { id: 'all', label: 'Semua' },
-                  { id: 'month', label: 'Bulan Ini' },
-                  { id: 'year', label: 'Tahun Ini' },
-                  { id: 'custom', label: 'Custom Date' }
-                ].map(f => (
-                  <TouchableOpacity
-                    key={f.id}
-                    activeOpacity={0.9}
-                    onPress={() => setHistoryFilter(f.id)}
-                    style={{ backgroundColor: historyFilter === f.id ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}>
-                    <Text
-                      style={{ color: historyFilter === f.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{f.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {/* 🚀 Input Custom Date History */}
-              {historyFilter === 'custom' && (
-                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-                  <View style={{ flex: 1 }}>
-                     <Text
-                       style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>DARI TANGGAL</Text>
-                     <TextInput
-                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                       placeholder="YYYY-MM-DD"
-                       placeholderTextColor="rgba(255,255,255,0.2)"
-                       value={historyCustomStart}
-                       onChangeText={setHistoryCustomStart} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                     <Text
-                       style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>SAMPAI TANGGAL</Text>
-                     <TextInput
-                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                       placeholder="YYYY-MM-DD"
-                       placeholderTextColor="rgba(255,255,255,0.2)"
-                       value={historyCustomEnd}
-                       onChangeText={setHistoryCustomEnd} />
+                    style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛣️ {lang === "id" ? "Jarak" : "Distance"}</Text>
+                    <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>+{stats.monthlyDistance.toLocaleString("id-ID")} km</Text>
                   </View>
                 </View>
-              )}
+                <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10 }}>
+                  {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-              {/* Search Bar History */}
-              <View
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: searchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
-                <Text style={{ fontSize: 16, marginRight: 10, opacity: 0.5 }}>🔍</Text>
-                <TextInput
-                  style={{ flex: 1, color: '#FFF', paddingVertical: 12, fontSize: 13 }}
-                  placeholder={lang === 'id' ? "Cari oli, ban, bengkel..." : "Search oil, tire, workshop..."}
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  onSubmitEditing={() => executeSearch(searchQuery, 'service')} />
-                {searchQuery !== '' && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 5 }}>
-                    <Text style={{ color: '#FF5252', fontWeight: 'bold' }}>✕</Text>
-                  </TouchableOpacity>
+            <MaintenanceStatusBar
+              reminders={stats.vehicleReminders}
+              currentOdometer={stats.autoLatestOdometer}
+              accentColor={stats.selectedVehicle?.color} />
+            <UpcomingReminders
+              reminders={stats.vehicleReminders}
+              currentOdometer={stats.autoLatestOdometer}
+              vehicle={stats.selectedVehicle}
+              onAddReminder={() => setShowPlanModal(true)}
+              onEditReminder={handleEdit}
+              onDeleteReminder={handleDelete}
+              onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }} />
+          </View>
+        )}
+
+        {/* ========================================== */}
+        {/* TAB 2: HISTORY / SERVICE                   */}
+        {/* ========================================== */}
+        {activeTab === "history" && (
+          <View style={{ width: "100%" }}>
+            
+            {/* ADVANCED SEARCH UI (Hanya termuat jika mode advance aktif) */}
+            {appMode === 'advance' && !hideSearch && (
+              <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
+                
+                {/* Quick Filters History */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
+                  {[
+                    { id: 'all', label: 'Semua' },
+                    { id: 'month', label: 'Bulan Ini' },
+                    { id: 'year', label: 'Tahun Ini' },
+                    { id: 'custom', label: 'Custom Date' }
+                  ].map(f => (
+                    <TouchableOpacity
+                      key={f.id}
+                      activeOpacity={0.9}
+                      onPress={() => setHistoryFilter(f.id)}
+                      style={{ backgroundColor: historyFilter === f.id ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}>
+                      <Text
+                        style={{ color: historyFilter === f.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{f.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {/* Input Custom Date History */}
+                {historyFilter === 'custom' && (
+                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                    <View style={{ flex: 1 }}>
+                       <Text
+                         style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>DARI TANGGAL</Text>
+                       <TextInput
+                         style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                         placeholder="YYYY-MM-DD"
+                         placeholderTextColor="rgba(255,255,255,0.2)"
+                         value={historyCustomStart}
+                         onChangeText={setHistoryCustomStart} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                       <Text
+                         style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>SAMPAI TANGGAL</Text>
+                       <TextInput
+                         style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                         placeholder="YYYY-MM-DD"
+                         placeholderTextColor="rgba(255,255,255,0.2)"
+                         value={historyCustomEnd}
+                         onChangeText={setHistoryCustomEnd} />
+                    </View>
+                  </View>
+                )}
+
+                {/* Search Bar History */}
+                <View
+                  style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: searchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
+                  <Text style={{ fontSize: 16, marginRight: 10, opacity: 0.5 }}>🔍</Text>
+                  <TextInput
+                    style={{ flex: 1, color: '#FFF', paddingVertical: 12, fontSize: 13 }}
+                    placeholder={lang === 'id' ? "Cari oli, ban, bengkel..." : "Search oil, tire, workshop..."}
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    onSubmitEditing={() => executeSearch(searchQuery, 'service')} />
+                  {searchQuery !== '' && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 5 }}>
+                      <Text style={{ color: '#FF5252', fontWeight: 'bold' }}>✕</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Riwayat Kata Kunci Terakhir History */}
+                {searchQuery === '' && recentSearches.length > 0 && (
+                  <View style={{ marginTop: 10 }}>
+                    <View
+                      style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <Text
+                        style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '700' }}>Pencarian Terakhir</Text>
+                      <TouchableOpacity
+                        onPress={() => { setRecentSearches([]); AsyncStorage.removeItem('garasi_recent_searches'); }}>
+                        <Text style={{ color: '#FF5252', fontSize: 11, fontWeight: '700' }}>Bersihkan</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {recentSearches.map((kw, idx) => (
+                        <View
+                          key={idx}
+                          style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, paddingLeft: 12 }}>
+                          <TouchableOpacity
+                            onPress={() => executeSearch(kw, 'service')}
+                            style={{ paddingVertical: 8, paddingRight: 8 }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🕒 {kw}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => removeRecentSearch(kw, 'service')}
+                            style={{ padding: 8, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.05)' }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
                 )}
               </View>
+            )}
 
-              {/* Riwayat Kata Kunci Terakhir History */}
-              {searchQuery === '' && recentSearches.length > 0 && (
-                <View style={{ marginTop: 10 }}>
-                  <View
-                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <Text
-                      style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '700' }}>Pencarian Terakhir</Text>
-                    <TouchableOpacity
-                      onPress={() => { setRecentSearches([]); AsyncStorage.removeItem('garasi_recent_searches'); }}>
-                      <Text style={{ color: '#FF5252', fontSize: 11, fontWeight: '700' }}>Bersihkan</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {recentSearches.map((kw, idx) => (
-                      <View
-                        key={idx}
-                        style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, paddingLeft: 12 }}>
-                        <TouchableOpacity
-                          onPress={() => executeSearch(kw, 'service')}
-                          style={{ paddingVertical: 8, paddingRight: 8 }}>
-                          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🕒 {kw}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => removeRecentSearch(kw, 'service')}
-                          style={{ padding: 8, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.05)' }}>
-                          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>✕</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
+            <View style={{ position: 'relative' }}>
+              <RepairHistory
+                repairs={filteredHistory}
+                appMode={appMode}
+                hideSearch={hideSearch}
+                onToggleSearch={toggleSearch}
+                onEdit={(r) => {
+                  setEditingRepair(r);
+                  setShowAddSheet(true);
+                }}
+                onDelete={(id) => {
+                  const deletedItem = stats.vehicleRepairs.find((r) => r.id === id);
+                  setRepairs((prev) => prev.filter((r) => r.id !== id));
+                  if (deletedItem) {
+                    addNotification('DELETE', "Riwayat Dihapus", `Menghapus riwayat [${deletedItem.serviceType}].`, "vehicle", selectedVehicleId, deletedItem.odometer, undefined, 'Perbaikan Kendaraan');
+                    evaluateOdometerRollback(deletedItem.odometer, id, 'Perbaikan Kendaraan');
+                  }
+                }} />
             </View>
-          )}
+          </View>
+        )}
 
-          {/* 🚀 WRAPPER RELATIF: Menempelkan Tombol Toggle Sejajar dengan Judul RepairHistory */}
-          <View style={{ position: 'relative' }}>
+        {/* ========================================== */}
+        {/* TAB 3: FUEL                                */}
+        {/* ========================================== */}
+        {activeTab === "fuel" && (
+          <View style={{ width: "100%" }}>
+            
+            {/* ADVANCED SEARCH UI & QUICK FILTER BBM */}
+            {appMode === 'advance' && !hideSearch && (
+              <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
+                
+                {/* Quick Filters BBM */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
+                  {[
+                    { id: 'all', label: 'Semua' },
+                    { id: 'month', label: 'Bulan Ini' },
+                    { id: 'year', label: 'Tahun Ini' },
+                    { id: 'custom', label: 'Custom Date' }
+                  ].map(f => (
+                    <TouchableOpacity
+                      key={f.id}
+                      activeOpacity={0.9}
+                      onPress={() => setFuelFilter(f.id)}
+                      style={{ backgroundColor: fuelFilter === f.id ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}>
+                      <Text
+                        style={{ color: fuelFilter === f.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{f.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
 
-            <RepairHistory
-              repairs={filteredHistory}
+                {/* Input Custom Date BBM */}
+                {fuelFilter === 'custom' && (
+                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                    <View style={{ flex: 1 }}>
+                       <Text
+                         style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>DARI TANGGAL</Text>
+                       <TextInput
+                         style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                         placeholder="YYYY-MM-DD"
+                         placeholderTextColor="rgba(255,255,255,0.2)"
+                         value={fuelCustomStart}
+                         onChangeText={setFuelCustomStart} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                       <Text
+                         style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>SAMPAI TANGGAL</Text>
+                       <TextInput
+                         style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                         placeholder="YYYY-MM-DD"
+                         placeholderTextColor="rgba(255,255,255,0.2)"
+                         value={fuelCustomEnd}
+                         onChangeText={setFuelCustomEnd} />
+                    </View>
+                  </View>
+                )}
+
+                {/* Search Bar BBM */}
+                <View
+                  style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: fuelSearchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
+                  <Text style={{ fontSize: 16, marginRight: 10, opacity: 0.5 }}>🔍</Text>
+                  <TextInput
+                    style={{ flex: 1, color: '#FFF', paddingVertical: 12, fontSize: 13 }}
+                    placeholder="Cari Pertamax, Shell, atau SPBU..."
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    value={fuelSearchQuery}
+                    onChangeText={setFuelSearchQuery}
+                    onSubmitEditing={() => executeSearch(fuelSearchQuery, 'fuel')} />
+                  {fuelSearchQuery !== '' && (
+                    <TouchableOpacity onPress={() => setFuelSearchQuery('')} style={{ padding: 5 }}>
+                      <Text style={{ color: '#FF5252', fontWeight: 'bold' }}>✕</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Riwayat Kata Kunci Terakhir BBM */}
+                {fuelSearchQuery === '' && recentFuelSearches.length > 0 && (
+                  <View style={{ marginTop: 10 }}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {recentFuelSearches.map((kw, idx) => (
+                        <View
+                          key={idx}
+                          style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, paddingLeft: 12 }}>
+                          <TouchableOpacity
+                            onPress={() => executeSearch(kw, 'fuel')}
+                            style={{ paddingVertical: 8, paddingRight: 8 }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🕒 {kw}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => removeRecentSearch(kw, 'fuel')}
+                            style={{ padding: 8, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.05)' }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <FuelLog
+              fuelEntries={finalFuelData}
+              vehicle={stats.selectedVehicle}
               appMode={appMode}
-              /* 🚀 Kirim Prop Baru */
               hideSearch={hideSearch}
-              /* 🚀 Kirim Prop Baru */
               onToggleSearch={toggleSearch}
-              /* 🚀 Kirim Fungsi Toggle Baru */
-              onEdit={(r) => {
-                setEditingRepair(r);
-                setShowAddSheet(true);
+              onAdd={() => {
+                setEditingFuel(null);
+                setShowFuelSheet(true);
+              }}
+              onEdit={(entry) => {
+                setEditingFuel(entry);
+                setShowFuelSheet(true);
               }}
               onDelete={(id) => {
-                const deletedItem = stats.vehicleRepairs.find((r) => r.id === id);
-                setRepairs((prev) => prev.filter((r) => r.id !== id));
-                if (deletedItem) {
-                  addNotification('DELETE', "Riwayat Dihapus", `Menghapus riwayat [${deletedItem.serviceType}].`, "vehicle", selectedVehicleId, deletedItem.odometer, undefined, 'Perbaikan Kendaraan');
-                  evaluateOdometerRollback(deletedItem.odometer, id, 'Perbaikan Kendaraan');
+                const deletedFuel = stats.vehicleFuelEntries.find((f) => f.id === id);
+                setFuelEntries((prev) => prev.filter((f) => f.id !== id));
+                if (deletedFuel) {
+                  addNotification('DELETE', "Catatan Bensin Dihapus", `Menghapus data bensin ${deletedFuel.liters}L.`, "vehicle", selectedVehicleId, deletedFuel.odometer, undefined, 'Pengisian Bensin');
+                  evaluateOdometerRollback(deletedFuel.odometer, id, 'Pengisian Bensin');
                 }
+                setShowFuelSheet(false);
+                setEditingFuel(null);
               }} />
           </View>
-        </View>
+        )}
 
-        {/* TAB 3: FUEL */}
-        <View
-          style={{ display: activeTab === "fuel" ? "flex" : "none", width: "100%" }}>
-          
-          {/* 🚀 ADVANCED SEARCH UI & QUICK FILTER BBM (Container ini HILANG TOTAL jika di-hide agar TIDAK meninggalkan gap kosong) */}
-          {appMode === 'advance' && !hideSearch && (
-            <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
-              
-              {/* Quick Filters BBM */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 8, marginBottom: 12 }}>
-                {[
-                  { id: 'all', label: 'Semua' },
-                  { id: 'month', label: 'Bulan Ini' },
-                  { id: 'year', label: 'Tahun Ini' },
-                  { id: 'custom', label: 'Custom Date' }
-                ].map(f => (
-                  <TouchableOpacity
-                    key={f.id}
-                    activeOpacity={0.9}
-                    onPress={() => setFuelFilter(f.id)}
-                    style={{ backgroundColor: fuelFilter === f.id ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}>
-                    <Text
-                      style={{ color: fuelFilter === f.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{f.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {/* Input Custom Date BBM */}
-              {fuelFilter === 'custom' && (
-                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-                  <View style={{ flex: 1 }}>
-                     <Text
-                       style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>DARI TANGGAL</Text>
-                     <TextInput
-                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                       placeholder="YYYY-MM-DD"
-                       placeholderTextColor="rgba(255,255,255,0.2)"
-                       value={fuelCustomStart}
-                       onChangeText={setFuelCustomStart} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                     <Text
-                       style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 5, fontWeight: '800' }}>SAMPAI TANGGAL</Text>
-                     <TextInput
-                       style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 12, fontWeight: '600', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                       placeholder="YYYY-MM-DD"
-                       placeholderTextColor="rgba(255,255,255,0.2)"
-                       value={fuelCustomEnd}
-                       onChangeText={setFuelCustomEnd} />
-                  </View>
-                </View>
-              )}
-
-              {/* Search Bar BBM */}
-              <View
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', borderRadius: 12, paddingHorizontal: 15, borderWidth: 1, borderColor: fuelSearchQuery ? '#F5A623' : 'rgba(255,255,255,0.1)' }}>
-                <Text style={{ fontSize: 16, marginRight: 10, opacity: 0.5 }}>🔍</Text>
-                <TextInput
-                  style={{ flex: 1, color: '#FFF', paddingVertical: 12, fontSize: 13 }}
-                  placeholder="Cari Pertamax, Shell, atau SPBU..."
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  value={fuelSearchQuery}
-                  onChangeText={setFuelSearchQuery}
-                  onSubmitEditing={() => executeSearch(fuelSearchQuery, 'fuel')} />
-                {fuelSearchQuery !== '' && (
-                  <TouchableOpacity onPress={() => setFuelSearchQuery('')} style={{ padding: 5 }}>
-                    <Text style={{ color: '#FF5252', fontWeight: 'bold' }}>✕</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Riwayat Kata Kunci Terakhir BBM */}
-              {fuelSearchQuery === '' && recentFuelSearches.length > 0 && (
-                <View style={{ marginTop: 10 }}>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {recentFuelSearches.map((kw, idx) => (
-                      <View
-                        key={idx}
-                        style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, paddingLeft: 12 }}>
-                        <TouchableOpacity
-                          onPress={() => executeSearch(kw, 'fuel')}
-                          style={{ paddingVertical: 8, paddingRight: 8 }}>
-                          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🕒 {kw}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => removeRecentSearch(kw, 'fuel')}
-                          style={{ padding: 8, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.05)' }}>
-                          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>✕</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-            </View>
-          )}
-
-          <FuelLog
-            fuelEntries={finalFuelData}
-            vehicle={stats.selectedVehicle}
-            appMode={appMode}
-            hideSearch={hideSearch}
-            onToggleSearch={toggleSearch}
-            onAdd={() => {
-              setEditingFuel(null);
-              setShowFuelSheet(true);
-            }}
-            onEdit={(entry) => {
-              setEditingFuel(entry);
-              setShowFuelSheet(true);
-            }}
-            onDelete={(id) => {
-              const deletedFuel = stats.vehicleFuelEntries.find((f) => f.id === id);
-              setFuelEntries((prev) => prev.filter((f) => f.id !== id));
-              if (deletedFuel) {
-                addNotification('DELETE', "Catatan Bensin Dihapus", `Menghapus data bensin ${deletedFuel.liters}L.`, "vehicle", selectedVehicleId, deletedFuel.odometer, undefined, 'Pengisian Bensin');
-                evaluateOdometerRollback(deletedFuel.odometer, id, 'Pengisian Bensin');
-              }
-              setShowFuelSheet(false);
-              setEditingFuel(null);
-            }} />
-        </View>
-
-        {/* 👤 TAB 4: PROFILE SYSTEM (Poin 1, 2, 10 & 11) */}
+        {/* ========================================== */}
+        {/* TAB 4: PROFILE SYSTEM                      */}
+        {/* ========================================== */}
         <View
           style={{ display: activeTab === "profile" ? "flex" : "none", width: "100%", paddingHorizontal: 20, gap: 15 }}>
           
-          {/* Header Judul Halaman Profile */}
           <Text
             style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginTop: 10, marginBottom: 5 }}>
             {lang === 'id' ? 'Profil Saya' : 'My Profile'}
           </Text>
 
-          {/* 🚀 INDIKATOR METADATA AKUN (Poin 10) */}
           <AccountStatsGrid />
 
-          {/* 🚀 BANNER PREMIUM MEMBERSHIP SECTION (Poin 1 & 2) */}
           <PremiumSection
             onOpenPremiumPage={() => { 
               setActivePrefillFeature(null); 
               setPremiumModalVisible(true); 
             }} />
 
-          {/* 🔒 PREVIEW FITUR TERKUNCI (Poin 3 & 4) */}
           <Text
             style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '800', marginTop: 15, letterSpacing: 0.5 }}>
             EKSKLUSIF PREMIUM FEATURES
           </Text>
 
-          {/* Contoh Fitur 1: Advanced Fuel Analytics */}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => handleTriggerPremiumLock('Advanced Fuel Analytics', 'Analisis mendalam konsumsi bahan bakar, grafik efisiensi, dan kalkulasi emisi performa mesin bulanan.')}
@@ -1358,7 +1355,6 @@ function AppContent() {
               style={{ color: '#F5A623', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(245,166,35,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>🔒 PRO</Text>
           </TouchableOpacity>
 
-          {/* Contoh Fitur 2: Export PDF Premium */}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => handleTriggerPremiumLock('Export PDF Premium', 'Ekspor seluruh riwayat perawatan dan catatan log bensin kendaraan ke format berkas PDF cetak profesional tanpa watermark.')}
@@ -1373,7 +1369,6 @@ function AppContent() {
             <Text
               style={{ color: '#F5A623', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(245,166,35,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>🔒 PRO</Text>
           </TouchableOpacity>
-
         </View>
 
       </ScrollView>
