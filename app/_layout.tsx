@@ -112,19 +112,17 @@ function AppNavigationOverlay() {
     return () => subscription.remove();
   }, [pathname]);
 
-  // 🚀 REVISI OPTIMASI: Menggunakan suspensi jeda mikro agar transisi warna navbar instan dan mulus di Android
   const handleNavPress = useCallback((tabName: string) => {
-    setActiveTab(tabName); // Optimistic Update (Warna navbar langsung berubah seketika tanpa delay)
+    setActiveTab(tabName); 
     
-    // Memberikan napas bagi UI Thread selama 20 milidetik sebelum memproses logika router yang berat
     setTimeout(() => {
       if (tabName === "profile") {
-        if (pathname !== "/profile") router.push("/profile");
+        if (pathname !== "/profile") router.navigate("/profile");
       } else {
         if (pathname === "/") {
           router.setParams({ tab: tabName });
         } else {
-          router.replace({
+          router.navigate({
             pathname: "/",
             params: { tab: tabName },
           });

@@ -955,110 +955,109 @@ function AppContent() {
             }} />
         </View>
       </View>
+
       {/* BODY CONTENT */}
-      {/* BODY CONTENT */}
-      <ScrollView
-        overScrollMode="never"
-        removeClippedSubviews={true}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        contentContainerStyle={{
-          paddingBottom: 150,
-          paddingTop: 10,
-        }}>
+      <View style={{ flex: 1 }}>
         
         {/* ========================================== */}
         {/* TAB 1: HOME                                */}
         {/* ========================================== */}
         {activeTab === "home" && stats.selectedVehicle && (
-          <View style={{ width: "100%", gap: 20 }}>
-            <VehicleProfileCard
-              vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
-              onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }}
-              onOdometerPress={() => setShowOdoHistory(true)} />
+          <ScrollView 
+            key="tab-home"
+            overScrollMode="never" 
+            showsVerticalScrollIndicator={false} 
+            contentContainerStyle={{ paddingBottom: 150, paddingTop: 10 }}
+          >
+            <View style={{ width: "100%", gap: 20 }}>
+              <VehicleProfileCard
+                vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
+                onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }}
+                onOdometerPress={() => setShowOdoHistory(true)} />
 
-            <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
-              <View
-                style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
-                <Text
-                  style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>
-                  {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
-                </Text>
-                <Text
-                  style={{ color: "#F5A623", fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>
-                  {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(stats.monthlyCost)}
-                </Text>
+              <View style={{ flexDirection: "row", marginHorizontal: 20, gap: 12 }}>
                 <View
-                  style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, gap: 4 }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}</Text>
-                    <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalFuelMonthly.toLocaleString("id-ID")}</Text>
+                  style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                  <Text
+                    style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "600" }}>
+                    {t("totalSpent")} {lang === "id" ? "BULAN INI" : "THIS MONTH"}
+                  </Text>
+                  <Text
+                    style={{ color: "#F5A623", fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>
+                    {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(stats.monthlyCost)}
+                  </Text>
+                  <View
+                    style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, gap: 4 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ {lang === "id" ? "Total Bensin" : "Total Fuel"}</Text>
+                      <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalFuelMonthly.toLocaleString("id-ID")}</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}</Text>
+                      <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalRepairMonthly.toLocaleString("id-ID")}</Text>
+                    </View>
                   </View>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛠️ {lang === "id" ? "Total Perbaikan" : "Total Repair"}</Text>
-                    <Text style={{ color: "#F5A623", fontSize: 10, fontWeight: "600" }}>Rp {stats.totalRepairMonthly.toLocaleString("id-ID")}</Text>
-                  </View>
+                  <Text
+                    style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: "italic" }}>
+                    {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
+                  </Text>
                 </View>
-                <Text
-                  style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: "italic" }}>
-                  {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
-                </Text>
+
+                <TouchableOpacity
+                  onPress={() => setShowCalendarModal(true)}
+                  activeOpacity={0.7}
+                  style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                  <View
+                    style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text
+                      style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600" }}>{t("servicesDone")}</Text>
+                    <Text style={{ fontSize: 14 }}>📅</Text>
+                  </View>
+                  <Text
+                    style={{ color: "#4ECDC4", fontSize: 16, fontWeight: "800", marginTop: 2 }}>
+                    {stats.monthlyServicesDone} <Text
+                    style={{ fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>{t("records")}</Text>
+                  </Text>
+                  <View
+                    style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, marginTop: 8, gap: 4 }}>
+                    <View
+                      style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ Total Liter</Text>
+                      <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>{stats.totalLitersMonthly.toFixed(1)} L</Text>
+                    </View>
+                    <View
+                      style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛣️ {lang === "id" ? "Jarak" : "Distance"}</Text>
+                      <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>+{stats.monthlyDistance.toLocaleString("id-ID")} km</Text>
+                    </View>
+                  </View>
+                  <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10 }}>
+                    {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                onPress={() => setShowCalendarModal(true)}
-                activeOpacity={0.7}
-                style={{ flex: 1, backgroundColor: "#1A2B3C", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
-                <View
-                  style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text
-                    style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600" }}>{t("servicesDone")}</Text>
-                  <Text style={{ fontSize: 14 }}>📅</Text>
-                </View>
-                <Text
-                  style={{ color: "#4ECDC4", fontSize: 16, fontWeight: "800", marginTop: 2 }}>
-                  {stats.monthlyServicesDone} <Text
-                  style={{ fontSize: 16, fontWeight: "600", marginTop: 2, marginBottom: 8 }}>{t("records")}</Text>
-                </Text>
-                <View
-                  style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 8, marginTop: 8, gap: 4 }}>
-                  <View
-                    style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>⛽ Total Liter</Text>
-                    <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>{stats.totalLitersMonthly.toFixed(1)} L</Text>
-                  </View>
-                  <View
-                    style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text style={{ color: "hsla(0, 0%, 100%, 0.77)", fontSize: 10 }}>🛣️ {lang === "id" ? "Jarak" : "Distance"}</Text>
-                    <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>+{stats.monthlyDistance.toLocaleString("id-ID")} km</Text>
-                  </View>
-                </View>
-                <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10 }}>
-                  {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
-                </Text>
-              </TouchableOpacity>
+              <MaintenanceStatusBar
+                reminders={stats.vehicleReminders}
+                currentOdometer={stats.autoLatestOdometer}
+                accentColor={stats.selectedVehicle?.color} />
+              <UpcomingReminders
+                reminders={stats.vehicleReminders}
+                currentOdometer={stats.autoLatestOdometer}
+                vehicle={stats.selectedVehicle}
+                onAddReminder={() => setShowPlanModal(true)}
+                onEditReminder={handleEdit}
+                onDeleteReminder={handleDelete}
+                onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }} />
             </View>
-
-            <MaintenanceStatusBar
-              reminders={stats.vehicleReminders}
-              currentOdometer={stats.autoLatestOdometer}
-              accentColor={stats.selectedVehicle?.color} />
-            <UpcomingReminders
-              reminders={stats.vehicleReminders}
-              currentOdometer={stats.autoLatestOdometer}
-              vehicle={stats.selectedVehicle}
-              onAddReminder={() => setShowPlanModal(true)}
-              onEditReminder={handleEdit}
-              onDeleteReminder={handleDelete}
-              onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }} />
-          </View>
+          </ScrollView>
         )}
 
         {/* ========================================== */}
         {/* TAB 2: HISTORY / SERVICE                   */}
         {/* ========================================== */}
         {activeTab === "history" && (
-          <View style={{ width: "100%" }}>
+          <View key="tab-history" style={{ flex: 1, width: "100%", paddingTop: 10 }}>
             
             {/* ADVANCED SEARCH UI (Hanya termuat jika mode advance aktif) */}
             {appMode === 'advance' && !hideSearch && (
@@ -1165,7 +1164,7 @@ function AppContent() {
               </View>
             )}
 
-            <View style={{ position: 'relative' }}>
+            <View style={{ position: 'relative', flex: 1 }}>
               <RepairHistory
                 repairs={filteredHistory}
                 appMode={appMode}
@@ -1191,7 +1190,7 @@ function AppContent() {
         {/* TAB 3: FUEL                                */}
         {/* ========================================== */}
         {activeTab === "fuel" && (
-          <View style={{ width: "100%" }}>
+          <View key="tab-fuel" style={{ flex: 1, width: "100%", paddingTop: 10 }}>
             
             {/* ADVANCED SEARCH UI & QUICK FILTER BBM */}
             {appMode === 'advance' && !hideSearch && (
@@ -1289,89 +1288,96 @@ function AppContent() {
               </View>
             )}
 
-            <FuelLog
-              fuelEntries={finalFuelData}
-              vehicle={stats.selectedVehicle}
-              appMode={appMode}
-              hideSearch={hideSearch}
-              onToggleSearch={toggleSearch}
-              onAdd={() => {
-                setEditingFuel(null);
-                setShowFuelSheet(true);
-              }}
-              onEdit={(entry) => {
-                setEditingFuel(entry);
-                setShowFuelSheet(true);
-              }}
-              onDelete={(id) => {
-                const deletedFuel = stats.vehicleFuelEntries.find((f) => f.id === id);
-                setFuelEntries((prev) => prev.filter((f) => f.id !== id));
-                if (deletedFuel) {
-                  addNotification('DELETE', "Catatan Bensin Dihapus", `Menghapus data bensin ${deletedFuel.liters}L.`, "vehicle", selectedVehicleId, deletedFuel.odometer, undefined, 'Pengisian Bensin');
-                  evaluateOdometerRollback(deletedFuel.odometer, id, 'Pengisian Bensin');
-                }
-                setShowFuelSheet(false);
-                setEditingFuel(null);
-              }} />
+            <View style={{ flex: 1, position: 'relative' }}>
+              <FuelLog
+                fuelEntries={finalFuelData}
+                vehicle={stats.selectedVehicle}
+                appMode={appMode}
+                hideSearch={hideSearch}
+                onToggleSearch={toggleSearch}
+                onAdd={() => {
+                  setEditingFuel(null);
+                  setShowFuelSheet(true);
+                }}
+                onEdit={(entry) => {
+                  setEditingFuel(entry);
+                  setShowFuelSheet(true);
+                }}
+                onDelete={(id) => {
+                  const deletedFuel = stats.vehicleFuelEntries.find((f) => f.id === id);
+                  setFuelEntries((prev) => prev.filter((f) => f.id !== id));
+                  if (deletedFuel) {
+                    addNotification('DELETE', "Catatan Bensin Dihapus", `Menghapus data bensin ${deletedFuel.liters}L.`, "vehicle", selectedVehicleId, deletedFuel.odometer, undefined, 'Pengisian Bensin');
+                    evaluateOdometerRollback(deletedFuel.odometer, id, 'Pengisian Bensin');
+                  }
+                  setShowFuelSheet(false);
+                  setEditingFuel(null);
+                }} />
+            </View>
           </View>
         )}
 
         {/* ========================================== */}
         {/* TAB 4: PROFILE SYSTEM                      */}
         {/* ========================================== */}
-        <View
-          style={{ display: activeTab === "profile" ? "flex" : "none", width: "100%", paddingHorizontal: 20, gap: 15 }}>
-          
-          <Text
-            style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginTop: 10, marginBottom: 5 }}>
-            {lang === 'id' ? 'Profil Saya' : 'My Profile'}
-          </Text>
-
-          <AccountStatsGrid />
-
-          <PremiumSection
-            onOpenPremiumPage={() => { 
-              setActivePrefillFeature(null); 
-              setPremiumModalVisible(true); 
-            }} />
-
-          <Text
-            style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '800', marginTop: 15, letterSpacing: 0.5 }}>
-            EKSKLUSIF PREMIUM FEATURES
-          </Text>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => handleTriggerPremiumLock('Advanced Fuel Analytics', 'Analisis mendalam konsumsi bahan bakar, grafik efisiensi, dan kalkulasi emisi performa mesin bulanan.')}
-            style={{ backgroundColor: '#1A2B3C', padding: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.02)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Text style={{ fontSize: 18 }}>📈</Text>
-              <View>
-                <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '700' }}>Advanced Fuel Analytics</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Grafik efisiensi BBM mendalam</Text>
-              </View>
-            </View>
+        {activeTab === "profile" && (
+          <ScrollView 
+            key="tab-profile" 
+            overScrollMode="never" 
+            showsVerticalScrollIndicator={false} 
+            contentContainerStyle={{ paddingBottom: 150, paddingTop: 10, paddingHorizontal: 20, gap: 15 }}
+          >
             <Text
-              style={{ color: '#F5A623', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(245,166,35,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>🔒 PRO</Text>
-          </TouchableOpacity>
+              style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginTop: 10, marginBottom: 5 }}>
+              {lang === 'id' ? 'Profil Saya' : 'My Profile'}
+            </Text>
 
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => handleTriggerPremiumLock('Export PDF Premium', 'Ekspor seluruh riwayat perawatan dan catatan log bensin kendaraan ke format berkas PDF cetak profesional tanpa watermark.')}
-            style={{ backgroundColor: '#1A2B3C', padding: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.02)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Text style={{ fontSize: 18 }}>📄</Text>
-              <View>
-                <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '700' }}>Export PDF Laporan</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Cetak berkas laporan tanpa watermark</Text>
-              </View>
-            </View>
+            <AccountStatsGrid />
+
+            <PremiumSection
+              onOpenPremiumPage={() => { 
+                setActivePrefillFeature(null); 
+                setPremiumModalVisible(true); 
+              }} />
+
             <Text
-              style={{ color: '#F5A623', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(245,166,35,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>🔒 PRO</Text>
-          </TouchableOpacity>
-        </View>
+              style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '800', marginTop: 15, letterSpacing: 0.5 }}>
+              EKSKLUSIF PREMIUM FEATURES
+            </Text>
 
-      </ScrollView>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => handleTriggerPremiumLock('Advanced Fuel Analytics', 'Analisis mendalam konsumsi bahan bakar, grafik efisiensi, dan kalkulasi emisi performa mesin bulanan.')}
+              style={{ backgroundColor: '#1A2B3C', padding: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.02)' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Text style={{ fontSize: 18 }}>📈</Text>
+                <View>
+                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '700' }}>Advanced Fuel Analytics</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Grafik efisiensi BBM mendalam</Text>
+                </View>
+              </View>
+              <Text
+                style={{ color: '#F5A623', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(245,166,35,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>🔒 PRO</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => handleTriggerPremiumLock('Export PDF Premium', 'Ekspor seluruh riwayat perawatan dan catatan log bensin kendaraan ke format berkas PDF cetak profesional tanpa watermark.')}
+              style={{ backgroundColor: '#1A2B3C', padding: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.02)' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Text style={{ fontSize: 18 }}>📄</Text>
+                <View>
+                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '700' }}>Export PDF Laporan</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Cetak berkas laporan tanpa watermark</Text>
+                </View>
+              </View>
+              <Text
+                style={{ color: '#F5A623', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(245,166,35,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>🔒 PRO</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
+
+      </View>
       {/* MODALS SECTION */}
       <AddRepairSheet
         visible={showAddSheet}

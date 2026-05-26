@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Image, Alert, Modal, Dimensions, Platform, FlatList } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity, Image, Modal, Dimensions, Platform, FlatList } from 'react-native';
 import { RepairEntry } from '@/types/maintenance';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -107,49 +107,7 @@ function RepairHistoryComponent({
   
   return (
     <View style={{ flex: 1, paddingHorizontal: 20 }}>
-      
-      {/* 🚀 HEADER SATU BARIS (Tanpa padding ganda) */}
-      <View style={{ 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', // Memastikan tombol dan teks sejajar di tengah
-        marginTop: 10,
-        marginBottom: 15
-      }}>
-        
-        {/* Kiri: Ikon & Judul */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Text style={{ fontSize: 20 }}>🛠️</Text>
-          <Text style={{ 
-            color: '#FFFFFF', 
-            fontSize: 18, 
-            fontWeight: '800',
-            letterSpacing: 0.5,
-          }}>
-            {isId ? "Riwayat Perbaikan" : "Repair History"}
-          </Text>
-        </View>
 
-        {/* Kanan: Tombol Toggle Search */}
-        {appMode === 'advance' && (
-          <TouchableOpacity 
-            activeOpacity={0.9} 
-            onPress={onToggleSearch} 
-            style={{ 
-              paddingHorizontal: 10, 
-              paddingVertical: 6, 
-              backgroundColor: 'rgba(255,255,255,0.05)', 
-              borderRadius: 8,
-            }}
-          >
-            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>
-              {hideSearch ? '⮛' : '⮙'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* 🚀 IMPLEMENTASI FLATLIST UNTUK REPAIR HISTORY */}
       <FlatList
         data={sorted}
         keyExtractor={(item) => item.id}
@@ -157,10 +115,49 @@ function RepairHistoryComponent({
         maxToRenderPerBatch={5}
         windowSize={5}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }} // Jarak aman dari bawah
-        ItemSeparatorComponent={() => <View style={{ height: 10 }} />} // Pengganti margin bawah
+        contentContainerStyle={{ paddingBottom: 120 }} 
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />} 
+        
+        ListHeaderComponent={
+          <View style={{ 
+            flexDirection: 'row', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            marginTop: 10,
+            marginBottom: 15
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Text style={{ fontSize: 20 }}>🛠️</Text>
+              <Text style={{ 
+                color: '#FFFFFF', 
+                fontSize: 18, 
+                fontWeight: '800',
+                letterSpacing: 0.5,
+              }}>
+                {isId ? "Riwayat Perbaikan" : "Repair History"}
+              </Text>
+            </View>
+
+            {appMode === 'advance' && (
+              <TouchableOpacity 
+                activeOpacity={0.9} 
+                onPress={onToggleSearch} 
+                style={{ 
+                  paddingHorizontal: 10, 
+                  paddingVertical: 6, 
+                  backgroundColor: 'rgba(255,255,255,0.05)', 
+                  borderRadius: 8,
+                }}
+              >
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>
+                  {hideSearch ? '⮛' : '⮙'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        }
+
         renderItem={({ item: repair }) => {
-          // Kodingan di bawah ini 100% ASLI MILIK ANDA, hanya dipindah ke dalam renderItem FlatList
           const { cleanNotes, receipts } = extractReceipts(repair.notes || '');
           const isExpanded = expandedId === repair.id;
           const customIcon = getRepairIcon(repair.serviceType);
@@ -199,7 +196,6 @@ function RepairHistoryComponent({
                 </View>
               </TouchableOpacity>
 
-              {/* DETAIL EXPANDED 100% ASLI */}
               {isExpanded && (
                 repair.isSmartReminder ? (
                   <View style={{ padding: 18, paddingTop: 0, gap: 15 }}>
@@ -300,7 +296,6 @@ function RepairHistoryComponent({
         }}
       />
 
-      {/* MODAL FOTO */}
       <Modal 
         visible={!!fullPhoto} 
         transparent={true} 
@@ -330,7 +325,6 @@ function RepairHistoryComponent({
         </View>
       </Modal>
 
-      {/* MODAL HAPUS */}
       <Modal visible={!!deleteRepairId} transparent animationType="fade">
         <View style={{ 
           flex: 1, 
