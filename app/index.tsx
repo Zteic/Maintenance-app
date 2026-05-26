@@ -165,6 +165,15 @@ function AppContent() {
 
   // 🚀 STATE UNTUK ADVANCED SEARCH & MODE PENGGUNAAN
   const [appMode, setAppMode] = useState<'basic' | 'advance'>('basic');
+
+  const [hideFuelStats, setHideFuelStats] = useState(false);
+  const [statsResetDate, setStatsResetDate] = useState<string | null>(null);
+
+  const toggleFuelStats = () => {
+    const newVal = !hideFuelStats;
+    setHideFuelStats(newVal);
+    AsyncStorage.setItem('garasi_hide_fuel_stats', newVal ? 'true' : 'false');
+  };
   
   // State Search History Service
   const [searchQuery, setSearchQuery] = useState('');
@@ -230,6 +239,13 @@ function AppContent() {
   useEffect(() => {
     AsyncStorage.getItem('garasi_app_mode').then(mode => {
       if (mode) setAppMode(mode as 'basic' | 'advance');
+    });
+
+    AsyncStorage.getItem('garasi_hide_fuel_stats').then(val => {
+      if (val) setHideFuelStats(val === 'true');
+    });
+    AsyncStorage.getItem('garasi_fuel_stats_reset_date').then(val => {
+      setStatsResetDate(val);
     });
 
     if (activeTab === 'history') {
@@ -1295,6 +1311,14 @@ function AppContent() {
                 appMode={appMode}
                 hideSearch={hideSearch}
                 onToggleSearch={toggleSearch}
+                hideStats={hideFuelStats}
+              onToggleStats={toggleFuelStats}
+              statsResetDate={statsResetDate}
+              onUpdateResetDate={(date) => {
+                setStatsResetDate(date);
+                if (date) AsyncStorage.setItem('garasi_fuel_stats_reset_date', date);
+                else AsyncStorage.removeItem('garasi_fuel_stats_reset_date');
+              }}
                 onAdd={() => {
                   setEditingFuel(null);
                   setShowFuelSheet(true);
