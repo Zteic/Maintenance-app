@@ -116,17 +116,13 @@ function AppNavigationOverlay() {
     setActiveTab(tabName); 
     
     setTimeout(() => {
-      if (tabName === "profile") {
-        if (pathname !== "/profile") router.navigate("/profile");
+      if (pathname === "/") {
+        router.setParams({ tab: tabName });
       } else {
-        if (pathname === "/") {
-          router.setParams({ tab: tabName });
-        } else {
-          router.navigate({
-            pathname: "/",
-            params: { tab: tabName },
-          });
-        }
+        router.navigate({
+          pathname: "/",
+          params: { tab: tabName },
+        });
       }
     }, 20);
   }, [pathname]);

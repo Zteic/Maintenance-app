@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import {
   View,
   Text,
@@ -15,6 +16,7 @@ import {
   TextInput,
   Alert,
   Image,
+  Share,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Notifications from "expo-notifications";
@@ -42,6 +44,8 @@ import {
   saveFuelEntries,
   loadNotifications,
   saveNotifications,
+  loadUserProfile, 
+  saveUserProfile,
 } from "@/utils/storage";
 import { usePremium } from '@/context/PremiumContext';
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
@@ -56,9 +60,60 @@ import FuelLog from "@/components/maintenance/FuelLog";
 import FuelSheet from "@/components/maintenance/FuelSheet";
 import PremiumSection, { AccountStatsGrid } from "@/components/Premium/PremiumSection";
 import PremiumPurchaseModal from "@/components/Premium/PremiumPurchaseModal";
+import PremiumGateWrapper from "@/components/Premium/PremiumGateWrapper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaintenanceCalendar from "../components/maintenance/MaintenanceCalendar";
 import NotifCenter from '@/components/maintenance/NotifCenter';
+import FuelPriceUpdate from "@/components/maintenance/FuelPriceUpdate";
+import { UserProfile } from "@/types/maintenance";
+
+
+// --- FUNGSI PEMBANTU (HELPERS) HALAMAN PROFILE ---
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+function buildExportText(
+  vehicles: Vehicle[],
+  repairs: RepairEntry[],
+  lang: string,
+): string {
+  const isId = lang === "id";
+  let text = `=== GarasiKu ${isId ? "Riwayat Servis" : "Service History"} ===\n`;
+  text += `${isId ? "Diekspor" : "Exported"}: ${new Date().toLocaleDateString()}\n\n`;
+
+  for (const v of vehicles) {
+    const vRepairs = repairs.filter((r) => r.vehicleId === v.id);
+    const total = vRepairs.reduce((s, r) => s + r.cost, 0);
+    text += `🚗 ${v.name} (${v.plateNumber}) — ${v.year} ${v.brand} ${v.model}\n`;
+    text += `Odometer: ${v.currentOdometer.toLocaleString()} km | Total: ${formatCurrency(total)}\n`;
+
+    if (vRepairs.length === 0) {
+      text += `  ${isId ? "Belum ada catatan." : "No records."}\n`;
+    } else {
+      const sorted = [...vRepairs].sort((a, b) => {
+        const dateA = a.date instanceof Date ? a.date : new Date(a.date);
+        const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      for (const r of sorted) {
+        const actualDate = r.date instanceof Date ? r.date : new Date(r.date);
+        const notes = r.notes.replace(/\n?\[receipts:.*?\]/g, "").trim();
+        
+        text += `  • ${actualDate.toLocaleDateString()} - ${r.serviceType} - ${formatCurrency(r.cost)} - ${r.workshop}`;
+        if (notes) text += `\n    📝 ${notes}`;
+        text += "\n";
+      }
+    }
+    text += "\n";
+  }
+  return text;
+}
 
 type TabType = "home" | "service" | "fuel";
 
@@ -81,7 +136,7 @@ function AppContent() {
   const { t, lang, setLang } = useLanguage();
   const now = new Date();
   const insets = useSafeAreaInsets();
-  const { isPremium } = usePremium();
+  const { isPremium, setIsPremium } = usePremium();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
@@ -114,6 +169,20 @@ function AppContent() {
   const [showOdoHistory, setShowOdoHistory] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [activePrefillFeature, setActivePrefillFeature] = useState<{name: string, desc: string} | null>(null);
+
+  // 🚀 STATE TAMBAHAN UNTUK INTEGRASI PROFILE SYSTEM
+  const [showPriceUpdate, setShowPriceUpdate] = useState(false);
+  const [profile, setProfile] = useState<UserProfile>({
+  name: "Pengguna",
+  email: "user@example.com",
+  });
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editAppName, setEditAppName] = useState("");
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [storageSize, setStorageSize] = useState('0.00 MB');
+  const isId = lang === "id";
 
   // 🚀 REVISI SUPER CERDAS: Engine Sinkronisasi Otomatis Kata Kunci Pengingat dengan Cross-Fuzzy Fallback
   const syncUpcomingReminder = useCallback((serviceType: string, currentOdo: number, nextIntervalKm: number) => {
@@ -453,6 +522,49 @@ function AppContent() {
     );
   };
 
+  // 🔄 LIFECYCLE EFFECT KHUSUS FITUR PROFILE
+useEffect(() => {
+  const calculateStorage = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const items = await AsyncStorage.multiGet(keys);
+      let totalBytes = 0;
+      items.forEach(([key, value]) => {
+        totalBytes += (key.length + (value ? value.length : 0)) * 2;
+      });
+      setStorageSize((totalBytes / 1024 / 1024).toFixed(2) + ' MB');
+    } catch (e) {}
+  };
+
+  if (activeTab === 'profile') {
+    calculateStorage();
+  }
+}, [activeTab]);
+
+useEffect(() => {
+  loadUserProfile().then((p) => {
+    if (p) setProfile(p);
+  });
+}, []);
+
+// 💡 Tambahkan ref ini tepat di atas useEffect untuk melacak render pertama
+  const isProfileFirstMount = useRef(true);
+
+  useEffect(() => {
+    // Jika ini adalah render pertama kali saat aplikasi dibuka
+    if (isProfileFirstMount.current) {
+      isProfileFirstMount.current = false;
+      // Skip pemanggilan jika nilainya false agar tidak crash saat router belum siap
+      if (!showPriceUpdate) return;
+    }
+
+    if (showPriceUpdate) {
+      router.setParams({ hideNavbar: 'true' });
+    } else {
+      router.setParams({ hideNavbar: 'false' });
+    }
+  }, [showPriceUpdate]);
+
   const handleAddReminderOnly = () => {
     setPrefillServiceType(undefined);
     setEditingRepair(null);
@@ -781,6 +893,104 @@ function AppContent() {
     }
   };
 
+  // ⚙️ HANDLER ACTIONS KHUSUS PROFILE SYSTEM
+const handleTriggerPremiumLock = (name: string, desc: string) => {
+  setActivePrefillFeature({ name, desc });
+  setPremiumModalVisible(true);
+};
+
+const handleResetData = () => {
+  Alert.alert(
+    "Reset & Hapus Data",
+    "Semua data kendaraan, histori, dan pengaturan akan dihapus permanen dari perangkat ini. Lanjutkan?",
+    [
+      { text: "Batal", style: "cancel" },
+      { 
+        text: "Ya, Hapus", 
+        style: "destructive", 
+        onPress: async () => {
+          const keys = await AsyncStorage.getAllKeys();
+          const garasiKeys = keys.filter(k => k.startsWith('garasi_') || k === 'custom_app_name');
+          await AsyncStorage.multiRemove(garasiKeys);
+          Alert.alert("Berhasil", "Aplikasi telah direset.", [{ text: "OK", onPress: () => router.replace("/") }]);
+        } 
+      }
+    ]
+  );
+};
+
+const toggleMode = async (mode: 'basic' | 'advance') => {
+  setAppMode(mode);
+  await AsyncStorage.setItem('garasi_app_mode', mode);
+};
+
+const handlePickPhoto = async () => {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== "granted") {
+    Alert.alert(
+      isId ? "Izin Diperlukan" : "Permission Required",
+      isId ? "Izin diperlukan." : "Permission required.",
+    );
+    return;
+  }
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.8,
+  });
+  if (!result.canceled && result.assets[0]) {
+    const updated = { ...profile, photoUri: result.assets[0].uri };
+    setProfile(updated);
+    saveUserProfile(updated);
+  }
+};
+
+const handleSaveProfile = async () => {
+  const updated = { ...profile, name: editName.trim() || profile.name, email: editEmail.trim() || profile.email };
+  setProfile(updated);
+  saveUserProfile(updated);
+
+  const finalAppName = editAppName.trim() || t("appName");
+  setAppName(finalAppName);
+  try {
+    await AsyncStorage.setItem("custom_app_name", finalAppName);
+  } catch (e) {
+    console.log("Gagal menyimpan nama garasi:", e);
+  }
+
+  setEditingProfile(false);
+};
+
+const handleExport = async () => {
+  try {
+    const text = buildExportText(vehicles, repairs, lang);
+    await Share.share({
+      title: `GarasiKu - Export`,
+      message: text,
+    });
+  } catch (e) {
+    Alert.alert("Error", "Could not export.");
+  }
+};
+
+const handleBackupExport = async () => {
+  try {
+    const keys = ["garasi_vehicles", "garasi_repairs", "garasi_user_profile"];
+    const pairs = await AsyncStorage.multiGet(keys);
+    const backup: Record<string, any> = {};
+    pairs.forEach(([k, v]) => {
+      if (v) backup[k] = JSON.parse(v);
+    });
+    await Share.share({
+      title: "GarasiKu_Backup",
+      message: JSON.stringify(backup),
+    });
+  } catch (e) {
+    Alert.alert("Error", "Backup failed.");
+  }
+};
+
   // 🚀 ENGINE SMART SEARCH & FILTER UNTUK HISTORY
   const filteredHistory = stats.vehicleRepairs.filter(r => {
     if (appMode === 'basic') return true;
@@ -846,6 +1056,16 @@ function AppContent() {
   const finalFuelData = filteredFuel;
 
   const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
+
+  if (showPriceUpdate) {
+  return (
+    <FuelPriceUpdate 
+      onBack={() => {
+        setShowPriceUpdate(false);
+      }} 
+    />
+  );
+}
 
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
@@ -1327,62 +1547,263 @@ function AppContent() {
         )}
 
         {/* ========================================== */}
-        {/* TAB 4: PROFILE SYSTEM                      */}
+        {/* TAB 4: PROFILE SYSTEM (FULL INTEGRATION)   */}
         {/* ========================================== */}
         {activeTab === "profile" && (
           <ScrollView 
             key="tab-profile" 
             overScrollMode="never" 
             showsVerticalScrollIndicator={false} 
-            contentContainerStyle={{ paddingBottom: 150, paddingTop: 10, paddingHorizontal: 20, gap: 15 }}
+            contentContainerStyle={{ paddingBottom: 150, paddingTop: 10, paddingHorizontal: 20 }}
           >
-            <Text
-              style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginTop: 10, marginBottom: 5 }}>
-              {lang === 'id' ? 'Profil Saya' : 'My Profile'}
-            </Text>
+            {/* Header internal Tab Profile */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 20,
+                paddingTop: 10,
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => router.setParams({ tab: 'home' })}
+                style={{ flexDirection: "row", alignItems: "center" }}
+              >
+                <Text style={{ color: "#F5A623", fontSize: 16 }}>← Kembali</Text>
+              </TouchableOpacity>
 
+              <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginRight: 40 }}>
+                <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "800", textAlign: "center" }}>
+                  {t("myProfile")}
+                </Text>
+
+                {__DEV__ && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={async () => {
+                      const targetStatus = !isPremium;
+                      await setIsPremium(targetStatus);
+                      Alert.alert(
+                        "🔧 Dev Mode Switcher",
+                        `Status berhasil diubah ke: ${targetStatus ? "PREMIUM 👑" : "FREE 🚗"}`
+                      );
+                    }}
+                    style={{
+                      backgroundColor: isPremium ? '#F5A623' : '#4ECDC4',
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                    }}
+                  >
+                    <Text style={{ color: '#0D1B2A', fontSize: 10, fontWeight: '900' }}>
+                      {isPremium ? "SET FREE" : "SET PREMIUM"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Profile Card */}
+            <View style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, gap: 16, marginBottom: 20 }}>
+              {!editingProfile ? (
+                <>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("userName")}</Text>
+                  <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{profile.name}</Text>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("email")}</Text>
+                  <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{profile.email}</Text>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI</Text>
+                  <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600", fontFamily: "Windpower" }}>{appName}</Text>
+                  
+                  <TouchableOpacity 
+                    onPress={() => { 
+                      setEditName(profile.name); 
+                      setEditEmail(profile.email); 
+                      setEditAppName(appName); 
+                      setEditingProfile(true); 
+                    }} 
+                    style={{ paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(245,166,35,0.1)", alignItems: "center", marginTop: 5 }}
+                  >
+                    <Text style={{ color: "#F5A623", fontWeight: "600" }}>✏️ {t("editProfile")}</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA LENGKAP</Text>
+                  <TextInput value={editName} onChangeText={setEditName} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }} placeholder="Name" />
+                  
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>ALAMAT EMAIL</Text>
+                  <TextInput value={editEmail} onChangeText={setEditEmail} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }} placeholder="Email" />
+                  
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI CUSTOM</Text>
+                  <TextInput value={editAppName} onChangeText={setEditAppName} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10, fontFamily: "Windpower", fontSize: 15 }} placeholder="Nama Garasi Anda" />
+                  
+                  <View style={{ flexDirection: "row", gap: 10, marginTop: 5 }}>
+                    <TouchableOpacity onPress={() => setEditingProfile(false)} style={{ flex: 1, alignItems: "center", padding: 12 }}><Text style={{ color: "#fff" }}>{t("cancel")}</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={handleSaveProfile} style={{ flex: 2, backgroundColor: "#F5A623", alignItems: "center", padding: 12, borderRadius: 12 }}><Text style={{ color: "#0D1B2A", fontWeight: "800" }}>{t("saveProfile")}</Text></TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+
+            {/* Grid Statistik Akun */}
             <AccountStatsGrid />
 
-            <PremiumSection
+            {/* Banner Premium Lifetime Card */}
+            <PremiumSection 
               onOpenPremiumPage={() => { 
                 setActivePrefillFeature(null); 
                 setPremiumModalVisible(true); 
-              }} />
+              }} 
+            />
 
-            <Text
-              style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '800', marginTop: 15, letterSpacing: 0.5 }}>
-              EKSKLUSIF PREMIUM FEATURES
-            </Text>
+            {/* Action Buttons */}
+            <View style={{ marginTop: 16, gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setShowPriceUpdate(true)}
+                activeOpacity={0.85}
+                style={{
+                  backgroundColor: "#1A2B3C",
+                  borderRadius: 16,
+                  padding: 20,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 16,
+                  borderWidth: 1,
+                  borderColor: "rgba(245,166,35,0.2)",
+                }}
+              >
+                <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", borderWidth: 1, borderColor: "rgba(245,166,35,0.3)", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 22 }}>⛽</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>Update Harga Bensin</Text>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>Atur harga BBM per liter saat ini</Text>
+                </View>
+                <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => handleTriggerPremiumLock('Advanced Fuel Analytics', 'Analisis mendalam konsumsi bahan bakar, grafik efisiensi, dan kalkulasi emisi performa mesin bulanan.')}
-              style={{ backgroundColor: '#1A2B3C', padding: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.02)' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Text style={{ fontSize: 18 }}>📈</Text>
-                <View>
-                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '700' }}>Advanced Fuel Analytics</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Grafik efisiensi BBM mendalam</Text>
+              {/* 🛠️ FIX REVISI: Mengembalikan router.push('/export') sesuai file bawaan asli */}
+              <TouchableOpacity
+                onPress={() => router.push('/export')} 
+                style={{
+                  backgroundColor: "#1A2B3C",
+                  borderRadius: 16,
+                  padding: 20,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 16,
+                  borderWidth: 1,
+                  borderColor: "rgba(78,205,196,0.3)",
+                }}
+              >
+                <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 22 }}>📊</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>Backup and Restore</Text>
+                  <Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>Backup seluruh data kendaraan ke .vhdb</Text>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>💽 Penggunaan Memori: {storageSize}</Text>
+                </View>
+                <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* SECTION MODE PENGGUNAAN */}
+            <View style={{ marginTop: 25 }}>
+              <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>MODE PENGGUNAAN</Text>
+              <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                <TouchableOpacity 
+                  activeOpacity={0.9} 
+                  onPress={() => toggleMode('basic')} 
+                  style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'basic' ? '#4ECDC4' : 'transparent' }}
+                >
+                  <Text style={{ fontWeight: '800', color: appMode === 'basic' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Basic</Text>
+                </TouchableOpacity>
+
+                <View style={{ flex: 1 }}>
+                  <PremiumGateWrapper
+                    featureName="Mode Advance (Advanced Search)"
+                    featureDescription="Membuka filter riwayat perbaikan mendalam, pencarian kata kunci multi-tab bensin, serta modul log analitik cerdas seumur hidup."
+                    onLockedPress={(name, desc) => handleTriggerPremiumLock(name, desc)}
+                  >
+                    <TouchableOpacity 
+                      activeOpacity={0.9} 
+                      onPress={() => toggleMode('advance')} 
+                      style={{ width: '100%', paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'advance' ? '#F5A623' : 'transparent' }}
+                    >
+                      <Text style={{ fontWeight: '800', color: appMode === 'advance' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Advance</Text>
+                    </TouchableOpacity>
+                  </PremiumGateWrapper>
                 </View>
               </View>
-              <Text
-                style={{ color: '#F5A623', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(245,166,35,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>🔒 PRO</Text>
-            </TouchableOpacity>
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 8, marginLeft: 5, marginBottom: 15 }}>
+                {appMode === 'basic' ? "Tampilan bersih. Fokus pada fitur utama." : "Membuka fitur tambahan (Advanced Search, dll)."}
+              </Text>
+            </View>
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => handleTriggerPremiumLock('Export PDF Premium', 'Ekspor seluruh riwayat perawatan dan catatan log bensin kendaraan ke format berkas PDF cetak profesional tanpa watermark.')}
-              style={{ backgroundColor: '#1A2B3C', padding: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.02)' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Text style={{ fontSize: 18 }}>📄</Text>
-                <View>
-                  <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '700' }}>Export PDF Laporan</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Cetak berkas laporan tanpa watermark</Text>
+            {/* MENU FEEDBACK & BUG REPORT BARU */}
+            <View style={{ marginTop: 25 }}>
+              <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>BANTUAN & PENGEMBANGAN</Text>
+              <TouchableOpacity onPress={() => router.push('/feedback')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                <Text style={{ fontSize: 22, marginRight: 15 }}>🐞</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Laporkan Bug & Saran</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Kirim masukan langsung ke developer</Text>
                 </View>
+                <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => router.push('/feedback-history')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                <Text style={{ fontSize: 22, marginRight: 15 }}>📋</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Riwayat Feedback</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Pantau status laporan Anda</Text>
+                </View>
+                <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* SECTION INFORMASI & LEGAL */}
+            <View style={{ marginTop: 25, marginBottom: 20 }}>
+              <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>INFORMASI & LEGAL</Text>
+              <View style={{ backgroundColor: '#1A2B3C', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                <TouchableOpacity onPress={() => router.push('/changelog')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                  <Text style={{ fontSize: 18, marginRight: 12 }}>✨</Text>
+                  <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Apa yang Baru (What's New)</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => router.push('/privacy')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                  <Text style={{ fontSize: 18, marginRight: 12 }}>🛡️</Text>
+                  <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Kebijakan Privasi (Privacy Policy)</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => router.push('/terms')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                  <Text style={{ fontSize: 18, marginRight: 12 }}>📜</Text>
+                  <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Syarat & Ketentuan</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => router.push('/contact')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                  <Text style={{ fontSize: 18, marginRight: 12 }}>✉️</Text>
+                  <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Hubungi Developer</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => router.push('/check-updates')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                  <Text style={{ fontSize: 18, marginRight: 12 }}>🔄</Text>
+                  <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Periksa Pembaruan</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={handleResetData} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: 'rgba(255,82,82,0.05)' }}>
+                  <Text style={{ fontSize: 18, marginRight: 12 }}>⚠️</Text>
+                  <Text style={{ color: '#FF5252', flex: 1, fontWeight: '700' }}>Hapus Semua Data Aplikasi</Text>
+                </TouchableOpacity>
               </View>
-              <Text
-                style={{ color: '#F5A623', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(245,166,35,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>🔒 PRO</Text>
-            </TouchableOpacity>
+            </View>
           </ScrollView>
         )}
 
@@ -1952,6 +2373,50 @@ function AppContent() {
           </View>
         </View>
       </Modal>
+
+      {/* Backup Modal Sederhana khusus Profile */}
+      <Modal visible={showBackupModal} transparent animationType="none">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.8)",
+            justifyContent: "center",
+            padding: 40,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "#1A2B3C",
+              padding: 20,
+              borderRadius: 20,
+              gap: 20,
+            }}
+          >
+            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "bold", textAlign: "center" }}>
+              Backup Data
+            </Text>
+            <TouchableOpacity
+              onPress={handleBackupExport}
+              style={{
+                backgroundColor: "#4ECDC4",
+                padding: 15,
+                borderRadius: 10,
+              }}
+            >
+              <Text style={{ textAlign: "center", fontWeight: "bold" }}>
+                Export Backup
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowBackupModal(false)}
+              style={{ padding: 10 }}
+            >
+              <Text style={{ color: "#fff", textAlign: "center" }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <NotifCenter
         visible={showNotifModal}
         onClose={() => setShowNotifModal(false)}
