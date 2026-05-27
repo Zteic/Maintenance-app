@@ -47,11 +47,28 @@ function deserializeRepair(r: any): RepairEntry {
 }
 
 function serializeReminder(r: Reminder): any {
+  // 1. Jika tidak ada dueDate, kembalikan objek aslinya tanpa dimodifikasi
+  if (!r.dueDate) {
+    return { ...r };
+  }
+
+  // 2. Jika ada, parse menjadi Date
   const dueDateObj = r.dueDate instanceof Date ? r.dueDate : new Date(r.dueDate);
+  
+  // 3. Pastikan Date-nya valid sebelum diubah ke ISOString agar aplikasi tidak crash
+  if (isNaN(dueDateObj.getTime())) {
+    return { ...r };
+  }
+
   return { ...r, dueDate: dueDateObj.toISOString() };
 }
 
 function deserializeReminder(r: any): Reminder {
+  // Jika tidak ada dueDate, kembalikan apa adanya
+  if (!r.dueDate) {
+    return { ...r };
+  }
+  
   return { ...r, dueDate: new Date(r.dueDate) };
 }
 

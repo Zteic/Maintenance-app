@@ -166,9 +166,11 @@ function AppContent() {
   const [planInterval, setPlanInterval] = useState("");
   const [planRepeatNum, setPlanRepeatNum] = useState("");
   const [planRepeatUnit, setPlanRepeatUnit] = useState("month");
+  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [showOdoHistory, setShowOdoHistory] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [activePrefillFeature, setActivePrefillFeature] = useState<{name: string, desc: string} | null>(null);
+  const [timeRules, setTimeRules] = useState<Record<string, { repeatNum: number, repeatUnit: string }>>({});
 
   // 🚀 STATE TAMBAHAN UNTUK INTEGRASI PROFILE SYSTEM
   const [showPriceUpdate, setShowPriceUpdate] = useState(false);
@@ -392,8 +394,20 @@ function AppContent() {
 
     const vReminders = reminders
       .filter((r) => r.vehicleId === selectedVehicleId)
-      .map((rem) => {
-        const distanceLeft = rem.dueOdometer - latestOdo;
+      .map((rem: any) => {
+        const savedRule = timeRules[rem.id];
+        const updatedRem = savedRule 
+          ? { ...rem, repeatNum: savedRule.repeatNum, repeatUnit: savedRule.repeatUnit } 
+          : rem;
+
+        if (!updatedRem.intervalKm && updatedRem.repeatNum) {
+          return { 
+            ...updatedRem, 
+            status: "routine" 
+          };
+        }
+
+        const distanceLeft = updatedRem.dueOdometer - latestOdo;
         let status: "safe" | "approaching" | "overdue" = "safe";
 
         if (distanceLeft <= 0) {
@@ -404,7 +418,7 @@ function AppContent() {
           status = "safe";
         }
 
-        return { ...rem, status };
+        return { ...updatedRem, status };
       });
 
     const now = new Date();
@@ -444,23 +458,30 @@ function AppContent() {
       monthlyDistance: distanceM,
       autoLatestOdometer: latestOdo,
     };
-  }, [repairs, fuelEntries, reminders, selectedVehicleId, vehicles]);
+  }, [repairs, fuelEntries, reminders, selectedVehicleId, vehicles, timeRules]);
 
   const refreshData = useCallback(async () => {
     try {
-      const [sv, sr, srm, ssv, sfe, sn] = await Promise.all([
+      // 🚀 KUNCI PERBAIKAN 2: Menambahkan sRules untuk menangkap data ke-7 di Promise.all
+      const [sv, sr, srm, ssv, sfe, sn, sRules] = await Promise.all([
         loadVehicles(),
         loadRepairs(),
         loadReminders(),
         loadSelectedVehicleId(),
         loadFuelEntries(),
         loadNotifications(),
+        AsyncStorage.getItem('garasi_repeat_time_rules'),
       ]);
       setNotifications(sn && sn.length > 0 ? sn : []);
       setVehicles(sv && sv.length > 0 ? sv : MOCK_VEHICLES);
       setRepairs(sr && sr.length > 0 ? sr : MOCK_REPAIRS);
-      setReminders(srm && srm.length > 0 ? srm : MOCK_REMINDERS);
+      setReminders(srm !== null ? srm : MOCK_REMINDERS);
       setFuelEntries(sfe && sfe.length > 0 ? sfe : []);
+      
+      // 🚀 KUNCI PERBAIKAN 3: Masukkan kembali aturan waktu kalender ke state utama
+      if (sRules) {
+        setTimeRules(JSON.parse(sRules));
+      }
 
       if (ssv) {
         setSelectedVehicleId(ssv);
@@ -483,31 +504,31 @@ function AppContent() {
   );
 
   useEffect(() => {
-    if (!isFetchingFromServer) {
+    if (!isFetchingFromServer && vehicles.length > 0) {
       saveVehicles(vehicles);
     }
   }, [vehicles, isFetchingFromServer]);
 
   useEffect(() => {
-    if (!isFetchingFromServer) {
+    if (!isFetchingFromServer && repairs.length > 0) {
       saveRepairs(repairs);
     }
   }, [repairs, isFetchingFromServer]);
 
   useEffect(() => {
-    if (!isFetchingFromServer) {
+    if (!isFetchingFromServer && fuelEntries.length > 0) {
       saveFuelEntries(fuelEntries);
     }
   }, [fuelEntries, isFetchingFromServer]);
 
   useEffect(() => {
-    if (!isFetchingFromServer) {
+    if (!isFetchingFromServer && notifications.length > 0) {
       saveNotifications(notifications);
     }
   }, [notifications, isFetchingFromServer]);
 
   useEffect(() => {
-    if (!isFetchingFromServer) {
+    if (!isFetchingFromServer && reminders.length > 0) {
       saveReminders(reminders);
     }
   }, [reminders, isFetchingFromServer]);
@@ -646,38 +667,71 @@ useEffect(() => {
     setShowAddSheet(true);
   };
 
-  const handleSaveNewPlan = () => {
-    if (!planName || !planInterval) {
-      alert(lang === "id" ? "Mohon isi nama dan interval!" : "Please fill name and interval!");
+  const handleSaveNewPlan = async () => {
+    // 💡 VALIDASI: Nama wajib diisi, dan minimal salah satu antara Interval KM ATAU Angka Ulangi harus ada
+    if (!planName || (!planInterval && !planRepeatNum)) {
+      alert(lang === "id" 
+        ? "Mohon isi nama dan minimal salah satu interval (KM atau Waktu)!" 
+        : "Please fill name and at least one interval (KM or Time)!"
+      );
       return;
     }
 
     const vId = selectedVehicleId;
     const currentOdo = stats.autoLatestOdometer;
 
-    const newPlan: Reminder = {
-      id: `rem-${Date.now()}`,
+    // Menghitung estimasi target odometer jika interval KM diisi
+    const intervalKmValue = planInterval ? Number(planInterval) : 0;
+    const dueOdoValue = intervalKmValue > 0 ? currentOdo + intervalKmValue : currentOdo;
+    
+    // 🚀 KUNCI REVISI 1: Gunakan satu ID tunggal yang konsisten untuk reminders dan timeRules
+    const planId = `rem-${Date.now()}`;
+
+    // Menyusun teks catatan tambahan jika memilih opsi pengulangan waktu (opsional)
+    let timeNotes = "";
+    if (planRepeatNum) {
+      const unitLabel = planRepeatUnit === 'week' ? 'Minggu' : planRepeatUnit === 'month' ? 'Bulan' : 'Tahun';
+      timeNotes = `[Repeat: ${planRepeatNum} ${unitLabel}]`;
+
+      const updatedRules = {
+        ...timeRules,
+        [planId]: { repeatNum: Number(planRepeatNum), repeatUnit: planRepeatUnit }
+      };
+      setTimeRules(updatedRules);
+      await AsyncStorage.setItem('garasi_repeat_time_rules', JSON.stringify(updatedRules));
+    }
+
+    // 🚀 KUNCI PERBAIKAN 4: Samakan properti id dengan planId agar tidak terjadi tabrakan memori
+    const newPlan: any = { 
+      id: planId, 
       vehicleId: vId,
       serviceType: planName,
-      intervalKm: Number(planInterval),
-      dueOdometer: currentOdo + Number(planInterval),
+      intervalKm: intervalKmValue || null, // Gunakan null agar aman di JSON browser
+      dueOdometer: dueOdoValue,
       lastServiceOdometer: currentOdo,
       status: "safe",
       lastServiceDate: new Date().toISOString(),
+      repeatNum: planRepeatNum ? Number(planRepeatNum) : null,
+      repeatUnit: planRepeatNum ? planRepeatUnit : null,
+      timeNotes: timeNotes
     };
 
-    setReminders((prev) => [...prev, newPlan]);
+    // 🚀 KUNCI REVISI 6: Tulis data secara instan ke AsyncStorage untuk memotong antrean render web
+    const updatedReminders = [...reminders, newPlan];
+    setReminders(updatedReminders);
 
     addNotification(
       'ADD', 
       lang === "id" ? "Rencana Perawatan Baru" : "New Maintenance Plan",
-      `Rencana baru untuk ${planName} setiap ${planInterval} km berhasil dijadwalkan.`,
+      `Rencana baru untuk ${planName} berhasil dijadwalkan.`,
       "vehicle",
       selectedVehicleId
     );
 
+    // Reset Form Input
     setPlanName("");
     setPlanInterval("");
+    setPlanRepeatNum(""); 
     setShowPlanModal(false);
   };
 
@@ -888,6 +942,14 @@ useEffect(() => {
   const confirmDeleteAction = () => {
     if (itemToDeleteId) {
       setReminders((prev) => prev.filter((r) => r.id !== itemToDeleteId));
+      
+      setTimeRules((prev) => {
+        const copy = { ...prev };
+        delete copy[itemToDeleteId];
+        AsyncStorage.setItem('garasi_repeat_time_rules', JSON.stringify(copy));
+        return copy;
+      });
+
       setShowDeleteConfirm(false);
       setItemToDeleteId(null);
     }
@@ -2073,61 +2135,67 @@ const handleBackupExport = async () => {
               onChangeText={(text) => setPlanInterval(text)} />
 
               {/* 👇 FITUR REPEAT EVERY 👇 */}
-            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 8, fontWeight: "700" }}>
-              {lang === "id" ? "ULANGI SETIAP (OPSIONAL)" : "REPEAT EVERY (OPTIONAL)"}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 25 }}>
-              <TextInput
-                style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", borderRadius: 12, padding: 15, color: "#FFF", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}
-                placeholder="Angka"
-                placeholderTextColor="rgba(255,255,255,0.2)"
-                keyboardType="numeric"
-                value={planRepeatNum}
-                onChangeText={setPlanRepeatNum}
-              />
-              <View style={{ flex: 2, flexDirection: 'row', backgroundColor: "rgba(0,0,0,0.2)", borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)", overflow: 'hidden' }}>
-                {[
-                  { id: 'week', label: 'Mgg' },
-                  { id: 'month', label: 'Bln' },
-                  { id: 'year', label: 'Thn' }
-                ].map(unit => (
-                  <TouchableOpacity
-                    key={unit.id}
-                    activeOpacity={0.8}
-                    onPress={() => setPlanRepeatUnit(unit.id)}
-                    style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: planRepeatUnit === unit.id ? '#4ECDC4' : 'transparent' }}
-                  >
-                    <Text style={{ color: planRepeatUnit === unit.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '800' }}>
-                      {unit.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+<Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 8, fontWeight: "700" }}>
+  {lang === "id" ? "DAN ATAU ULANGI SETIAP (OPSIONAL)" : "REPEAT EVERY (OPTIONAL)"}
+</Text>
+<View style={{ flexDirection: 'row', gap: 10, marginBottom: 25, alignItems: 'center' }}>
+  <TextInput
+    style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", borderRadius: 12, padding: 15, color: "#FFF", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}
+    placeholder="1../2../3.."
+    placeholderTextColor="rgba(255,255,255,0.2)"
+    keyboardType="numeric"
+    value={planRepeatNum}
+    onChangeText={setPlanRepeatNum}
+  />
+  
+  {/* 🔽 HANYA BUTUH SATU TOMBOL DROPDOWN UTAMA (TANPA .MAP LOOPING Lagi) 🔽 */}
+  <TouchableOpacity
+    activeOpacity={0.8}
+    onPress={() => setShowUnitDropdown(true)}
+    style={{
+      flex: 1.5, // Mengambil ruang proporsional yang rapi di sebelah TextInput
+      backgroundColor: "rgba(0,0,0,0.2)",
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.05)",
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 15,
+      height: '100%', // Menyamakan tinggi dengan TextInput secara otomatis
+      minHeight: 50,  
+    }}
+  >
+    <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '800' }}>
+      {planRepeatUnit === 'week' ? 'Minggu' : planRepeatUnit === 'month' ? 'Bulan' : 'Tahun'}
+    </Text>
+    <Text style={{ color: '#4ECDC4', fontSize: 10 }}>▼</Text>
+  </TouchableOpacity>
+</View>
 
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              <TouchableOpacity
-                onPress={() => setShowPlanModal(false)}
-                style={{ flex: 1, paddingVertical: 15, alignItems: "center" }}>
-                <Text style={{ color: "rgba(255,255,255,0.4)", fontWeight: "700" }}>
-                  {lang === "id" ? "Batal" : "Cancel"}
-                </Text>
-              </TouchableOpacity>
+<View style={{ flexDirection: "row", gap: 12 }}>
+  <TouchableOpacity
+    onPress={() => setShowPlanModal(false)}
+    style={{ flex: 1, paddingVertical: 15, alignItems: "center" }}>
+    <Text style={{ color: "rgba(255,255,255,0.4)", fontWeight: "700" }}>
+      {lang === "id" ? "Batal" : "Cancel"}
+    </Text>
+  </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={handleSaveNewPlan}
-                style={{
-                  flex: 2,
-                  backgroundColor: "#4ECDC4",
-                  borderRadius: 14,
-                  paddingVertical: 15,
-                  alignItems: "center",
-                }}>
-                <Text style={{ color: "#0D1B2A", fontWeight: "800" }}>
-                  {lang === "id" ? "Simpan Rencana" : "Save Plan"}
-                </Text>
-              </TouchableOpacity>
-            </View>
+  <TouchableOpacity
+    onPress={handleSaveNewPlan}
+    style={{
+      flex: 2,
+      backgroundColor: "#4ECDC4",
+      borderRadius: 14,
+      paddingVertical: 15,
+      alignItems: "center",
+    }}>
+    <Text style={{ color: "#0D1B2A", fontWeight: "800" }}>
+      {lang === "id" ? "Simpan Rencana" : "Save Plan"}
+    </Text>
+  </TouchableOpacity>
+</View>
           </View>
         </View>
       </Modal>
@@ -2197,6 +2265,79 @@ const handleBackupExport = async () => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      {/* 📥 MODAL DROPDOWN SELEKTOR UNIT PLAN */}
+      <Modal
+        visible={showUnitDropdown}
+        transparent
+        animationType="none"
+        onRequestClose={() => setShowUnitDropdown(false)}>
+        <TouchableWithoutFeedback onPress={() => setShowUnitDropdown(false)}>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.7)", // Backdrop gelap transparan
+              justifyContent: "center",
+              alignItems: "center",
+            }}>
+            <TouchableWithoutFeedback>
+              <View
+                style={{
+                  backgroundColor: "#1A2B3C",
+                  borderRadius: 24,
+                  padding: 20,
+                  width: "75%",
+                  maxWidth: 280,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.1)",
+                }}>
+                <Text
+                  style={{
+                    color: "#FFF",
+                    fontSize: 15,
+                    fontWeight: "800",
+                    textAlign: "center",
+                    marginBottom: 16,
+                  }}>
+                  Pilih Periode Ulangi
+                </Text>
+                
+                {[
+                  { id: 'week', label: 'Minggu' },
+                  { id: 'month', label: 'Bulan' },
+                  { id: 'year', label: 'Tahun' }
+                ].map((unit) => (
+                  <TouchableOpacity
+                    key={unit.id}
+                    onPress={() => {
+                      setPlanRepeatUnit(unit.id);
+                      setShowUnitDropdown(false);
+                    }}
+                    style={{
+                      paddingVertical: 14,
+                      flexDirection: "row",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: planRepeatUnit === unit.id ? "#4ECDC4" : "rgba(255,255,255,0.03)",
+                      borderRadius: 12,
+                      marginBottom: 8,
+                    }}>
+                    <Text
+                      style={{
+                        color: planRepeatUnit === unit.id ? "#0D1B2A" : "#FFFFFF",
+                        fontSize: 14,
+                        fontWeight: "800",
+                      }}>
+                      {unit.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
       <Modal
         visible={showDeleteConfirm}
         transparent

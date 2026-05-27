@@ -53,7 +53,6 @@ function RootLayoutContent() {
         <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
           <Stack screenOptions={{ headerShown: false, animation: "none" }}>
             <Stack.Screen name="index" />
-            <Stack.Screen name="profile" />
             <Stack.Screen name="export" />
           </Stack>
           <AppNavigationOverlay />

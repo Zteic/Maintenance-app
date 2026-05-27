@@ -87,6 +87,13 @@ export default function UpcomingReminders({
       label: isId ? "PERBAIKI SEGERA" : "REPAIR NOW", 
       border: "rgba(255,82,82,0.2)" 
     },
+
+    routine: {
+      color: "#4ECDC4", 
+      bg: "rgba(78,205,196,0.1)", 
+      label: isId ? "JADWAL RUTIN" : "ROUTINE", 
+      border: "rgba(78,205,196,0.2)" 
+    }
   };
 
   // 2. Gabungkan Dokumen & Servis ke satu Array
@@ -133,7 +140,7 @@ export default function UpcomingReminders({
           style={{ backgroundColor: '#4ECDC4', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
         >
           <Text style={{ color: '#1A2B3C', fontWeight: '900', fontSize: 12 }}>
-            + {isId ? "TAMBAH" : "ADD"}
+          {isId ? "TAMBAH" : "ADD"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -151,7 +158,7 @@ export default function UpcomingReminders({
                 days={item.days} 
                 statusText={item.statusText} 
                 statusColor={item.statusColor} 
-                onPress={() => setShowDocModal(true)} // Tampilkan Modal Custom
+                onPress={() => setShowDocModal(true)} 
               />
             );
           }
@@ -192,16 +199,26 @@ export default function UpcomingReminders({
                         <Text style={{ color: cfg.color, fontSize: 9, fontWeight: "900" }}>!</Text>
                       </View>
                     )}
-                  </View>
+                    </View>
                   <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
-                    Target: {item.dueOdometer?.toLocaleString()} km
-                  </Text>
-                </View>
+  {item.status === "routine" 
+    ? `Rutin: Setiap ${item.repeatNum} ${item.repeatUnit === 'week' ? 'Minggu' : item.repeatUnit === 'month' ? 'Bulan' : 'Tahun'}`
+    : `Target: ${item.dueOdometer?.toLocaleString()} km`
+  }
+</Text>
+            </View> {/* 👈 Biarkan satu penutup ini saja untuk menutup kontainer teks kiri */}
 
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ color: cfg.color, fontSize: 13, fontWeight: "900", fontFamily: "SpaceMono" }}>
-                    {kmRemaining > 0 ? `+${kmRemaining.toLocaleString()}` : cfg.label.toUpperCase()}
-                  </Text>
+            <View style={{ alignItems: "flex-end" }}> {/* 👈 Langsung lanjut ke kontainer badge kanan */}
+                  <Text 
+  style={{ 
+    color: item.status === "routine" ? "#4ECDC4" : item.status === "overdue" ? "#FF5252" : "#F5A623", 
+    fontSize: 13, 
+    fontWeight: "800",
+    letterSpacing: 0.5
+  }}
+>
+  {item.status === "routine" ? "JADWAL RUTIN" : "PERBAIKI SEGERA"}
+</Text>
                   <View style={{ marginTop: 4, opacity: 0.3 }}>
                     <Text style={{ color: 'white', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
                   </View>
