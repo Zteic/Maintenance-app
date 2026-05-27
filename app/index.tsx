@@ -1616,7 +1616,7 @@ const handleBackupExport = async () => {
             key="tab-profile" 
             overScrollMode="never" 
             showsVerticalScrollIndicator={false} 
-            contentContainerStyle={{ paddingBottom: 150, paddingTop: 10, paddingHorizontal: 20 }}
+            contentContainerStyle={{ paddingBottom: 120, paddingTop: 10, paddingHorizontal: 20 }} 
           >
             {/* Header internal Tab Profile */}
             <View
