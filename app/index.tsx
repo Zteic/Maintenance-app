@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from "expo-router";
+import { apiService } from "@/utils/apiService";
 import * as ImagePicker from "expo-image-picker";
 import {
   View,
@@ -462,37 +463,41 @@ function AppContent() {
 
   const refreshData = useCallback(async () => {
     try {
-      // 🚀 KUNCI PERBAIKAN 2: Menambahkan sRules untuk menangkap data ke-7 di Promise.all
-      const [sv, sr, srm, ssv, sfe, sn, sRules] = await Promise.all([
+      // 1. Tarik data dasar konfigurasi & kendaraan dari lokal storage dulu
+      const [sv, srm, ssv, sn] = await Promise.all([
         loadVehicles(),
-        loadRepairs(),
         loadReminders(),
         loadSelectedVehicleId(),
-        loadFuelEntries(),
         loadNotifications(),
-        AsyncStorage.getItem('garasi_repeat_time_rules'),
       ]);
+
+      // 2. Set vehicle ID yang aktif saat ini secara presisi
+      let currentVehicleId = ssv || (sv && sv[0]?.id) || MOCK_VEHICLES[0].id;
+
+      // 3. 🚀 AMBIL DATA DINAMIS LEWAT SAKLAR apiService
+      const sr = await apiService.getRepairs(currentVehicleId);
+      const sfe = await apiService.getFuels(currentVehicleId);
+
+      // 4. Masukkan semua hasil ke State React secara berurutan
       setNotifications(sn && sn.length > 0 ? sn : []);
       setVehicles(sv && sv.length > 0 ? sv : MOCK_VEHICLES);
-      setRepairs(sr && sr.length > 0 ? sr : MOCK_REPAIRS);
-      setReminders(srm !== null ? srm : MOCK_REMINDERS);
-      setFuelEntries(sfe && sfe.length > 0 ? sfe : []);
+      setReminders(srm && srm.length > 0 ? srm : MOCK_REMINDERS);
+      setSelectedVehicleId(currentVehicleId);
       
-      // 🚀 KUNCI PERBAIKAN 3: Masukkan kembali aturan waktu kalender ke state utama
-      if (sRules) {
+      setRepairs(sr); // Menampung hasil pintar dari apiService (Online/Offline)
+      setFuelEntries(sfe); // Menampung hasil pintar dari apiService (Online/Offline)
+
+      // 🚀 ATURAN KALENDER: Jika kamu ada sistem aturan waktu kalender lokal, taruh di sini
+      // Gantilah 'garasi_time_rules' dengan key AsyncStorage kalender kamu jika ada
+      const sRules = await AsyncStorage.getItem('garasi_time_rules');
+      if (sRules && typeof setTimeRules === 'function') {
         setTimeRules(JSON.parse(sRules));
       }
 
-      if (ssv) {
-        setSelectedVehicleId(ssv);
-      } else if (sv && sv.length > 0) {
-        setSelectedVehicleId(sv[0].id);
-      } else {
-        setSelectedVehicleId(MOCK_VEHICLES[0].id);
-      }
     } catch (e) {
-      console.error("Gagal load data", e);
+      console.error("Gagal load data secara online/lokal:", e);
     } finally {
+      // Menutup indikator loading, apa pun yang terjadi (sukses maupun gagal)
       setIsFetchingFromServer(false);
     }
   }, []);

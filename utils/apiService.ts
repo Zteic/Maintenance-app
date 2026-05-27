@@ -71,18 +71,13 @@ export const apiService = {
     return true;
   },
 
-  // -----------------------------------------------------------------------
-  // MODULE 2: FUEL LOGS
-  // -----------------------------------------------------------------------
-  
-  getFuels: async (vehicleId: string): Promise<FuelEntry[]> => {
-    if (CURRENT_MODE === 'supabase') return [];
-    if (CURRENT_MODE === 'vps') return [];
-
-    const localData = await AsyncStorage.getItem('garasi_fuel_entries');
+getFuels: async (vehicleId: string): Promise<FuelEntry[]> => {
+  if (CURRENT_MODE === 'local') {
+    const localData = await AsyncStorage.getItem('garasi_fuel_entries'); 
     const allFuels: FuelEntry[] = localData ? JSON.parse(localData) : [];
-    return allFuels.filter(f => f.vehicleId === vehicleId);
-  },
+    return allFuels.filter(f => f.vehicleId === vehicleId); 
+  }
+},
 
   saveFuel: async (entry: Omit<FuelEntry, 'id'> & { id?: string }): Promise<boolean> => {
     if (CURRENT_MODE === 'supabase') return true;
