@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from "expo-image-picker";
 import { RepairEntry } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   loadCustomServiceTypes,
   saveCustomServiceTypes,
@@ -72,6 +73,7 @@ export default function AddRepairSheet({
   const [showServicePicker, setShowServicePicker] = useState(false);
   const [customTypes, setCustomTypes] = useState<string[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [odometer, setOdometer] = useState(currentOdometer?.toString() || "0");
   const [cost, setCost] = useState("");
   const [workshop, setWorkshop] = useState("");
@@ -436,32 +438,56 @@ export default function AddRepairSheet({
 
                   {/* Date & Odometer */}
                   <View style={{ flexDirection: "row", gap: 12 }}>
+                    
+                    {/* --- BAGIAN TANGGAL (RAHASA FORMAT DD/MM/YYYY) --- */}
                     <View style={{ flex: 1, gap: 8 }}>
-                      <Text
-                        style={{
-                          color: "rgba(255,255,255,0.5)",
-                          fontSize: 11,
-                          letterSpacing: 1,
-                        }}
-                      >
+                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: 1 }}>
                         {t("date")}
                       </Text>
-                      <TextInput
-                        value={date}
-                        onChangeText={setDate}
-                        placeholder="YYYY-MM-DD"
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                        style={{ ...inputStyle, fontFamily: "SpaceMono" }}
-                      />
+
+                      {Platform.OS === 'web' ? (
+                        /* Tampilan Web */
+                        <TextInput
+                          value={date}
+                          onChangeText={setDate}
+                          placeholder="YYYY-MM-DD"
+                          placeholderTextColor="rgba(255,255,255,0.3)"
+                          style={{ ...inputStyle, fontFamily: "SpaceMono", height: 48 }}
+                        />
+                      ) : (
+                        /* Tampilan HP (Android/iOS) */
+                        <>
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => setShowDatePicker(true)}
+                            style={{ ...inputStyle, justifyContent: 'center', height: 48 }}
+                          >
+                            {/* Format Otomatis: DD/MM/YYYY */}
+                            <Text style={{ color: "#FFF", fontFamily: "SpaceMono" }}>
+                              {date ? `${date.split('-')[2]}/${date.split('-')[1]}/${date.split('-')[0]}` : ''}
+                            </Text>
+                          </TouchableOpacity>
+
+                          {showDatePicker && (
+                            <DateTimePicker
+                              value={new Date(date)}
+                              mode="date"
+                              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                              onChange={(event, selectedDate) => {
+                                setShowDatePicker(false);
+                                if (selectedDate) {
+                                  setDate(selectedDate.toISOString().split("T")[0]);
+                                }
+                              }}
+                            />
+                          )}
+                        </>
+                      )}
                     </View>
+
+                    {/* --- BAGIAN ODOMETER --- */}
                     <View style={{ flex: 1, gap: 8 }}>
-                      <Text
-                        style={{
-                          color: "rgba(255,255,255,0.5)",
-                          fontSize: 11,
-                          letterSpacing: 1,
-                        }}
-                      >
+                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: 1 }}>
                         {t("odometer")}
                       </Text>
                       <TextInput
@@ -470,9 +496,10 @@ export default function AddRepairSheet({
                         keyboardType="numeric"
                         placeholder="0"
                         placeholderTextColor="rgba(255,255,255,0.3)"
-                        style={{ ...inputStyle, fontFamily: "SpaceMono" }}
+                        style={{ ...inputStyle, fontFamily: "SpaceMono", height: 48 }}
                       />
                     </View>
+                    
                   </View>
 
                   {/* Cost */}

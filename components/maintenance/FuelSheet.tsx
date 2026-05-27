@@ -17,6 +17,7 @@ import { FuelEntry } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 interface FuelSheetProps {
   visible: boolean;
@@ -56,6 +57,7 @@ export default function FuelSheet({
   const [odometer, setOdometer] = useState(currentOdometer.toString());
   const [notes, setNotes] = useState("");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // State untuk sinkronisasi harga
   const [savedPrices, setSavedPrices] = useState<SavedFuelPrice[]>([]);
@@ -145,7 +147,7 @@ export default function FuelSheet({
   const handleSave = () => {
     const l = parseFloat(liters) || 0;
     const p = parseFloat(pricePerLiter.replace(/\D/g, "")) || 0;
-    if (!l || !odometer || !p) return;
+    if (!l || !p) return;
 
     const fuelLabel = selectedFuelName || (lang === "id" ? "Bensin" : "Fuel");
     const manualNotes = notes.trim();
@@ -398,6 +400,8 @@ export default function FuelSheet({
 
                   {/* Date & Odometer */}
                   <View style={{ flexDirection: "row", gap: 12 }}>
+                    
+                    {/* --- BAGIAN TANGGAL DENGAN FORMAT DD/MM/YYYY --- */}
                     <View style={{ flex: 1, gap: 8 }}>
                       <Text
                         style={{
@@ -408,12 +412,48 @@ export default function FuelSheet({
                       >
                         {label.date}
                       </Text>
-                      <TextInput
-                        value={date}
-                        onChangeText={setDate}
-                        style={{ ...inputStyle, fontFamily: "SpaceMono" }}
-                      />
+
+                      {Platform.OS === 'web' ? (
+                        /* Tampilan Rapi Khusus di Web/Komputer */
+                        <TextInput
+                          value={date}
+                          onChangeText={setDate}
+                          placeholder="YYYY-MM-DD"
+                          placeholderTextColor="rgba(255,255,255,0.3)"
+                          style={{ ...inputStyle, fontFamily: "SpaceMono", height: 48 }}
+                        />
+                      ) : (
+                        /* Tampilan Kalender Pop-up Khusus di HP (Android/iOS) */
+                        <>
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => setShowDatePicker(true)}
+                            style={{ ...inputStyle, justifyContent: 'center', height: 48 }}
+                          >
+                            {/* Mengubah tampilan data YYYY-MM-DD menjadi DD/MM/YYYY */}
+                            <Text style={{ color: "#FFF", fontFamily: "SpaceMono" }}>
+                              {date ? `${date.split('-')[2]}/${date.split('-')[1]}/${date.split('-')[0]}` : ''}
+                            </Text>
+                          </TouchableOpacity>
+
+                          {showDatePicker && (
+                            <DateTimePicker
+                              value={new Date(date)}
+                              mode="date"
+                              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                              onChange={(event, selectedDate) => {
+                                setShowDatePicker(false);
+                                if (selectedDate) {
+                                  setDate(selectedDate.toISOString().split("T")[0]);
+                                }
+                              }}
+                            />
+                          )}
+                        </>
+                      )}
                     </View>
+
+                    {/* --- BAGIAN ODOMETER --- */}
                     <View style={{ flex: 1, gap: 8 }}>
                       <Text
                         style={{
@@ -428,9 +468,10 @@ export default function FuelSheet({
                         value={odometer}
                         onChangeText={setOdometer}
                         keyboardType="numeric"
-                        style={{ ...inputStyle, fontFamily: "SpaceMono" }}
+                        style={{ ...inputStyle, fontFamily: "SpaceMono", height: 48 }}
                       />
                     </View>
+
                   </View>
 
                   {/* Liters & Price */}
@@ -449,7 +490,7 @@ export default function FuelSheet({
                         value={liters}
                         onChangeText={setLiters}
                         keyboardType="decimal-pad"
-                        placeholder={tankCapacity ? `Std: ${tankCapacity}L` : "0.0"}
+                        placeholder={tankCapacity ? `Est: ${tankCapacity}L` : "0.0"}
                         placeholderTextColor="rgba(255,255,255,0.3)"
                         style={{
                           ...inputStyle,

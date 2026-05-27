@@ -109,6 +109,8 @@ function AppContent() {
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [planName, setPlanName] = useState("");
   const [planInterval, setPlanInterval] = useState("");
+  const [planRepeatNum, setPlanRepeatNum] = useState("");
+  const [planRepeatUnit, setPlanRepeatUnit] = useState("month");
   const [showOdoHistory, setShowOdoHistory] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [activePrefillFeature, setActivePrefillFeature] = useState<{name: string, desc: string} | null>(null);
@@ -1648,6 +1650,39 @@ function AppContent() {
               keyboardType="numeric"
               value={planInterval}
               onChangeText={(text) => setPlanInterval(text)} />
+
+              {/* 👇 FITUR REPEAT EVERY 👇 */}
+            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 8, fontWeight: "700" }}>
+              {lang === "id" ? "ULANGI SETIAP (OPSIONAL)" : "REPEAT EVERY (OPTIONAL)"}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 25 }}>
+              <TextInput
+                style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", borderRadius: 12, padding: 15, color: "#FFF", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}
+                placeholder="Angka"
+                placeholderTextColor="rgba(255,255,255,0.2)"
+                keyboardType="numeric"
+                value={planRepeatNum}
+                onChangeText={setPlanRepeatNum}
+              />
+              <View style={{ flex: 2, flexDirection: 'row', backgroundColor: "rgba(0,0,0,0.2)", borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)", overflow: 'hidden' }}>
+                {[
+                  { id: 'week', label: 'Mgg' },
+                  { id: 'month', label: 'Bln' },
+                  { id: 'year', label: 'Thn' }
+                ].map(unit => (
+                  <TouchableOpacity
+                    key={unit.id}
+                    activeOpacity={0.8}
+                    onPress={() => setPlanRepeatUnit(unit.id)}
+                    style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: planRepeatUnit === unit.id ? '#4ECDC4' : 'transparent' }}
+                  >
+                    <Text style={{ color: planRepeatUnit === unit.id ? '#0D1B2A' : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '800' }}>
+                      {unit.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
             <View style={{ flexDirection: "row", gap: 12 }}>
               <TouchableOpacity
