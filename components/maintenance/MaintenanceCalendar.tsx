@@ -40,36 +40,31 @@ export default function MaintenanceCalendar({ repairs = [], fuelEntries = [], on
   const [period, setPeriod] = useState<string>('this_month'); 
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+  const [hideAnalytics, setHideAnalytics] = useState(true);
 
-  // 🚀 ENGINE 1: PARSING AMAN MULTI-DATA TYPE
+  // 🚀 ENGINE 1: PARSING AMAN MULTI-DATA TYPE (Mati jika hideAnalytics true)
   const allActivities = useMemo(() => {
-    const list: any[] = [];
+    if (hideAnalytics) return []; // 👈 BEKUKAN MESIN
     
+    const list: any[] = [];
     repairs.forEach(r => {
-      const dateStr = r.date instanceof Date 
-        ? r.date.toISOString().split('T')[0] 
-        : (typeof r.date === 'string' ? r.date.split('T')[0] : '');
+      const dateStr = r.date instanceof Date ? r.date.toISOString().split('T')[0] : (typeof r.date === 'string' ? r.date.split('T')[0] : '');
       list.push({ ...r, category: 'repair', actualDate: dateStr });
     });
-    
     fuelEntries.forEach(f => {
-      const dateStr = f.date instanceof Date 
-        ? f.date.toISOString().split('T')[0] 
-        : (typeof f.date === 'string' ? f.date.split('T')[0] : '');
+      const dateStr = f.date instanceof Date ? f.date.toISOString().split('T')[0] : (typeof f.date === 'string' ? f.date.split('T')[0] : '');
       list.push({ ...f, category: 'fuel', actualDate: dateStr });
     });
-    
     return list.sort((a, b) => new Date(b.actualDate).getTime() - new Date(a.actualDate).getTime());
-  }, [repairs, fuelEntries]);
+  }, [repairs, fuelEntries, hideAnalytics]);
 
   // 🚀 ENGINE 2: GENERATE AVAILABLE YEARS SECARA DINAMIS
   const currentYear = today.getFullYear();
-  const availableYears = Array.from(new Set(
+  const availableYears = hideAnalytics ? [] : Array.from(new Set(
     allActivities.map(a => new Date(a.actualDate).getFullYear())
   )).filter(y => !isNaN(y) && y < currentYear).sort((a, b) => b - a);
 
   const periodOptions = ['all', 'this_month', 'this_year', 'custom'];
-
   const getPeriodLabel = (p: string) => {
     if (p === 'all') return 'Semua Waktu';
     if (p === 'this_month') return 'Bulan Ini';
@@ -78,60 +73,56 @@ export default function MaintenanceCalendar({ repairs = [], fuelEntries = [], on
     return p;
   };
 
-  // 🚀 ENGINE 3: HORIZONTAL WEEK GENERATOR
+  // 🚀 ENGINE 3: HORIZONTAL WEEK GENERATOR (Mati jika hideAnalytics true)
   const currentWeekDays = useMemo(() => {
+    if (hideAnalytics) return []; // 👈 BEKUKAN MESIN
+    
     const days = [];
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay() + (weekOffset * 7));
-    
     for (let i = 0; i < 7; i++) {
       const d = new Date(startOfWeek);
       d.setDate(startOfWeek.getDate() + i);
       days.push(d);
     }
     return days;
-  }, [today, weekOffset]);
+  }, [today, weekOffset, hideAnalytics]);
 
   const selectedDateStr = selectedDate.toISOString().split('T')[0];
 
-  // 🚀 ENGINE 4: FILTER DATA AKURAT BERDASARKAN PILIHAN PERIODE
+  // 🚀 ENGINE 4: FILTER DATA AKURAT BERDASARKAN PILIHAN PERIODE (Mati jika hideAnalytics true)
   const filteredActivities = useMemo(() => {
+    if (hideAnalytics) return []; // 👈 BEKUKAN MESIN
+    
     return allActivities.filter(item => {
       if (!item.actualDate) return false;
       const d = new Date(item.actualDate);
       if (isNaN(d.getTime())) return false;
-
       if (period === 'day_select') return item.actualDate === selectedDateStr;
       if (period === 'all') return true;
       if (period === 'this_month') return d.getFullYear() === currentYear && d.getMonth() === today.getMonth();
-      
       if (period === 'last_3_months') {
         const threeMonthsAgo = new Date();
         threeMonthsAgo.setMonth(today.getMonth() - 3);
         return d >= threeMonthsAgo && d <= today;
       }
-      
       if (period === 'this_year') return d.getFullYear() === currentYear;
-      
       if (period === 'custom') {
         const s = customStart ? new Date(customStart) : new Date('1970-01-01');
         const e = customEnd ? new Date(customEnd) : new Date('2099-12-31');
         e.setHours(23, 59, 59, 999);
         return d >= s && d <= e;
       }
-      
-      if (/^\d{4}$/.test(period)) {
-        return d.getFullYear() === parseInt(period);
-      }
+      if (/^\d{4}$/.test(period)) return d.getFullYear() === parseInt(period);
       
       return true;
     });
-  }, [allActivities, period, customStart, customEnd, selectedDateStr, currentYear, today]);
+  }, [allActivities, period, customStart, customEnd, selectedDateStr, currentYear, today, hideAnalytics]);
 
   // 🚀 ENGINE 5: SUM TOTAL EXPENSE & BREAKDOWN KIRI
-  const totalExpense = filteredActivities.reduce((sum, item) => sum + (item.totalCost || item.cost || 0), 0);
-  const totalFuelExpense = filteredActivities.filter(i => i.category === 'fuel').reduce((sum, item) => sum + (item.totalCost || item.cost || 0), 0);
-  const totalRepairExpense = filteredActivities.filter(i => i.category === 'repair').reduce((sum, item) => sum + (item.totalCost || item.cost || 0), 0);
+  const totalExpense = hideAnalytics ? 0 : filteredActivities.reduce((sum, item) => sum + (item.totalCost || item.cost || 0), 0);
+  const totalFuelExpense = hideAnalytics ? 0 : filteredActivities.filter(i => i.category === 'fuel').reduce((sum, item) => sum + (item.totalCost || item.cost || 0), 0);
+  const totalRepairExpense = hideAnalytics ? 0 : filteredActivities.filter(i => i.category === 'repair').reduce((sum, item) => sum + (item.totalCost || item.cost || 0), 0);
 
   const handleDateSelect = (d: Date) => {
     setSelectedDate(d);
@@ -147,7 +138,19 @@ export default function MaintenanceCalendar({ repairs = [], fuelEntries = [], on
       
       {/* 1. QUICK FILTERS 1 BARIS RESPONSIVE */}
       <View style={styles.headerBox}>
-        <Text style={styles.sectionLabel}>⏱️ PERIODE AKTIVITAS</Text>
+        {/* HEADER DENGAN TOMBOL HIDE */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingRight: 20 }}>
+          <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>⏱️ PERIODE AKTIVITAS</Text>
+          <TouchableOpacity 
+            activeOpacity={0.7} 
+            onPress={() => setHideAnalytics(!hideAnalytics)}
+            style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 6 }}
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>
+              {hideAnalytics ? '▼' : '▲'}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20 }}>
           {periodOptions.map((p) => (
             <TouchableOpacity 
@@ -190,94 +193,100 @@ export default function MaintenanceCalendar({ repairs = [], fuelEntries = [], on
         )}
       </View>
 
-      {/* 2. COMPACT HORIZONTAL CALENDAR */}
-      <View style={styles.calendarBox}>
-        <View style={styles.monthNavigator}>
-          <TouchableOpacity onPress={() => setWeekOffset(w => w - 1)} style={{ padding: 5 }}>
-            <Text style={styles.navArrow}>‹</Text>
-          </TouchableOpacity>
-          <Text style={styles.monthTitle}>
-            {MONTH_NAMES[currentWeekDays[0].getMonth()]} {currentWeekDays[0].getFullYear()}
-          </Text>
-          <TouchableOpacity onPress={() => setWeekOffset(w => w + 1)} style={{ padding: 5 }}>
-            <Text style={styles.navArrow}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.weekRow}>
-          {currentWeekDays.map((d, i) => {
-            const dStr = d.toISOString().split('T')[0];
-            const isSelected = period === 'day_select' && dStr === selectedDateStr;
-            const isToday = dStr === today.toISOString().split('T')[0];
-            const hasActivity = allActivities.some(a => a.actualDate === dStr);
-
-            return (
-              <TouchableOpacity 
-                key={i} 
-                activeOpacity={0.9}
-                onPress={() => handleDateSelect(d)}
-                style={[styles.dayCard, isSelected && styles.dayCardActive, isToday && !isSelected && styles.dayCardToday]}
-              >
-                <Text style={[styles.dayName, isSelected && { color: '#0D1B2A' }]}>{DAY_NAMES[i]}</Text>
-                <Text style={[styles.dayNumber, isSelected && { color: '#0D1B2A' }]}>{d.getDate()}</Text>
-                <View style={[styles.dot, hasActivity && styles.dotActive, isSelected && hasActivity && { backgroundColor: '#0D1B2A' }]} />
+      {/* BUNGKUS DENGAN KONDISI HIDE */}
+      {!hideAnalytics && (
+        <>
+          {/* 2. COMPACT HORIZONTAL CALENDAR */}
+          <View style={styles.calendarBox}>
+            <View style={styles.monthNavigator}>
+              <TouchableOpacity onPress={() => setWeekOffset(w => w - 1)} style={{ padding: 5 }}>
+                <Text style={styles.navArrow}>‹</Text>
               </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* 3. MINI ANALYTICS SUMMARY */}
-      <View style={[styles.summaryBox, { flexDirection: 'column' }]}>
-        
-        {/* Bagian Atas: Total Keseluruhan & Aktivitas */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', paddingBottom: 15, marginBottom: 15 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.summaryLabel}>Total Keseluruhan</Text>
-            <Text style={styles.summaryValue}>
-              {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalExpense)}
-            </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.summaryLabel}>Aktivitas</Text>
-            <Text style={[styles.summaryValue, { color: '#4ECDC4' }]}>{filteredActivities.length} Data</Text>
-          </View>
-        </View>
-
-        {/* Bagian Bawah: Breakdown Bensin & Perbaikan */}
-        <View style={{ flexDirection: 'column', gap: 12 }}>
-          
-          {/* Info Bensin */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: 'rgba(78,205,196,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 14 }}>⛽</Text>
-            </View>
-            <View>
-              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>Pengeluaran Bensin</Text>
-              <Text style={{ color: '#4ECDC4', fontSize: 13, fontWeight: '800', fontFamily: 'SpaceMono' }}>
-                {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalFuelExpense)}
+              <Text style={styles.monthTitle}>
+                {MONTH_NAMES[currentWeekDays[0].getMonth()]} {currentWeekDays[0].getFullYear()}
               </Text>
+              <TouchableOpacity onPress={() => setWeekOffset(w => w + 1)} style={{ padding: 5 }}>
+                <Text style={styles.navArrow}>›</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.weekRow}>
+              {currentWeekDays.map((d, i) => {
+                const dStr = d.toISOString().split('T')[0];
+                const isSelected = period === 'day_select' && dStr === selectedDateStr;
+                const isToday = dStr === today.toISOString().split('T')[0];
+                const hasActivity = allActivities.some(a => a.actualDate === dStr);
+
+                return (
+                  <TouchableOpacity 
+                    key={i} 
+                    activeOpacity={0.9}
+                    onPress={() => handleDateSelect(d)}
+                    style={[styles.dayCard, isSelected && styles.dayCardActive, isToday && !isSelected && styles.dayCardToday]}
+                  >
+                    <Text style={[styles.dayName, isSelected && { color: '#0D1B2A' }]}>{DAY_NAMES[i]}</Text>
+                    <Text style={[styles.dayNumber, isSelected && { color: '#0D1B2A' }]}>{d.getDate()}</Text>
+                    <View style={[styles.dot, hasActivity && styles.dotActive, isSelected && hasActivity && { backgroundColor: '#0D1B2A' }]} />
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
-          {/* Info Perbaikan */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: 'rgba(245,166,35,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 14 }}>🔧</Text>
+          {/* 3. MINI ANALYTICS SUMMARY (COMPACT ORIGINAL) */}
+          <View style={[styles.summaryBox, { flexDirection: 'column', padding: 12 }]}>
+            
+            {/* Bagian Atas: Total Keseluruhan & Aktivitas */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', paddingBottom: 10, marginBottom: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.summaryLabel, { fontSize: 9 }]}>Total Keseluruhan</Text>
+                <Text style={[styles.summaryValue, { fontSize: 16, marginTop: 2 }]}>
+                  {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalExpense)}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.summaryLabel, { fontSize: 9 }]}>Aktivitas</Text>
+                <Text style={[styles.summaryValue, { color: '#4ECDC4', fontSize: 12, marginTop: 2 }]}>{filteredActivities.length} Data</Text>
+              </View>
             </View>
-            <View>
-              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>Pengeluaran Perbaikan</Text>
-              <Text style={{ color: '#F5A623', fontSize: 13, fontWeight: '800', fontFamily: 'SpaceMono' }}>
-                {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalRepairExpense)}
-              </Text>
+
+            {/* Bagian Bawah: Breakdown Bensin & Perbaikan */}
+            <View style={{ flexDirection: 'column', gap: 8 }}>
+              
+              {/* Info Bensin */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 26, height: 26, borderRadius: 6, backgroundColor: 'rgba(78,205,196,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 12 }}>⛽</Text>
+                </View>
+                <View>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>Pengeluaran Bensin</Text>
+                  <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', fontFamily: 'SpaceMono' }}>
+                    {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalFuelExpense)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Info Perbaikan */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 26, height: 26, borderRadius: 6, backgroundColor: 'rgba(245,166,35,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 12 }}>🔧</Text>
+                </View>
+                <View>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>Pengeluaran Perbaikan</Text>
+                  <Text style={{ color: '#F5A623', fontSize: 12, fontWeight: '800', fontFamily: 'SpaceMono' }}>
+                    {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalRepairExpense)}
+                  </Text>
+                </View>
+              </View>
+
             </View>
           </View>
-
-        </View>
-      </View>
+        </>
+      )}
 
       {/* 4. ACTIVITY LIST DENGAN PEMBUNGKUS FLEX:1 */}
-      <View style={{ flex: 1, overflow: 'hidden' }}>
+      {!hideAnalytics && (
+        <View style={{ flex: 1, overflow: 'hidden' }}>
         <ScrollView 
           style={styles.listContainer} 
           contentContainerStyle={{ paddingBottom: 100 }} 
@@ -333,7 +342,8 @@ export default function MaintenanceCalendar({ repairs = [], fuelEntries = [], on
           )}
         </ScrollView>
       </View>
-
+      )}
+      
     </View>
   );
 }

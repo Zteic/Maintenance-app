@@ -94,9 +94,11 @@ function ProfileContent() {
     name: "Pengguna",
     email: "user@example.com",
   });
-  const [editing, setEditing] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editAppName, setEditAppName] = useState("");
+  const [appName, setAppName] = useState("");
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [appMode, setAppMode] = useState<'basic' | 'advance'>('basic');
   
@@ -157,6 +159,17 @@ function ProfileContent() {
     });
   }, []);
 
+  useEffect(() => {
+    const loadAppName = async () => {
+      try {
+        const savedName = await AsyncStorage.getItem("custom_app_name");
+        if (savedName) setAppName(savedName);
+        else setAppName(t("appName"));
+      } catch (e) {}
+    };
+    loadAppName();
+  }, []);
+
   // Fungsi penyimpan mode
   const toggleMode = async (mode: 'basic' | 'advance') => {
     setAppMode(mode);
@@ -186,15 +199,20 @@ function ProfileContent() {
     }
   };
 
-  const handleSaveProfile = () => {
-    const updated = {
-      ...profile,
-      name: editName.trim() || profile.name,
-      email: editEmail.trim() || profile.email,
-    };
+  const handleSaveProfile = async () => {
+    const updated = { ...profile, name: editName.trim() || profile.name, email: editEmail.trim() || profile.email };
     setProfile(updated);
     saveUserProfile(updated);
-    setEditing(false);
+
+    const finalAppName = editAppName.trim() || t("appName");
+    setAppName(finalAppName);
+    try {
+      await AsyncStorage.setItem("custom_app_name", finalAppName);
+    } catch (e) {
+      console.log("Gagal menyimpan nama garasi:", e);
+    }
+
+    setEditingProfile(false);
   };
 
   const handleExport = async () => {
@@ -316,100 +334,49 @@ function ProfileContent() {
         </View>
 
         {/* Profile Card */}
-        <View
-          style={{
-            marginHorizontal: 20,
-            backgroundColor: "#1A2B3C",
-            borderRadius: 16,
-            padding: 20,
-            gap: 16,
-          }}
-        >
-          {!editing ? (
-            <>
-              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>
-                {t("userName")}
-              </Text>
-              <Text
-                style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}
-              >
-                {profile.name}
-              </Text>
-              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>
-                {t("email")}
-              </Text>
-              <Text
-                style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}
-              >
-                {profile.email}
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setEditName(profile.name);
-                  setEditEmail(profile.email);
-                  setEditing(true);
-                }}
-                style={{
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  backgroundColor: "rgba(245,166,35,0.1)",
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ color: "#F5A623", fontWeight: "600" }}>
-                  ✏️ {t("editProfile")}
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TextInput
-                value={editName}
-                onChangeText={setEditName}
-                style={{
-                  backgroundColor: "#0D1B2A",
-                  color: "#fff",
-                  padding: 12,
-                  borderRadius: 10,
-                }}
-                placeholder="Name"
-              />
-              <TextInput
-                value={editEmail}
-                onChangeText={setEditEmail}
-                style={{
-                  backgroundColor: "#0D1B2A",
-                  color: "#fff",
-                  padding: 12,
-                  borderRadius: 10,
-                }}
-                placeholder="Email"
-              />
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <TouchableOpacity
-                  onPress={() => setEditing(false)}
-                  style={{ flex: 1, alignItems: "center", padding: 12 }}
-                >
-                  <Text style={{ color: "#fff" }}>{t("cancel")}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleSaveProfile}
-                  style={{
-                    flex: 2,
-                    backgroundColor: "#F5A623",
-                    alignItems: "center",
-                    padding: 12,
-                    borderRadius: 12,
-                  }}
-                >
-                  <Text style={{ color: "#0D1B2A", fontWeight: "800" }}>
-                    {t("saveProfile")}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-        </View>
+            <View style={{ marginHorizontal: 20, backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, gap: 16, marginBottom: 20 }}>
+              {!editingProfile ? (
+                <>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("userName")}</Text>
+                  <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{profile.name}</Text>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("email")}</Text>
+                  <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{profile.email}</Text>
+                  
+                  {/* 👇 PENAMPILAN BOX NAMA GARASI SAAT TIDAK DIEDIT 👇 */}
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI</Text>
+                  <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600", fontFamily: "Windpower" }}>{appName}</Text>
+                  
+                  <TouchableOpacity 
+                    onPress={() => { 
+                      setEditName(profile.name); 
+                      setEditEmail(profile.email); 
+                      setEditAppName(appName); // Prefill nama garasi lama ke form edit
+                      setEditingProfile(true); 
+                    }} 
+                    style={{ paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(245,166,35,0.1)", alignItems: "center", marginTop: 5 }}
+                  >
+                    <Text style={{ color: "#F5A623", fontWeight: "600" }}>✏️ {t("editProfile")}</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA LENGKAP</Text>
+                  <TextInput value={editName} onChangeText={setEditName} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }} placeholder="Name" />
+                  
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>ALAMAT EMAIL</Text>
+                  <TextInput value={editEmail} onChangeText={setEditEmail} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }} placeholder="Email" />
+                  
+                  {/* 👇 BOX LOGIKAL BARU UNTUK INPUT UBAH NAMA GARASI 👇 */}
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI CUSTOM</Text>
+                  <TextInput value={editAppName} onChangeText={setEditAppName} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10, fontFamily: "Windpower", fontSize: 15 }} placeholder="Nama Garasi Anda" />
+                  
+                  <View style={{ flexDirection: "row", gap: 10, marginTop: 5 }}>
+                    <TouchableOpacity onPress={() => setEditingProfile(false)} style={{ flex: 1, alignItems: "center", padding: 12 }}><Text style={{ color: "#fff" }}>{t("cancel")}</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={handleSaveProfile} style={{ flex: 2, backgroundColor: "#F5A623", alignItems: "center", padding: 12, borderRadius: 12 }}><Text style={{ color: "#0D1B2A", fontWeight: "800" }}>{t("saveProfile")}</Text></TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
 
         {/* 🚀 LAKUKAN PENEMPATAN 1: GRID STATISTIK AKUN (Di bawah Profile Card) */}
         <AccountStatsGrid />

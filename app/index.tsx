@@ -435,6 +435,12 @@ function AppContent() {
     }
   }, [notifications, isFetchingFromServer]);
 
+  useEffect(() => {
+    if (!isFetchingFromServer) {
+      saveReminders(reminders);
+    }
+  }, [reminders, isFetchingFromServer]);
+
   const handleOdometerUpdate = (newValue: number) => {
     setVehicles((prev) =>
       prev.map((v) =>
@@ -853,59 +859,36 @@ function AppContent() {
             paddingTop: 10,
             paddingBottom: 16,
           }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>            
-            <View>
-              {isEditingName ? (
-                <TextInput
-                  value={appName}
-                  onChangeText={setAppName}
-                  // Simpan saat klik di luar kotak
-                  onBlur={saveAppName}
-                  // Simpan saat tekan tombol Enter/Done di keyboard
-                  onSubmitEditing={saveAppName}
-                  // Langsung munculkan keyboard
-                  autoFocus
-                  style={{ 
-                    color: "#FFFFFF", 
-                    fontSize: 22, 
-                    fontWeight: "800", 
-                    padding: 0, 
-                    borderBottomWidth: 1, 
-                    borderBottomColor: '#4ECDC4',
-                    minWidth: 100
-                  }} />
-              ) : (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  // Ubah jadi mode edit saat diklik
-                  onPress={() => setIsEditingName(true)}
-                  // 🚀 Membuat logo & teks berjejer rapi
-                  style={{ flexDirection: "row", alignItems: "center", gap: 1 }}>
-                  {/* 🚀 INDIKATOR LOGO PREMIUM VS FREE */}
-                  <View
-                    style={{
-                      paddingHorizontal: 6,
-                      justifyContent: 'center',
-                      alignItems: 'center'
-                    }}>
-  <Image
-    source={isPremium ? require('../assets/images/Premium-Logo.png') : require('../assets/images/Basic-Logo.png')}
-    style={{ 
-      width: 50,
-      height: 26,  
-      transform: [{ scale: 3.3 }]
-    }}
-    resizeMode="contain"
-    className=" w-[175px] h-[86px]" />
-</View>
+          {/* CONTAINER LOGO & TEKS JUDUL (STATIS & ANTI-BENTROK) */}
+          <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8, marginRight: 15 }}>            
+            {/* Indikator Logo Premium vs Free */}
+            <View style={{ paddingHorizontal: 6, justifyContent: 'center', alignItems: 'center' }}>
+              <Image
+                source={isPremium ? require('../assets/images/Premium-Logo.png') : require('../assets/images/Basic-Logo.png')}
+                style={{ 
+                  width: 50,
+                  height: 26,  
+                  transform: [{ scale: 3.3 }]
+                }}
+                resizeMode="contain"
+              />
+            </View>
 
-                  <Text
-                    style={{ color: "#FFFFFF", fontSize: 22, marginLeft: 10,marginTop:0, fontFamily: "Windpower" }}
-                    className="w-[316px] h-[25px]">
-                    {appName}
-                  </Text>
-                </TouchableOpacity>
-              )}
+            {/* Nama Garasi Otomatis & Fleksibel (Tidak Bisa Diklik Lagi) */}
+            <View style={{ flex: 1 }}>
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+                style={{ 
+                  color: "#FFFFFF", 
+                  fontSize: 20, 
+                  fontFamily: "Windpower",
+                  textAlign: "left"
+                }}
+              >
+                {appName}
+              </Text>
             </View>
           </View>
 
