@@ -1,91 +1,146 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RepairEntry, FuelEntry } from '@/types/maintenance';
+import { supabase } from './supabaseClient'; // Menghubungkan ke client cloud Supabase
 
-// =========================================================================
-// KHUSUS UNTUK KAMU: SAKLAR PENGATUR SERVER ONLINE
-// =========================================================================
-// Cukup ganti nilai ini untuk mengubah arah tembakan data seluruh aplikasi:
-// 'local'    = Pakai AsyncStorage (Offline)
-// 'supabase' = Pakai Supabase SDK (Online)
-// 'vps'      = Pakai REST API Node.js / Axios (Online)
-// =========================================================================
 type ServerMode = 'local' | 'supabase' | 'vps';
-const CURRENT_MODE: ServerMode = 'local'; 
 
-// URL Backend VPS kamu nanti di masa depan
-const VPS_API_URL = 'https://api.garasiku.com/v1';
+// 🚀 AKTIFKAN CLOUD SUPABASE SEKARANG!
+const CURRENT_MODE: ServerMode = 'supabase'; 
 
 export const apiService = {
   
-  // -----------------------------------------------------------------------
-  // MODULE 1: REPAIR/SERVICE LOGS
-  // -----------------------------------------------------------------------
+  // =======================================================================
+  // MODULE 1: REPAIR LOGS (DATA PERBAIKAN / SERVIS)
+  // =======================================================================
   
-  // Fungsi Load Data Perbaikan
+  // 1. Ambil data perbaikan secara online dari tabel Supabase
   getRepairs: async (vehicleId: string): Promise<RepairEntry[]> => {
     if (CURRENT_MODE === 'supabase') {
-      // Nanti di sini tempat kodingan Supabase:
-      // const { data } = await supabase.from('repairs').select('*').eq('vehicleId', vehicleId);
-      // return data;
-      return [];
-    } 
-    
-    if (CURRENT_MODE === 'vps') {
-      // Nanti di sini tempat kodingan VPS Node.js:
-      // const response = await fetch(`${VPS_API_URL}/repairs?vehicleId=${vehicleId}`);
-      // return response.json();
-      return [];
+      try {
+        const { data, error } = await supabase
+          .from('repairs')
+          .select('*')
+          .eq('vehicleId', vehicleId)
+          .order('date', { ascending: false }); // Urutkan dari tanggal terbaru
+
+        if (error) throw error;
+        return (data as RepairEntry[]) || [];
+      } catch (error) {
+        console.error("❌ Error Supabase getRepairs:", error);
+        return []; // Jalur aman jika koneksi internet terputus
+      }
     }
 
-    // Default Fallback: Mode Lokal (AsyncStorage bawaan kamu sekarang)
+    // Jalur Cadangan (Offline Local Storage)
     const localData = await AsyncStorage.getItem('garasi_repairs');
     const allRepairs: RepairEntry[] = localData ? JSON.parse(localData) : [];
     return allRepairs.filter(r => r.vehicleId === vehicleId);
   },
 
-  // Fungsi Simpan Data Perbaikan Baru
+  // 2. Simpan data perbaikan ke cloud (Bisa insert baru maupun update data lama)
   saveRepair: async (entry: Omit<RepairEntry, 'id'> & { id?: string }): Promise<boolean> => {
     if (CURRENT_MODE === 'supabase') {
-      // Tinggal tulis query insert Supabase di sini nanti
-      return true;
+      try {
+        const finalId = entry.id || `rep_${Date.now()}`;
+        
+        const { error } = await supabase
+          .from('repairs')
+          .upsert({
+            id: finalId,
+            vehicleId: entry.vehicleId,
+            serviceType: entry.serviceType,
+            date: entry.date,
+            odometer: entry.odometer,
+            cost: entry.cost,
+            workshop: entry.workshop,
+            notes: entry.notes,
+            nextIntervalKm: entry.nextIntervalKm,
+            tirePosition: entry.tirePosition,
+            tireBrand: entry.tireBrand,
+            tireSize: entry.tireSize,
+            productionCode: entry.productionCode
+          });
+
+        if (error) throw error;
+        return true;
+      } catch (error) {
+        console.error("❌ Error Supabase saveRepair:", error);
+        return false;
+      }
     }
 
-    if (CURRENT_MODE === 'vps') {
-      // Tinggal tulis fetch POST ke VPS Node.js di sini nanti
-      return true;
-    }
-
-    // Mode Lokal Sekarang
+    // Jalur Cadangan (Offline Local Storage)
     const localData = await AsyncStorage.getItem('garasi_repairs');
     const allRepairs: RepairEntry[] = localData ? JSON.parse(localData) : [];
-    
     if (entry.id) {
-      // Logic Update
       const updated = allRepairs.map(r => r.id === entry.id ? { ...r, ...entry } : r);
       await AsyncStorage.setItem('garasi_repairs', JSON.stringify(updated));
     } else {
-      // Logic Insert New
       const newEntry = { ...entry, id: `rep${Date.now()}` };
       await AsyncStorage.setItem('garasi_repairs', JSON.stringify([newEntry, ...allRepairs]));
     }
     return true;
   },
 
-getFuels: async (vehicleId: string): Promise<FuelEntry[]> => {
-  if (CURRENT_MODE === 'local') {
-    const localData = await AsyncStorage.getItem('garasi_fuel_entries'); 
-    const allFuels: FuelEntry[] = localData ? JSON.parse(localData) : [];
-    return allFuels.filter(f => f.vehicleId === vehicleId); 
-  }
-},
+  // =======================================================================
+  // MODULE 2: FUEL LOGS (DATA PENGISIAN BENSIN)
+  // =======================================================================
+  
+  // 1. Ambil data bensin secara online dari tabel Supabase
+  getFuels: async (vehicleId: string): Promise<FuelEntry[]> => {
+    if (CURRENT_MODE === 'supabase') {
+      try {
+        const { data, error } = await supabase
+          .from('fuels')
+          .select('*')
+          .eq('vehicleId', vehicleId);
 
-  saveFuel: async (entry: Omit<FuelEntry, 'id'> & { id?: string }): Promise<boolean> => {
-    if (CURRENT_MODE === 'supabase') return true;
-    if (CURRENT_MODE === 'vps') return true;
+        if (error) throw error;
+        return (data as FuelEntry[]) || [];
+      } catch (error) {
+        console.error("❌ Error Supabase getFuels:", error);
+        return [];
+      }
+    }
 
+    // Jalur Cadangan (Offline Local Storage)
     const localData = await AsyncStorage.getItem('garasi_fuel_entries');
     const allFuels: FuelEntry[] = localData ? JSON.parse(localData) : [];
-    
+    return allFuels.filter(f => f.vehicleId === vehicleId);
+  },
+
+  // 2. Simpan atau edit data bensin ke cloud Supabase
+  saveFuel: async (entry: Omit<FuelEntry, 'id'> & { id?: string }): Promise<boolean> => {
+    if (CURRENT_MODE === 'supabase') {
+      try {
+        const finalId = entry.id || `fe_${Date.now()}`;
+
+        const { error } = await supabase
+          .from('fuels')
+          .upsert({
+            id: finalId,
+            vehicleId: entry.vehicleId,
+            date: entry.date,
+            liters: entry.liters,
+            pricePerLiter: entry.pricePerLiter,
+            totalCost: entry.totalCost,
+            odometer: entry.odometer,
+            fuelType: entry.fuelType,
+            notes: entry.notes,
+            receiptPhoto: entry.receiptPhoto
+          });
+
+        if (error) throw error;
+        return true;
+      } catch (error) {
+        console.error("❌ Error Supabase saveFuel:", error);
+        return false;
+      }
+    }
+
+    // Jalur Cadangan (Offline Local Storage)
+    const localData = await AsyncStorage.getItem('garasi_fuel_entries');
+    const allFuels: FuelEntry[] = localData ? JSON.parse(localData) : [];
     if (entry.id) {
       const updated = allFuels.map(f => f.id === entry.id ? { ...f, ...entry } : f);
       await AsyncStorage.setItem('garasi_fuel_entries', JSON.stringify(updated));

@@ -21,6 +21,7 @@ import {
   loadCustomServiceTypes,
   saveCustomServiceTypes,
 } from "@/utils/storage";
+import { apiService } from "@/utils/apiService";
 
 const DEFAULT_SERVICE_TYPES = [
   "Ganti Oli",
@@ -202,40 +203,51 @@ export default function AddRepairSheet({
   await updateReminder(updatedReminder); 
 };
 
-  const handleSave = () => {
-  const finalType = serviceTypeInput.trim() || (isId ? "Servis Umum" : "General Service");
-  saveNewCustomType(finalType);
+  const handleSave = async () => { // 🚀 Tambahkan keyword 'async' di sini
+    const finalType = serviceTypeInput.trim() || (isId ? "Servis Umum" : "General Service");
+    saveNewCustomType(finalType);
 
-  // Buat objek data yang "Flat" agar sesuai dengan RepairHistory.tsx
-  const entry: any = {
-    vehicleId,
-    serviceType: finalType,
-    date: new Date(date).toISOString(), // Pastikan format tanggal konsisten
-    odometer: parseInt(odometer, 10) || 0,
-    cost: parseInt(cost.replace(/\D/g, ""), 10) || 0,
-    workshop: workshop || (isId ? "Bengkel" : "Workshop"),
-    notes: receiptImages.length > 0
-      ? `${notes}\n[receipts:${receiptImages.join(",")}]`
-      : notes,
-    nextIntervalKm: parseInt(nextInterval, 10) || 5000,
+    // Buat objek data yang "Flat" agar sesuai dengan RepairHistory.tsx
+    const entry: any = {
+      vehicleId,
+      serviceType: finalType,
+      date: new Date(date).toISOString(), // Pastikan format tanggal konsisten
+      odometer: parseInt(odometer, 10) || 0,
+      cost: parseInt(cost.replace(/\D/g, ""), 10) || 0,
+      workshop: workshop || (isId ? "Bengkel" : "Workshop"),
+      notes: receiptImages.length > 0
+        ? `${notes}\n[receipts:${receiptImages.join(",")}]`
+        : notes,
+      nextIntervalKm: parseInt(nextInterval, 10) || 5000,
+      
+      // Kirim data ban secara langsung (Flat), bukan di dalam objek tireInfo
+      tirePosition: showTireFields ? tirePosition : undefined,
+      tireBrand: showTireFields ? tireBrand.trim() : undefined,
+      tireSize: showTireFields ? tireSize.trim() : undefined,
+      productionCode: showTireFields ? tireDotCode.trim() : undefined,
+    };
+
+    // 🚀 SUNTIKAN LOGIKA SERVER BARU: Kirim data lewat apiService
+    let success = false;
+    if (isEditing && editEntry) {
+      success = await apiService.saveRepair({ ...entry, id: editEntry.id });
+    } else {
+      success = await apiService.saveRepair(entry);
+    }
+
+    if (success) {
+      // Jika server berhasil merespon, triger fungsi onSave bawaan index.tsx untuk memperbarui UI
+      if (isEditing && editEntry) {
+        onSave({ ...entry, id: editEntry.id }); 
+      } else {
+        onSave(entry);
+      }
+    } else {
+      Alert.alert("Error", "❌ Gagal menyimpan data perbaikan ke server lokal!");
+    }
     
-    // Kirim data ban secara langsung (Flat), bukan di dalam objek tireInfo
-    tirePosition: showTireFields ? tirePosition : undefined,
-    tireBrand: showTireFields ? tireBrand.trim() : undefined,
-    tireSize: showTireFields ? tireSize.trim() : undefined,
-    productionCode: showTireFields ? tireDotCode.trim() : undefined,
+    onClose();
   };
-
-  if (isEditing && editEntry) {
-    // Jika ada props onUpdate gunakan itu, jika tidak gunakan onSave 
-    // karena index.tsx kita sudah menghandle logika update di onSave
-    onSave({ ...entry, id: editEntry.id }); 
-  } else {
-    onSave(entry);
-  }
-  
-  onClose();
-};
 
   const allServiceTypes = [
     ...DEFAULT_SERVICE_TYPES,

@@ -1126,11 +1126,10 @@ const handleBackupExport = async () => {
 
   if (showPriceUpdate) {
   return (
-    <FuelPriceUpdate 
+    <FuelPriceUpdate
       onBack={() => {
         setShowPriceUpdate(false);
-      }} 
-    />
+      }} />
   );
 }
 
@@ -1147,11 +1146,14 @@ const handleBackupExport = async () => {
             paddingHorizontal: 20,
             paddingTop: 10,
             paddingBottom: 16,
-          }}>
+          }}
+          className="w-[548px] h-[62px]">
           {/* CONTAINER LOGO & TEKS JUDUL (STATIS & ANTI-BENTROK) */}
-          <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8, marginRight: 15 }}>            
+          <View
+            style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8, marginRight: 15 }}>            
             {/* Indikator Logo Premium vs Free */}
-            <View style={{ paddingHorizontal: 6, justifyContent: 'center', alignItems: 'center' }}>
+            <View
+              style={{ paddingHorizontal: 6, justifyContent: 'center', alignItems: 'center' }}>
               <Image
                 source={isPremium ? require('../assets/images/Premium-Logo.png') : require('../assets/images/Basic-Logo.png')}
                 style={{ 
@@ -1159,8 +1161,7 @@ const handleBackupExport = async () => {
                   height: 26,  
                   transform: [{ scale: 3.3 }]
                 }}
-                resizeMode="contain"
-              />
+                resizeMode="contain" />
             </View>
 
             {/* Nama Garasi Otomatis & Fleksibel (Tidak Bisa Diklik Lagi) */}
@@ -1174,8 +1175,7 @@ const handleBackupExport = async () => {
                   fontSize: 20, 
                   fontFamily: "Windpower",
                   textAlign: "left"
-                }}
-              >
+                }}>
                 {appName}
               </Text>
             </View>
@@ -1232,7 +1232,7 @@ const handleBackupExport = async () => {
           </View>
         </View>
 
-        <View style={{ paddingBottom: 8 }}>
+        <View style={{ paddingBottom: 8 }} className="w-[548px] h-[56px]">
           <VehicleSwitcher
             vehicles={vehicles}
             selectedId={selectedVehicleId}
@@ -1243,7 +1243,6 @@ const handleBackupExport = async () => {
             }} />
         </View>
       </View>
-
       {/* BODY CONTENT */}
       <View style={{ flex: 1 }}>
         
@@ -1251,12 +1250,11 @@ const handleBackupExport = async () => {
         {/* TAB 1: HOME                                */}
         {/* ========================================== */}
         {activeTab === "home" && stats.selectedVehicle && (
-          <ScrollView 
+          <ScrollView
             key="tab-home"
-            overScrollMode="never" 
-            showsVerticalScrollIndicator={false} 
-            contentContainerStyle={{ paddingBottom: 150, paddingTop: 10 }}
-          >
+            overScrollMode="never"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 150, paddingTop: 10 }}>
             <View style={{ width: "100%", gap: 20 }}>
               <VehicleProfileCard
                 vehicle={{ ...stats.selectedVehicle, currentOdometer: stats.autoLatestOdometer }}
@@ -1584,13 +1582,13 @@ const handleBackupExport = async () => {
                 hideSearch={hideSearch}
                 onToggleSearch={toggleSearch}
                 hideStats={hideFuelStats}
-              onToggleStats={toggleFuelStats}
-              statsResetDate={statsResetDate}
-              onUpdateResetDate={(date) => {
-                setStatsResetDate(date);
-                if (date) AsyncStorage.setItem('garasi_fuel_stats_reset_date', date);
-                else AsyncStorage.removeItem('garasi_fuel_stats_reset_date');
-              }}
+                onToggleStats={toggleFuelStats}
+                statsResetDate={statsResetDate}
+                onUpdateResetDate={(date) => {
+                  setStatsResetDate(date);
+                  if (date) AsyncStorage.setItem('garasi_fuel_stats_reset_date', date);
+                  else AsyncStorage.removeItem('garasi_fuel_stats_reset_date');
+                }}
                 onAdd={() => {
                   setEditingFuel(null);
                   setShowFuelSheet(true);
@@ -1617,12 +1615,11 @@ const handleBackupExport = async () => {
         {/* TAB 4: PROFILE SYSTEM (FULL INTEGRATION)   */}
         {/* ========================================== */}
         {activeTab === "profile" && (
-          <ScrollView 
-            key="tab-profile" 
-            overScrollMode="never" 
-            showsVerticalScrollIndicator={false} 
-            contentContainerStyle={{ paddingBottom: 120, paddingTop: 10, paddingHorizontal: 20 }} 
-          >
+          <ScrollView
+            key="tab-profile"
+            overScrollMode="never"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 120, paddingTop: 10, paddingHorizontal: 20 }}>
             {/* Header internal Tab Profile */}
             <View
               style={{
@@ -1631,17 +1628,17 @@ const handleBackupExport = async () => {
                 justifyContent: "space-between",
                 marginBottom: 20,
                 paddingTop: 10,
-              }}
-            >
+              }}>
               <TouchableOpacity
                 onPress={() => router.setParams({ tab: 'home' })}
-                style={{ flexDirection: "row", alignItems: "center" }}
-              >
+                style={{ flexDirection: "row", alignItems: "center" }}>
                 <Text style={{ color: "#F5A623", fontSize: 16 }}>← Kembali</Text>
               </TouchableOpacity>
 
-              <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginRight: 40 }}>
-                <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "800", textAlign: "center" }}>
+              <View
+                style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginRight: 40 }}>
+                <Text
+                  style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "800", textAlign: "center" }}>
                   {t("myProfile")}
                 </Text>
 
@@ -1661,8 +1658,7 @@ const handleBackupExport = async () => {
                       paddingHorizontal: 8,
                       paddingVertical: 4,
                       borderRadius: 6,
-                    }}
-                  >
+                    }}>
                     <Text style={{ color: '#0D1B2A', fontSize: 10, fontWeight: '900' }}>
                       {isPremium ? "SET FREE" : "SET PREMIUM"}
                     </Text>
@@ -1672,7 +1668,8 @@ const handleBackupExport = async () => {
             </View>
 
             {/* Profile Card */}
-            <View style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, gap: 16, marginBottom: 20 }}>
+            <View
+              style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, gap: 16, marginBottom: 20 }}>
               {!editingProfile ? (
                 <>
                   <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("userName")}</Text>
@@ -1680,34 +1677,50 @@ const handleBackupExport = async () => {
                   <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("email")}</Text>
                   <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{profile.email}</Text>
                   <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI</Text>
-                  <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600", fontFamily: "Windpower" }}>{appName}</Text>
+                  <Text
+                    style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600", fontFamily: "Windpower" }}>{appName}</Text>
                   
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => { 
                       setEditName(profile.name); 
                       setEditEmail(profile.email); 
                       setEditAppName(appName); 
                       setEditingProfile(true); 
-                    }} 
-                    style={{ paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(245,166,35,0.1)", alignItems: "center", marginTop: 5 }}
-                  >
+                    }}
+                    style={{ paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(245,166,35,0.1)", alignItems: "center", marginTop: 5 }}>
                     <Text style={{ color: "#F5A623", fontWeight: "600" }}>✏️ {t("editProfile")}</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
                   <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA LENGKAP</Text>
-                  <TextInput value={editName} onChangeText={setEditName} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }} placeholder="Name" />
+                  <TextInput
+                    value={editName}
+                    onChangeText={setEditName}
+                    style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }}
+                    placeholder="Name" />
                   
                   <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>ALAMAT EMAIL</Text>
-                  <TextInput value={editEmail} onChangeText={setEditEmail} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }} placeholder="Email" />
+                  <TextInput
+                    value={editEmail}
+                    onChangeText={setEditEmail}
+                    style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }}
+                    placeholder="Email" />
                   
                   <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI CUSTOM</Text>
-                  <TextInput value={editAppName} onChangeText={setEditAppName} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10, fontFamily: "Windpower", fontSize: 15 }} placeholder="Nama Garasi Anda" />
+                  <TextInput
+                    value={editAppName}
+                    onChangeText={setEditAppName}
+                    style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10, fontFamily: "Windpower", fontSize: 15 }}
+                    placeholder="Nama Garasi Anda" />
                   
                   <View style={{ flexDirection: "row", gap: 10, marginTop: 5 }}>
-                    <TouchableOpacity onPress={() => setEditingProfile(false)} style={{ flex: 1, alignItems: "center", padding: 12 }}><Text style={{ color: "#fff" }}>{t("cancel")}</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={handleSaveProfile} style={{ flex: 2, backgroundColor: "#F5A623", alignItems: "center", padding: 12, borderRadius: 12 }}><Text style={{ color: "#0D1B2A", fontWeight: "800" }}>{t("saveProfile")}</Text></TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setEditingProfile(false)}
+                      style={{ flex: 1, alignItems: "center", padding: 12 }}><Text style={{ color: "#fff" }}>{t("cancel")}</Text></TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={handleSaveProfile}
+                      style={{ flex: 2, backgroundColor: "#F5A623", alignItems: "center", padding: 12, borderRadius: 12 }}><Text style={{ color: "#0D1B2A", fontWeight: "800" }}>{t("saveProfile")}</Text></TouchableOpacity>
                   </View>
                 </>
               )}
@@ -1717,12 +1730,11 @@ const handleBackupExport = async () => {
             <AccountStatsGrid />
 
             {/* Banner Premium Lifetime Card */}
-            <PremiumSection 
+            <PremiumSection
               onOpenPremiumPage={() => { 
                 setActivePrefillFeature(null); 
                 setPremiumModalVisible(true); 
-              }} 
-            />
+              }} />
 
             {/* Action Buttons */}
             <View style={{ marginTop: 16, gap: 12 }}>
@@ -1738,9 +1750,9 @@ const handleBackupExport = async () => {
                   gap: 16,
                   borderWidth: 1,
                   borderColor: "rgba(245,166,35,0.2)",
-                }}
-              >
-                <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", borderWidth: 1, borderColor: "rgba(245,166,35,0.3)", alignItems: "center", justifyContent: "center" }}>
+                }}>
+                <View
+                  style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", borderWidth: 1, borderColor: "rgba(245,166,35,0.3)", alignItems: "center", justifyContent: "center" }}>
                   <Text style={{ fontSize: 22 }}>⛽</Text>
                 </View>
                 <View style={{ flex: 1 }}>
@@ -1752,7 +1764,7 @@ const handleBackupExport = async () => {
 
               {/* 🛠️ FIX REVISI: Mengembalikan router.push('/export') sesuai file bawaan asli */}
               <TouchableOpacity
-                onPress={() => router.push('/export')} 
+                onPress={() => router.push('/export')}
                 style={{
                   backgroundColor: "#1A2B3C",
                   borderRadius: 16,
@@ -1762,15 +1774,16 @@ const handleBackupExport = async () => {
                   gap: 16,
                   borderWidth: 1,
                   borderColor: "rgba(78,205,196,0.3)",
-                }}
-              >
-                <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", alignItems: "center", justifyContent: "center" }}>
+                }}>
+                <View
+                  style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", alignItems: "center", justifyContent: "center" }}>
                   <Text style={{ fontSize: 22 }}>📊</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>Backup and Restore</Text>
                   <Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>Backup seluruh data kendaraan ke .vhdb</Text>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>💽 Penggunaan Memori: {storageSize}</Text>
+                  <Text
+                    style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>💽 Penggunaan Memori: {storageSize}</Text>
                 </View>
                 <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
               </TouchableOpacity>
@@ -1778,41 +1791,46 @@ const handleBackupExport = async () => {
 
             {/* SECTION MODE PENGGUNAAN */}
             <View style={{ marginTop: 25 }}>
-              <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>MODE PENGGUNAAN</Text>
-              <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-                <TouchableOpacity 
-                  activeOpacity={0.9} 
-                  onPress={() => toggleMode('basic')} 
-                  style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'basic' ? '#4ECDC4' : 'transparent' }}
-                >
-                  <Text style={{ fontWeight: '800', color: appMode === 'basic' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Basic</Text>
+              <Text
+                style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>MODE PENGGUNAAN</Text>
+              <View
+                style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() => toggleMode('basic')}
+                  style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'basic' ? '#4ECDC4' : 'transparent' }}>
+                  <Text
+                    style={{ fontWeight: '800', color: appMode === 'basic' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Basic</Text>
                 </TouchableOpacity>
 
                 <View style={{ flex: 1 }}>
                   <PremiumGateWrapper
                     featureName="Mode Advance (Advanced Search)"
                     featureDescription="Membuka filter riwayat perbaikan mendalam, pencarian kata kunci multi-tab bensin, serta modul log analitik cerdas seumur hidup."
-                    onLockedPress={(name, desc) => handleTriggerPremiumLock(name, desc)}
-                  >
-                    <TouchableOpacity 
-                      activeOpacity={0.9} 
-                      onPress={() => toggleMode('advance')} 
-                      style={{ width: '100%', paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'advance' ? '#F5A623' : 'transparent' }}
-                    >
-                      <Text style={{ fontWeight: '800', color: appMode === 'advance' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Advance</Text>
+                    onLockedPress={(name, desc) => handleTriggerPremiumLock(name, desc)}>
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() => toggleMode('advance')}
+                      style={{ width: '100%', paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'advance' ? '#F5A623' : 'transparent' }}>
+                      <Text
+                        style={{ fontWeight: '800', color: appMode === 'advance' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Advance</Text>
                     </TouchableOpacity>
                   </PremiumGateWrapper>
                 </View>
               </View>
-              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 8, marginLeft: 5, marginBottom: 15 }}>
+              <Text
+                style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 8, marginLeft: 5, marginBottom: 15 }}>
                 {appMode === 'basic' ? "Tampilan bersih. Fokus pada fitur utama." : "Membuka fitur tambahan (Advanced Search, dll)."}
               </Text>
             </View>
 
             {/* MENU FEEDBACK & BUG REPORT BARU */}
             <View style={{ marginTop: 25 }}>
-              <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>BANTUAN & PENGEMBANGAN</Text>
-              <TouchableOpacity onPress={() => router.push('/feedback')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+              <Text
+                style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>BANTUAN & PENGEMBANGAN</Text>
+              <TouchableOpacity
+                onPress={() => router.push('/feedback')}
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
                 <Text style={{ fontSize: 22, marginRight: 15 }}>🐞</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Laporkan Bug & Saran</Text>
@@ -1821,7 +1839,9 @@ const handleBackupExport = async () => {
                 <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => router.push('/feedback-history')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+              <TouchableOpacity
+                onPress={() => router.push('/feedback-history')}
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
                 <Text style={{ fontSize: 22, marginRight: 15 }}>📋</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Riwayat Feedback</Text>
@@ -1833,39 +1853,53 @@ const handleBackupExport = async () => {
 
             {/* SECTION INFORMASI & LEGAL */}
             <View style={{ marginTop: 25, marginBottom: 20 }}>
-              <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>INFORMASI & LEGAL</Text>
-              <View style={{ backgroundColor: '#1A2B3C', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-                <TouchableOpacity onPress={() => router.push('/changelog')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+              <Text
+                style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>INFORMASI & LEGAL</Text>
+              <View
+                style={{ backgroundColor: '#1A2B3C', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                <TouchableOpacity
+                  onPress={() => router.push('/changelog')}
+                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
                   <Text style={{ fontSize: 18, marginRight: 12 }}>✨</Text>
                   <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Apa yang Baru (What's New)</Text>
                   <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => router.push('/privacy')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                <TouchableOpacity
+                  onPress={() => router.push('/privacy')}
+                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
                   <Text style={{ fontSize: 18, marginRight: 12 }}>🛡️</Text>
                   <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Kebijakan Privasi (Privacy Policy)</Text>
                   <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => router.push('/terms')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                <TouchableOpacity
+                  onPress={() => router.push('/terms')}
+                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
                   <Text style={{ fontSize: 18, marginRight: 12 }}>📜</Text>
                   <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Syarat & Ketentuan</Text>
                   <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => router.push('/contact')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                <TouchableOpacity
+                  onPress={() => router.push('/contact')}
+                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
                   <Text style={{ fontSize: 18, marginRight: 12 }}>✉️</Text>
                   <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Hubungi Developer</Text>
                   <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => router.push('/check-updates')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                <TouchableOpacity
+                  onPress={() => router.push('/check-updates')}
+                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
                   <Text style={{ fontSize: 18, marginRight: 12 }}>🔄</Text>
                   <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Periksa Pembaruan</Text>
                   <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={handleResetData} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: 'rgba(255,82,82,0.05)' }}>
+                <TouchableOpacity
+                  onPress={handleResetData}
+                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: 'rgba(255,82,82,0.05)' }}>
                   <Text style={{ fontSize: 18, marginRight: 12 }}>⚠️</Text>
                   <Text style={{ color: '#FF5252', flex: 1, fontWeight: '700' }}>Hapus Semua Data Aplikasi</Text>
                 </TouchableOpacity>
@@ -2140,18 +2174,19 @@ const handleBackupExport = async () => {
               onChangeText={(text) => setPlanInterval(text)} />
 
               {/* 👇 FITUR REPEAT EVERY 👇 */}
-<Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 8, fontWeight: "700" }}>
+<Text
+  style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginBottom: 8, fontWeight: "700" }}>
   {lang === "id" ? "DAN ATAU ULANGI SETIAP (OPSIONAL)" : "REPEAT EVERY (OPTIONAL)"}
 </Text>
-<View style={{ flexDirection: 'row', gap: 10, marginBottom: 25, alignItems: 'center' }}>
+<View
+  style={{ flexDirection: 'row', gap: 10, marginBottom: 25, alignItems: 'center' }}>
   <TextInput
     style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)", borderRadius: 12, padding: 15, color: "#FFF", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}
     placeholder="1../2../3.."
     placeholderTextColor="rgba(255,255,255,0.2)"
     keyboardType="numeric"
     value={planRepeatNum}
-    onChangeText={setPlanRepeatNum}
-  />
+    onChangeText={setPlanRepeatNum} />
   
   {/* 🔽 HANYA BUTUH SATU TOMBOL DROPDOWN UTAMA (TANPA .MAP LOOPING Lagi) 🔽 */}
   <TouchableOpacity
@@ -2169,8 +2204,7 @@ const handleBackupExport = async () => {
       paddingHorizontal: 15,
       height: '100%', // Menyamakan tinggi dengan TextInput secara otomatis
       minHeight: 50,  
-    }}
-  >
+    }}>
     <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '800' }}>
       {planRepeatUnit === 'week' ? 'Minggu' : planRepeatUnit === 'month' ? 'Bulan' : 'Tahun'}
     </Text>
@@ -2270,7 +2304,6 @@ const handleBackupExport = async () => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-
       {/* 📥 MODAL DROPDOWN SELEKTOR UNIT PLAN */}
       <Modal
         visible={showUnitDropdown}
@@ -2342,7 +2375,6 @@ const handleBackupExport = async () => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-
       <Modal
         visible={showDeleteConfirm}
         transparent
@@ -2519,7 +2551,6 @@ const handleBackupExport = async () => {
           </View>
         </View>
       </Modal>
-
       {/* Backup Modal Sederhana khusus Profile */}
       <Modal visible={showBackupModal} transparent animationType="none">
         <View
@@ -2528,17 +2559,16 @@ const handleBackupExport = async () => {
             backgroundColor: "rgba(0,0,0,0.8)",
             justifyContent: "center",
             padding: 40,
-          }}
-        >
+          }}>
           <View
             style={{
               backgroundColor: "#1A2B3C",
               padding: 20,
               borderRadius: 20,
               gap: 20,
-            }}
-          >
-            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "bold", textAlign: "center" }}>
+            }}>
+            <Text
+              style={{ color: "#fff", fontSize: 18, fontWeight: "bold", textAlign: "center" }}>
               Backup Data
             </Text>
             <TouchableOpacity
@@ -2547,22 +2577,17 @@ const handleBackupExport = async () => {
                 backgroundColor: "#4ECDC4",
                 padding: 15,
                 borderRadius: 10,
-              }}
-            >
+              }}>
               <Text style={{ textAlign: "center", fontWeight: "bold" }}>
                 Export Backup
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowBackupModal(false)}
-              style={{ padding: 10 }}
-            >
+            <TouchableOpacity onPress={() => setShowBackupModal(false)} style={{ padding: 10 }}>
               <Text style={{ color: "#fff", textAlign: "center" }}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
       <NotifCenter
         visible={showNotifModal}
         onClose={() => setShowNotifModal(false)}

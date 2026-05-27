@@ -18,6 +18,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { apiService } from "@/utils/apiService";
 
 interface FuelSheetProps {
   visible: boolean;
@@ -144,7 +145,7 @@ export default function FuelSheet({
   const totalCost =
     (parseFloat(liters) || 0) * (parseFloat(pricePerLiter) || 0);
 
-  const handleSave = () => {
+  const handleSave = async () => { // 🚀 Tambahkan keyword 'async' di sini
     const l = parseFloat(liters) || 0;
     const p = parseFloat(pricePerLiter.replace(/\D/g, "")) || 0;
     if (!l || !p) return;
@@ -156,7 +157,8 @@ export default function FuelSheet({
       receiptImage ? `[receipt:${receiptImage}]` : ""
     }`.trim();
 
-    onSave({
+    // Siapkan struktur objek pengiriman
+    const entryData: any = {
       vehicleId,
       date,
       liters: l,
@@ -166,7 +168,23 @@ export default function FuelSheet({
       fuelType: fuelLabel,
       notes: finalNotes,
       receiptPhoto: receiptImage || undefined,
-    });
+    };
+
+    // Jika sedang dalam mode edit, sertakan ID lama agar server melakukan UPDATE, bukan INSERT
+    if (editEntry) {
+      entryData.id = editEntry.id;
+    }
+
+    // 🚀 SUNTIKAN LOGIKA SERVER BARU: Kirim ke server Node.js lokal via apiService
+    const success = await apiService.saveFuel(entryData);
+
+    if (success) {
+      // Jika server sukses menerima, oper ke fungsi onSave utama agar halaman depan melakukan refresh
+      onSave(entryData);
+    } else {
+      Alert.alert("Error", "❌ Gagal menyimpan data bensin ke server lokal!");
+    }
+
     onClose();
   };
 
