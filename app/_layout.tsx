@@ -1,5 +1,6 @@
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
+import { supabase } from "../utils/supabaseClient"; // LOCK_TEMPO
 import {
   Stack,
   useRouter,

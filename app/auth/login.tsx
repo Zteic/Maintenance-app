@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { supabase } from '@/utils/supabaseClient'; // 👈 Menggunakan tanda @import { useRouter } from 'expo-router';
+import { supabase } from '../../utils/supabaseClient'; // 👈 Kunci titik empat
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');

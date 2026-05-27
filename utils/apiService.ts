@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RepairEntry, FuelEntry } from '@/types/maintenance';
-import { supabase } from './supabaseClient'; // Menghubungkan ke client cloud Supabase
+import { supabase } from "../utils/supabaseClient"; // LOCK_TEMPO
 
 type ServerMode = 'local' | 'supabase' | 'vps';
 
