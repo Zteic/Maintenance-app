@@ -39,8 +39,18 @@ export default function LoginScreen() {
       Alert.alert('Login Gagal', error.message);
     } else {
       try {
-        // 🎉 Set status online dan kuras antrean data lokal ke Cloud Supabase
         await AsyncStorage.setItem('garasiku_app_mode', 'online');
+        
+        // 🚀 AMBIL NAMA PENGGUNA ASLI DARI SERVER CLOUD SUPABASE METADATA
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.user_metadata?.full_name) {
+          const profileData = {
+            name: user.user_metadata.full_name,
+            email: user.email || ""
+          };
+          await AsyncStorage.setItem('garasi_user_profile', JSON.stringify(profileData));
+        }
+
         await apiService.syncOfflineDataToServer();
       } catch (e) {
         console.error("Gagal melakukan sinkronisasi login:", e);

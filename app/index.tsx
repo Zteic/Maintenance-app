@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiService } from "../utils/apiService"; 
+import { apiService } from "../utils/apiService";
+import { supabase } from "../utils/supabaseClient"; 
 import * as ImagePicker from "expo-image-picker";
 import {
   View,
@@ -292,6 +293,20 @@ function AppContent() {
       checkCurrentMode();
     }, [])
   );
+
+  useEffect(() => {
+    // Mendengarkan perubahan status login/logout dari SDK Supabase secara global
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        await AsyncStorage.setItem('garasiku_app_mode', 'local');
+        setAppModeState('local');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const loadAppName = async () => {
@@ -998,25 +1013,37 @@ const handleTriggerPremiumLock = (name: string, desc: string) => {
   setPremiumModalVisible(true);
 };
 
-const handleResetData = () => {
-  Alert.alert(
-    "Reset & Hapus Data",
-    "Semua data kendaraan, histori, dan pengaturan akan dihapus permanen dari perangkat ini. Lanjutkan?",
-    [
-      { text: "Batal", style: "cancel" },
-      { 
-        text: "Ya, Hapus", 
-        style: "destructive", 
-        onPress: async () => {
-          const keys = await AsyncStorage.getAllKeys();
-          const garasiKeys = keys.filter(k => k.startsWith('garasi_') || k === 'custom_app_name');
-          await AsyncStorage.multiRemove(garasiKeys);
-          Alert.alert("Berhasil", "Aplikasi telah direset.", [{ text: "OK", onPress: () => router.replace("/") }]);
-        } 
-      }
-    ]
-  );
-};
+  const handleResetData = () => {
+    Alert.alert(
+      "⚠️ Hapus Total & Reset Aplikasi",
+      "Perhatian! Tindakan ini akan menghapus seluruh data kendaraan, catatan bensin, riwayat servis, serta sesi akun dari perangkat ini secara permanen. Lanjutkan?",
+      [
+        { text: "Batal", style: "cancel" },
+        { 
+          text: "Ya, Hapus Semua", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              // 🚀 METODE PEMBERSIHAN MUTLAK: Menyapu bersih seluruh Key AsyncStorage tanpa tersisa
+              const allKeys = await AsyncStorage.getAllKeys();
+              await AsyncStorage.multiRemove(allKeys);
+              
+              // Putuskan juga koneksi login sesi jika ada
+              const { error } = await supabase.auth.signOut();
+              
+              Alert.alert(
+                "Reset Berhasil", 
+                "Seluruh data aplikasi di perangkat ini telah dihapus total sampai bersih.", 
+                [{ text: "OK", onPress: () => router.replace("/auth/login") }]
+              );
+            } catch (err) {
+              Alert.alert("Error", "Gagal membersihkan cache penyimpanan.");
+            }
+          } 
+        }
+      ]
+    );
+  };
 
 const toggleMode = async (mode: 'basic' | 'advance') => {
   setAppMode(mode);
@@ -1046,20 +1073,28 @@ const handlePickPhoto = async () => {
 };
 
 const handleSaveProfile = async () => {
-  const updated = { ...profile, name: editName.trim() || profile.name, email: editEmail.trim() || profile.email };
-  setProfile(updated);
-  saveUserProfile(updated);
+    const cleanName = editName.trim() || profile.name;
+    const updated = { ...profile, name: cleanName, email: editEmail.trim() || profile.email };
+    setProfile(updated);
+    await saveUserProfile(updated);
 
-  const finalAppName = editAppName.trim() || t("appName");
-  setAppName(finalAppName);
-  try {
-    await AsyncStorage.setItem("custom_app_name", finalAppName);
-  } catch (e) {
-    console.log("Gagal menyimpan nama garasi:", e);
-  }
+    if (appModeState === 'online') {
+      const { error } = await supabase.auth.updateUser({
+        data: { full_name: cleanName }
+      });
+      if (error) console.error("Gagal sinkronisasi nama ke server:", error.message);
+    }
 
-  setEditingProfile(false);
-};
+    const finalAppName = editAppName.trim() || t("appName");
+    setAppName(finalAppName);
+    try {
+      await AsyncStorage.setItem("custom_app_name", finalAppName);
+    } catch (e) {
+      console.log("Gagal menyimpan nama garasi:", e);
+    }
+
+    setEditingProfile(false);
+  };
 
 const handleExport = async () => {
   try {
@@ -1702,12 +1737,12 @@ const handleBackupExport = async () => {
             contentContainerStyle={{ paddingBottom: 120, paddingTop: 10, paddingHorizontal: 20 }}>
             
             {/* Header internal Tab Profile */}
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingTop: 10 }}>
-              <TouchableOpacity onPress={() => router.setParams({ tab: 'home' })} style={{ flexDirection: "row", alignItems: "center" }}>
-                <Text style={{ color: "#F5A623", fontSize: 16 }}>← Kembali</Text>
-              </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingTop: 10, width: "100%" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                <TouchableOpacity onPress={() => router.setParams({ tab: 'home' })} style={{ marginRight: 5 }}>
+                  <Text style={{ color: "#F5A623", fontSize: 16 }}>← Kembali</Text>
+                </TouchableOpacity>
 
-              <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginRight: 40 }}>
                 <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "800", textAlign: "center" }}>
                   {t("myProfile")}
                 </Text>
@@ -1724,32 +1759,63 @@ const handleBackupExport = async () => {
                   </TouchableOpacity>
                 )}
               </View>
+
+              {/* ☁️ STATUS CLOUD MINIMALIS DI POJOK KANAN ATAS */}
+              {appModeState === 'online' && (
+                <View style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  gap: 6, 
+                  backgroundColor: 'rgba(78, 205, 196, 0.05)', 
+                  paddingHorizontal: 12, 
+                  paddingVertical: 8, 
+                  borderRadius: 12, 
+                  borderWidth: 1, 
+                  borderColor: 'rgba(78, 205, 196, 0.2)' 
+                }}>
+                  <Text style={{ fontSize: 12 }}>☁️</Text>
+                  <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '700' }}>Cloud: Terhubung</Text>
+                  <Text style={{ color: '#4ECDC4', fontSize: 10, marginLeft: 2 }}>❯</Text>
+                </View>
+              )}
             </View>
 
-            {/* 🚗 PERCABANGAN UX 1: JIKA USER MASIH OFFLINE / BELUM PUNYA AKUN */}
+            {/* 🚗 PERCABANGAN UX 1: JIKA USER TEKAN KELUAR CLOUD / MEMILIH MODE OFFLINE TAMU */}
             {appModeState === 'local' ? (
-              <View style={{ backgroundColor: '#1A2B3C', padding: 25, borderRadius: 20, alignItems: 'center', marginTop: 10, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-                <Text style={{ fontSize: 38, marginBottom: 15 }}>☁️</Text>
-                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 10, textAlign: 'center' }}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => router.push('/auth/login')} // 👈 Jika diklik, otomatis langsung lompat masuk ke menu login depan
+                style={{ 
+                  backgroundColor: '#1A2B3C', 
+                  padding: 25, 
+                  borderRadius: 20, 
+                  alignItems: 'center', 
+                  marginTop: 10, 
+                  marginBottom: 25, 
+                  borderWidth: 1, 
+                  borderColor: 'rgba(16, 185, 129, 0.2)', // Border aksen hijau penanda tombol interaktif
+                  shadowColor: '#10b981',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 10,
+                }}>
+                <Text style={{ fontSize: 40, marginBottom: 12 }}>☁️</Text>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 8, textAlign: 'center' }}>
                   Amankan Data Kendaraan Anda
                 </Text>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginBottom: 25, fontSize: 13, lineHeight: 20, paddingHorizontal: 10 }}>
-                  Saat ini Anda menggunakan akun tamu/offline. Daftarkan akun Cloud secara gratis untuk mengamankan data bensin, servis, dan pengingat dari risiko kehilangan data.
+                <Text style={{ color: 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 20, fontSize: 13, lineHeight: 20, paddingHorizontal: 10 }}>
+                  Kamu saat ini menggunakan penyimpanan offline lokal. Klik di sini untuk Masuk atau Daftar akun Cloud secara gratis agar data aman seumur hidup.
                 </Text>
                 
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => router.push('/auth/login')}
-                  style={{ backgroundColor: '#10b981', paddingVertical: 15, borderRadius: 12, width: '100%', alignItems: 'center' }}
-                >
+                <View style={{ backgroundColor: '#10b981', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center' }}>
                   <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>
-                    🔑 Hubungkan & Daftar Akun Cloud
+                    🔑 Masuk / Daftar Akun Cloud
                   </Text>
-                </TouchableOpacity>
-              </View>
+                </View>
+              </TouchableOpacity>
             ) : (
               
-              /* 👑 PERCABANGAN UX 2: JIKA USER SUDAH LOGIN / ONLINE (KODE ASLI KAMU MASUK SINI) */
+              /* 👑 PERCABANGAN UX 2: JIKA USER SUDAH LOGIN / ONLINE */
               <>
                 {/* Profile Card asli bawaan kamu */}
                 <View style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, gap: 16, marginBottom: 20 }}>
@@ -1762,57 +1828,71 @@ const handleBackupExport = async () => {
                       <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI</Text>
                       <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600", fontFamily: "Windpower" }}>{appName}</Text>
                       
-                      <TouchableOpacity
-                        onPress={() => { setEditName(profile.name); setEditEmail(profile.email); setEditAppName(appName); setEditingProfile(true); }}
-                        style={{ paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(245,166,35,0.1)", alignItems: "center", marginTop: 5 }}>
-                        <Text style={{ color: "#F5A623", fontWeight: "600" }}>✏️ {t("editProfile")}</Text>
-                      </TouchableOpacity>
+                      {/* BARIS TOMBOL BERDAMPINGAN (EDIT PROFIL & KELUAR CLOUD) */}
+                      <View style={{ flexDirection: "row", gap: 10, marginTop: 5, width: "100%" }}>
+                        <TouchableOpacity
+                          onPress={() => { setEditName(profile.name); setEditEmail(profile.email); setEditAppName(appName); setEditingProfile(true); }}
+                          style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(245,166,35,0.1)", alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ color: "#F5A623", fontWeight: "600" }}>✏️ {t("editProfile")}</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={async () => {
+                            Alert.alert("Keluar Akun", "Apakah Anda yakin ingin keluar dari sinkronisasi Cloud?", [
+                              { text: "Batal", style: "cancel" },
+                              {
+                                text: "Keluar",
+                                style: "destructive",
+                                onPress: async () => {
+                                  try {
+                                    // 1. Putuskan sesi di server Supabase
+                                    await supabase.auth.signOut();
+                                    
+                                    // 2. Tulis paksa status ke penyimpanan lokal
+                                    await AsyncStorage.setItem('garasiku_app_mode', 'local');
+                                    
+                                    // 3. Paksa state React untuk berubah di tempat
+                                    setAppModeState('local');
+                                    
+                                    // 4. 🚀 KUNCI PERBAIKAN TEMPO: Lempar paksa rute navigasi kembali ke gerbang login depan
+                                    router.replace('/auth/login');
+                                  } catch (err) {
+                                    console.error("Gagal keluar akun:", err);
+                                  }
+                                }
+                              }
+                            ]);
+                          }}
+                          style={{ flex: 1, backgroundColor: 'rgba(239, 68, 68, 0.1)', paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: "center", borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                        >
+                          <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>🚪 Keluar Cloud</Text>
+                        </TouchableOpacity>
+                      </View>
                     </>
                   ) : (
                     <>
-                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA LENGKAP</Text>
-                      <TextInput value={editName} onChangeText={setEditName} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }} placeholder="Name" />
-                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>ALAMAT EMAIL</Text>
-                      <TextInput value={editEmail} onChangeText={setEditEmail} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }} placeholder="Email" />
-                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI CUSTOM</Text>
-                      <TextInput value={editAppName} onChangeText={setEditAppName} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10, fontFamily: "Windpower", fontSize: 15 }} placeholder="Nama Garasi Anda" />
+                      {/* Form Penguncian Nama & Email Registrasi (Read-Only) */}
+                      <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>NAMA LENGKAP (TIDAK DAPAT DIUBAH)</Text>
+                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: "500", paddingLeft: 4, marginBottom: 4 }}>{profile.name}</Text>
                       
-                      <View style={{ flexDirection: "row", gap: 10, marginTop: 5 }}>
-                        <TouchableOpacity onPress={() => setEditingProfile(false)} style={{ flex: 1, alignItems: "center", padding: 12 }}><Text style={{ color: "#fff" }}>{t("cancel")}</Text></TouchableOpacity>
-                        <TouchableOpacity onPress={handleSaveProfile} style={{ flex: 2, backgroundColor: "#F5A623", alignItems: "center", padding: 12, borderRadius: 12 }}><Text style={{ color: "#0D1B2A", fontWeight: "800" }}>{t("saveProfile")}</Text></TouchableOpacity>
+                      <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>ALAMAT EMAIL (TIDAK DAPAT DIUBAH)</Text>
+                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: "500", paddingLeft: 4, marginBottom: 4 }}>{profile.email}</Text>
+                      
+                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI CUSTOM</Text>
+                      <TextInput value={editAppName} onChangeText={setEditAppName} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 15, borderRadius: 12, fontFamily: "Windpower", fontSize: 15, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }} placeholder="Nama Garasi Anda" />
+                      
+                      <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
+                        <TouchableOpacity onPress={() => setEditingProfile(false)} style={{ flex: 1, alignItems: "center", padding: 14, justifyContent: "center" }}><Text style={{ color: "#fff", fontWeight: "600" }}>{t("cancel")}</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={handleSaveProfile} style={{ flex: 2, backgroundColor: "#F5A623", alignItems: "center", padding: 14, borderRadius: 12, justifyContent: "center" }}><Text style={{ color: "#0D1B2A", fontWeight: "800" }}>{t("saveProfile")}</Text></TouchableOpacity>
                       </View>
                     </>
                   )}
                 </View>
-
-                {/* Tombol Logout untuk user yang online */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={async () => {
-                    Alert.alert("Keluar Akun", "Apakah Anda yakin ingin keluar dari sinkronisasi Cloud?", [
-                      { text: "Batal", style: "cancel" },
-                      {
-                        text: "Keluar",
-                        style: "destructive",
-                        onPress: async () => {
-                          await supabase.auth.signOut();
-                          await AsyncStorage.setItem('garasiku_app_mode', 'local');
-                          setAppModeState('local');
-                          Alert.alert("Sukses", "Anda kembali ke Mode Offline.");
-                          refreshData();
-                        }
-                      }
-                    ]);
-                  }}
-                  style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 15, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)', marginBottom: 20 }}
-                >
-                  <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>🚪 Keluar dari Akun Cloud</Text>
-                </TouchableOpacity>
               </>
             )}
 
-            {/* 🛑 BERIKUTNYA ADALAH SISA FITUR ASLI KAMU YANG TETAP UTUH DI BAWAH */}
-            <AccountStatsGrid />
+            {/* SISA COMPONENT MEMUAT GRAFIK, BANNER, DAN MENU BAWAHAN ASLI */}
             <PremiumSection onOpenPremiumPage={() => { setActivePrefillFeature(null); setPremiumModalVisible(true); }} />
 
             <View style={{ marginTop: 16, gap: 12 }}>
@@ -1824,7 +1904,7 @@ const handleBackupExport = async () => {
 
               <TouchableOpacity onPress={() => router.push('/export')} style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: "rgba(78,205,196,0.3)" }}>
                 <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 22 }}>📊</Text></View>
-                <View style={{ flex: 1 }}><Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>Backup and Restore</Text><Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>Backup seluruh data kendaraan ke .vhdb</Text><Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>💽 Penggunaan Memori: {storageSize}</Text></View>
+                <View style={{ flex: 1 }}><Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>Backup and Restore</Text><Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>💽 Penggunaan Memori: {storageSize}</Text></View>
                 <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
               </TouchableOpacity>
             </View>
