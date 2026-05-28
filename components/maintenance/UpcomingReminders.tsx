@@ -128,7 +128,7 @@ export default function UpcomingReminders({
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20 }}>
         <View style={{ gap: 2 }}>
           <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "800", letterSpacing: 0.5 }}>
-            {isId ? "PERAWATAN PRIORITAS" : "PRIORITY MAINTENANCE"}
+            {isId ? "⏰ PERAWATAN PRIORITAS" : "⏰ PRIORITY MAINTENANCE"}
           </Text>
           <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>
             {allReminders.length} {isId ? "Item aktif" : "Active items"}

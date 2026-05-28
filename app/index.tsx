@@ -281,6 +281,18 @@ function AppContent() {
   const [appName, setAppName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
 
+  const [appModeState, setAppModeState] = useState<'local' | 'online'>('local');
+
+  useFocusEffect(
+    useCallback(() => {
+      async function checkCurrentMode() {
+        const savedMode = await AsyncStorage.getItem('garasiku_app_mode');
+        setAppModeState(savedMode === 'online' ? 'online' : 'local');
+      }
+      checkCurrentMode();
+    }, [])
+  );
+
   useEffect(() => {
     const loadAppName = async () => {
       try {
@@ -1686,289 +1698,163 @@ const handleBackupExport = async () => {
             overScrollMode="never"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 120, paddingTop: 10, paddingHorizontal: 20 }}>
+            
             {/* Header internal Tab Profile */}
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 20,
-                paddingTop: 10,
-              }}>
-              <TouchableOpacity
-                onPress={() => router.setParams({ tab: 'home' })}
-                style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingTop: 10 }}>
+              <TouchableOpacity onPress={() => router.setParams({ tab: 'home' })} style={{ flexDirection: "row", alignItems: "center" }}>
                 <Text style={{ color: "#F5A623", fontSize: 16 }}>← Kembali</Text>
               </TouchableOpacity>
 
-              <View
-                style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginRight: 40 }}>
-                <Text
-                  style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "800", textAlign: "center" }}>
+              <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginRight: 40 }}>
+                <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "800", textAlign: "center" }}>
                   {t("myProfile")}
                 </Text>
-
                 {__DEV__ && (
                   <TouchableOpacity
                     activeOpacity={0.7}
                     onPress={async () => {
                       const targetStatus = !isPremium;
                       await setIsPremium(targetStatus);
-                      Alert.alert(
-                        "🔧 Dev Mode Switcher",
-                        `Status berhasil diubah ke: ${targetStatus ? "PREMIUM 👑" : "FREE 🚗"}`
-                      );
+                      Alert.alert("🔧 Dev Mode Switcher", `Status berhasil diubah ke: ${targetStatus ? "PREMIUM 👑" : "FREE 🚗"}`);
                     }}
-                    style={{
-                      backgroundColor: isPremium ? '#F5A623' : '#4ECDC4',
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 6,
-                    }}>
-                    <Text style={{ color: '#0D1B2A', fontSize: 10, fontWeight: '900' }}>
-                      {isPremium ? "SET FREE" : "SET PREMIUM"}
-                    </Text>
+                    style={{ backgroundColor: isPremium ? '#F5A623' : '#4ECDC4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                    <Text style={{ color: '#0D1B2A', fontSize: 10, fontWeight: '900' }}>{isPremium ? "SET FREE" : "SET PREMIUM"}</Text>
                   </TouchableOpacity>
                 )}
               </View>
             </View>
 
-            {/* Profile Card */}
-            <View
-              style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, gap: 16, marginBottom: 20 }}>
-              {!editingProfile ? (
-                <>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("userName")}</Text>
-                  <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{profile.name}</Text>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("email")}</Text>
-                  <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{profile.email}</Text>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI</Text>
-                  <Text
-                    style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600", fontFamily: "Windpower" }}>{appName}</Text>
-                  
-                  <TouchableOpacity
-                    onPress={() => { 
-                      setEditName(profile.name); 
-                      setEditEmail(profile.email); 
-                      setEditAppName(appName); 
-                      setEditingProfile(true); 
-                    }}
-                    style={{ paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(245,166,35,0.1)", alignItems: "center", marginTop: 5 }}>
-                    <Text style={{ color: "#F5A623", fontWeight: "600" }}>✏️ {t("editProfile")}</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA LENGKAP</Text>
-                  <TextInput
-                    value={editName}
-                    onChangeText={setEditName}
-                    style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }}
-                    placeholder="Name" />
-                  
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>ALAMAT EMAIL</Text>
-                  <TextInput
-                    value={editEmail}
-                    onChangeText={setEditEmail}
-                    style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }}
-                    placeholder="Email" />
-                  
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI CUSTOM</Text>
-                  <TextInput
-                    value={editAppName}
-                    onChangeText={setEditAppName}
-                    style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10, fontFamily: "Windpower", fontSize: 15 }}
-                    placeholder="Nama Garasi Anda" />
-                  
-                  <View style={{ flexDirection: "row", gap: 10, marginTop: 5 }}>
-                    <TouchableOpacity
-                      onPress={() => setEditingProfile(false)}
-                      style={{ flex: 1, alignItems: "center", padding: 12 }}><Text style={{ color: "#fff" }}>{t("cancel")}</Text></TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={handleSaveProfile}
-                      style={{ flex: 2, backgroundColor: "#F5A623", alignItems: "center", padding: 12, borderRadius: 12 }}><Text style={{ color: "#0D1B2A", fontWeight: "800" }}>{t("saveProfile")}</Text></TouchableOpacity>
-                  </View>
-                </>
-              )}
-            </View>
-
-            {/* Grid Statistik Akun */}
-            <AccountStatsGrid />
-
-            {/* Banner Premium Lifetime Card */}
-            <PremiumSection
-              onOpenPremiumPage={() => { 
-                setActivePrefillFeature(null); 
-                setPremiumModalVisible(true); 
-              }} />
-
-            {/* Action Buttons */}
-            <View style={{ marginTop: 16, gap: 12 }}>
-              <TouchableOpacity
-                onPress={() => setShowPriceUpdate(true)}
-                activeOpacity={0.85}
-                style={{
-                  backgroundColor: "#1A2B3C",
-                  borderRadius: 16,
-                  padding: 20,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 16,
-                  borderWidth: 1,
-                  borderColor: "rgba(245,166,35,0.2)",
-                }}>
-                <View
-                  style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", borderWidth: 1, borderColor: "rgba(245,166,35,0.3)", alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ fontSize: 22 }}>⛽</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>Update Harga Bensin</Text>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>Atur harga BBM per liter saat ini</Text>
-                </View>
-                <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
-              </TouchableOpacity>
-
-              {/* 🛠️ FIX REVISI: Mengembalikan router.push('/export') sesuai file bawaan asli */}
-              <TouchableOpacity
-                onPress={() => router.push('/export')}
-                style={{
-                  backgroundColor: "#1A2B3C",
-                  borderRadius: 16,
-                  padding: 20,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 16,
-                  borderWidth: 1,
-                  borderColor: "rgba(78,205,196,0.3)",
-                }}>
-                <View
-                  style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ fontSize: 22 }}>📊</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>Backup and Restore</Text>
-                  <Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>Backup seluruh data kendaraan ke .vhdb</Text>
-                  <Text
-                    style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>💽 Penggunaan Memori: {storageSize}</Text>
-                </View>
-                <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* SECTION MODE PENGGUNAAN */}
-            <View style={{ marginTop: 25 }}>
-              <Text
-                style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>MODE PENGGUNAAN</Text>
-              <View
-                style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+            {/* 🚗 PERCABANGAN UX 1: JIKA USER MASIH OFFLINE / BELUM PUNYA AKUN */}
+            {appModeState === 'local' ? (
+              <View style={{ backgroundColor: '#1A2B3C', padding: 25, borderRadius: 20, alignItems: 'center', marginTop: 10, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                <Text style={{ fontSize: 38, marginBottom: 15 }}>☁️</Text>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 10, textAlign: 'center' }}>
+                  Amankan Data Kendaraan Anda
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginBottom: 25, fontSize: 13, lineHeight: 20, paddingHorizontal: 10 }}>
+                  Saat ini Anda menggunakan akun tamu/offline. Daftarkan akun Cloud secara gratis untuk mengamankan data bensin, servis, dan pengingat dari risiko kehilangan data.
+                </Text>
+                
                 <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={() => toggleMode('basic')}
-                  style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'basic' ? '#4ECDC4' : 'transparent' }}>
-                  <Text
-                    style={{ fontWeight: '800', color: appMode === 'basic' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Basic</Text>
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/auth/login')}
+                  style={{ backgroundColor: '#10b981', paddingVertical: 15, borderRadius: 12, width: '100%', alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>
+                    🔑 Hubungkan & Daftar Akun Cloud
+                  </Text>
                 </TouchableOpacity>
+              </View>
+            ) : (
+              
+              /* 👑 PERCABANGAN UX 2: JIKA USER SUDAH LOGIN / ONLINE (KODE ASLI KAMU MASUK SINI) */
+              <>
+                {/* Profile Card asli bawaan kamu */}
+                <View style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, gap: 16, marginBottom: 20 }}>
+                  {!editingProfile ? (
+                    <>
+                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("userName")}</Text>
+                      <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{profile.name}</Text>
+                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("email")}</Text>
+                      <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{profile.email}</Text>
+                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI</Text>
+                      <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600", fontFamily: "Windpower" }}>{appName}</Text>
+                      
+                      <TouchableOpacity
+                        onPress={() => { setEditName(profile.name); setEditEmail(profile.email); setEditAppName(appName); setEditingProfile(true); }}
+                        style={{ paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(245,166,35,0.1)", alignItems: "center", marginTop: 5 }}>
+                        <Text style={{ color: "#F5A623", fontWeight: "600" }}>✏️ {t("editProfile")}</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA LENGKAP</Text>
+                      <TextInput value={editName} onChangeText={setEditName} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }} placeholder="Name" />
+                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>ALAMAT EMAIL</Text>
+                      <TextInput value={editEmail} onChangeText={setEditEmail} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10 }} placeholder="Email" />
+                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI CUSTOM</Text>
+                      <TextInput value={editAppName} onChangeText={setEditAppName} style={{ backgroundColor: "#0D1B2A", color: "#fff", padding: 12, borderRadius: 10, fontFamily: "Windpower", fontSize: 15 }} placeholder="Nama Garasi Anda" />
+                      
+                      <View style={{ flexDirection: "row", gap: 10, marginTop: 5 }}>
+                        <TouchableOpacity onPress={() => setEditingProfile(false)} style={{ flex: 1, alignItems: "center", padding: 12 }}><Text style={{ color: "#fff" }}>{t("cancel")}</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={handleSaveProfile} style={{ flex: 2, backgroundColor: "#F5A623", alignItems: "center", padding: 12, borderRadius: 12 }}><Text style={{ color: "#0D1B2A", fontWeight: "800" }}>{t("saveProfile")}</Text></TouchableOpacity>
+                      </View>
+                    </>
+                  )}
+                </View>
 
+                {/* Tombol Logout untuk user yang online */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={async () => {
+                    Alert.alert("Keluar Akun", "Apakah Anda yakin ingin keluar dari sinkronisasi Cloud?", [
+                      { text: "Batal", style: "cancel" },
+                      {
+                        text: "Keluar",
+                        style: "destructive",
+                        onPress: async () => {
+                          await supabase.auth.signOut();
+                          await AsyncStorage.setItem('garasiku_app_mode', 'local');
+                          setAppModeState('local');
+                          Alert.alert("Sukses", "Anda kembali ke Mode Offline.");
+                          refreshData();
+                        }
+                      }
+                    ]);
+                  }}
+                  style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 15, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)', marginBottom: 20 }}
+                >
+                  <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>🚪 Keluar dari Akun Cloud</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* 🛑 BERIKUTNYA ADALAH SISA FITUR ASLI KAMU YANG TETAP UTUH DI BAWAH */}
+            <AccountStatsGrid />
+            <PremiumSection onOpenPremiumPage={() => { setActivePrefillFeature(null); setPremiumModalVisible(true); }} />
+
+            <View style={{ marginTop: 16, gap: 12 }}>
+              <TouchableOpacity onPress={() => setShowPriceUpdate(true)} activeOpacity={0.85} style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: "rgba(245,166,35,0.2)" }}>
+                <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", borderWidth: 1, borderColor: "rgba(245,166,35,0.3)", alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 22 }}>⛽</Text></View>
+                <View style={{ flex: 1 }}><Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>Update Harga Bensin</Text><Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>Atur harga BBM per liter saat ini</Text></View>
+                <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => router.push('/export')} style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: "rgba(78,205,196,0.3)" }}>
+                <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 22 }}>📊</Text></View>
+                <View style={{ flex: 1 }}><Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>Backup and Restore</Text><Text style={{ color: "rgba(78,205,196,0.5)", fontSize: 12, marginTop: 2 }}>Backup seluruh data kendaraan ke .vhdb</Text><Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>💽 Penggunaan Memori: {storageSize}</Text></View>
+                <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ marginTop: 25 }}>
+              <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>MODE PENGGUNAAN</Text>
+              <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                <TouchableOpacity activeOpacity={0.9} onPress={() => toggleMode('basic')} style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'basic' ? '#4ECDC4' : 'transparent' }}><Text style={{ fontWeight: '800', color: appMode === 'basic' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Basic</Text></TouchableOpacity>
                 <View style={{ flex: 1 }}>
-                  <PremiumGateWrapper
-                    featureName="Mode Advance (Advanced Search)"
-                    featureDescription="Membuka filter riwayat perbaikan mendalam, pencarian kata kunci multi-tab bensin, serta modul log analitik cerdas seumur hidup."
-                    onLockedPress={(name, desc) => handleTriggerPremiumLock(name, desc)}>
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      onPress={() => toggleMode('advance')}
-                      style={{ width: '100%', paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'advance' ? '#F5A623' : 'transparent' }}>
-                      <Text
-                        style={{ fontWeight: '800', color: appMode === 'advance' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Advance</Text>
-                    </TouchableOpacity>
+                  <PremiumGateWrapper featureName="Mode Advance (Advanced Search)" featureDescription="Membuka filter riwayat perbaikan mendalam..." onLockedPress={(name, desc) => handleTriggerPremiumLock(name, desc)}>
+                    <TouchableOpacity activeOpacity={0.9} onPress={() => toggleMode('advance')} style={{ width: '100%', paddingVertical: 12, alignItems: 'center', borderRadius: 10, backgroundColor: appMode === 'advance' ? '#F5A623' : 'transparent' }}><Text style={{ fontWeight: '800', color: appMode === 'advance' ? '#0D1B2A' : 'rgba(255,255,255,0.5)' }}>Advance</Text></TouchableOpacity>
                   </PremiumGateWrapper>
                 </View>
               </View>
-              <Text
-                style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 8, marginLeft: 5, marginBottom: 15 }}>
-                {appMode === 'basic' ? "Tampilan bersih. Fokus pada fitur utama." : "Membuka fitur tambahan (Advanced Search, dll)."}
-              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 8, marginLeft: 5, marginBottom: 15 }}>{appMode === 'basic' ? "Tampilan bersih. Fokus pada fitur utama." : "Membuka fitur tambahan (Advanced Search, dll)."}</Text>
             </View>
 
-            {/* MENU FEEDBACK & BUG REPORT BARU */}
             <View style={{ marginTop: 25 }}>
-              <Text
-                style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>BANTUAN & PENGEMBANGAN</Text>
-              <TouchableOpacity
-                onPress={() => router.push('/feedback')}
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-                <Text style={{ fontSize: 22, marginRight: 15 }}>🐞</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Laporkan Bug & Saran</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Kirim masukan langsung ke developer</Text>
-                </View>
-                <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => router.push('/feedback-history')}
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-                <Text style={{ fontSize: 22, marginRight: 15 }}>📋</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Riwayat Feedback</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Pantau status laporan Anda</Text>
-                </View>
-                <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text>
-              </TouchableOpacity>
+              <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>BANTUAN & PENGEMBANGAN</Text>
+              <TouchableOpacity onPress={() => router.push('/feedback')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 22, marginRight: 15 }}>🐞</Text><View style={{ flex: 1 }}><Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Laporkan Bug & Saran</Text><Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Kirim masukan langsung ke developer</Text></View><Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/feedback-history')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 22, marginRight: 15 }}>📋</Text><View style={{ flex: 1 }}><Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Riwayat Feedback</Text><Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Pantau status laporan Anda</Text></View><Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text></TouchableOpacity>
             </View>
 
-            {/* SECTION INFORMASI & LEGAL */}
             <View style={{ marginTop: 25, marginBottom: 20 }}>
-              <Text
-                style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>INFORMASI & LEGAL</Text>
-              <View
-                style={{ backgroundColor: '#1A2B3C', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-                <TouchableOpacity
-                  onPress={() => router.push('/changelog')}
-                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                  <Text style={{ fontSize: 18, marginRight: 12 }}>✨</Text>
-                  <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Apa yang Baru (What's New)</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => router.push('/privacy')}
-                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                  <Text style={{ fontSize: 18, marginRight: 12 }}>🛡️</Text>
-                  <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Kebijakan Privasi (Privacy Policy)</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => router.push('/terms')}
-                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                  <Text style={{ fontSize: 18, marginRight: 12 }}>📜</Text>
-                  <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Syarat & Ketentuan</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => router.push('/contact')}
-                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                  <Text style={{ fontSize: 18, marginRight: 12 }}>✉️</Text>
-                  <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Hubungi Developer</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => router.push('/check-updates')}
-                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                  <Text style={{ fontSize: 18, marginRight: 12 }}>🔄</Text>
-                  <Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Periksa Pembaruan</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleResetData}
-                  style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: 'rgba(255,82,82,0.05)' }}>
-                  <Text style={{ fontSize: 18, marginRight: 12 }}>⚠️</Text>
-                  <Text style={{ color: '#FF5252', flex: 1, fontWeight: '700' }}>Hapus Semua Data Aplikasi</Text>
-                </TouchableOpacity>
+              <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>INFORMASI & LEGAL</Text>
+              <View style={{ backgroundColor: '#1A2B3C', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                <TouchableOpacity onPress={() => router.push('/changelog')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>✨</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Apa yang Baru (What's New)</Text><Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/privacy')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>🛡️</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Kebijakan Privasi (Privacy Policy)</Text><Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/terms')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>📜</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Syarat & Ketentuan</Text><Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/contact')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>✉️</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Hubungi Developer</Text><Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/check-updates')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>🔄</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Periksa Pembaruan</Text><Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text></TouchableOpacity>
+                <TouchableOpacity onPress={handleResetData} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: 'rgba(255,82,82,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>⚠️</Text><Text style={{ color: '#FF5252', flex: 1, fontWeight: '700' }}>Hapus Semua Data Aplikasi</Text></TouchableOpacity>
               </View>
             </View>
           </ScrollView>
