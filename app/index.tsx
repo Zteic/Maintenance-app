@@ -1224,8 +1224,9 @@ const handleBackupExport = async () => {
             paddingHorizontal: 20,
             paddingTop: 10,
             paddingBottom: 16,
-          }}
-          className="w-[548px] h-[62px]">
+            width: "100%", // 👈 FIX UTAMA: Menggantikan className w-[548px] agar melebar penuh mengikuti layar HP
+            height: 62,
+          }}>
           {/* CONTAINER LOGO & TEKS JUDUL (STATIS & ANTI-BENTROK) */}
           <View
             style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8, marginRight: 15 }}>            
@@ -1259,7 +1260,8 @@ const handleBackupExport = async () => {
             </View>
           </View>
 
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {/* 🔑 FIX POSISI POJOK: Menggunakan kontainer flex-end agar melempar tombol ke ujung kanan */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
             <TouchableOpacity onPress={() => setShowNotifModal(true)} activeOpacity={0.7}>
               <Animated.View
                 style={{
