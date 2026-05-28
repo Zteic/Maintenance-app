@@ -49,19 +49,22 @@ function RootLayoutContent() {
   if (!loaded) return null;
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider value={DefaultTheme}>
-        <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
-          <Stack screenOptions={{ headerShown: false, animation: "none" }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="export" />
-          </Stack>
-          <AppNavigationOverlay />
-        </View>
-        <StatusBar style="light" />
-      </ThemeProvider>
-    </SafeAreaProvider>
-  );
+  <SafeAreaProvider>
+    <ThemeProvider value={DefaultTheme}>
+      <View style={{ flex: 1, backgroundColor: "#0D1B2A" }}>
+        <Stack screenOptions={{ headerShown: false, animation: "none" }}>
+          <Stack.Screen name="auth/login" /> 
+          <Stack.Screen name="auth/register" />
+          
+          <Stack.Screen name="index" />
+          <Stack.Screen name="export" />
+        </Stack>
+        <AppNavigationOverlay />
+      </View>
+      <StatusBar style="light" />
+    </ThemeProvider>
+  </SafeAreaProvider>
+);
 }
 
 // 2. KUNCI UTAMA: Jadikan PremiumProvider sebagai Root terluar yang diexport ke sistem Expo

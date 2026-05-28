@@ -1,52 +1,79 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RepairEntry, FuelEntry } from '@/types/maintenance';
-import { supabase } from "../utils/supabaseClient"; // LOCK_TEMPO
-
-type ServerMode = 'local' | 'supabase' | 'vps';
-
-// 🚀 AKTIFKAN CLOUD SUPABASE SEKARANG!
-const CURRENT_MODE: ServerMode = 'supabase'; 
+import { supabase } from "./supabaseClient"; // 🛠️ FIX PATH: Pakai ./ karena satu folder utils
 
 export const apiService = {
-  
+
+  // 🔑 1. Fungsi Dinamis menentukan Mode Aplikasi (Online/Offline)
+  async getServiceMode(): Promise<'local' | 'supabase'> {
+    const savedMode = await AsyncStorage.getItem('garasiku_app_mode');
+    return savedMode === 'online' ? 'supabase' : 'local'; // Default: offline jika belum login
+  },
+
   // =======================================================================
   // MODULE 1: REPAIR LOGS (DATA PERBAIKAN / SERVIS)
   // =======================================================================
   
-  // 1. Ambil data perbaikan secara online dari tabel Supabase
   getRepairs: async (vehicleId: string): Promise<RepairEntry[]> => {
-    if (CURRENT_MODE === 'supabase') {
+    const currentMode = await apiService.getServiceMode();
+
+    if (currentMode === 'supabase') {
       try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return [];
+
         const { data, error } = await supabase
           .from('repairs')
           .select('*')
           .eq('vehicleId', vehicleId)
-          .order('date', { ascending: false }); // Urutkan dari tanggal terbaru
+          .eq('user_id', user.id) // 🔒 Keamanan: Hanya ambil data milik user ini
+          .order('date', { ascending: false });
 
         if (error) throw error;
         return (data as RepairEntry[]) || [];
       } catch (error) {
         console.error("❌ Error Supabase getRepairs:", error);
-        return []; // Jalur aman jika koneksi internet terputus
       }
     }
 
-    // Jalur Cadangan (Offline Local Storage)
+    // Jalur Cadangan & Offline Local Storage (Selalu siap sedia)
     const localData = await AsyncStorage.getItem('garasi_repairs');
     const allRepairs: RepairEntry[] = localData ? JSON.parse(localData) : [];
     return allRepairs.filter(r => r.vehicleId === vehicleId);
   },
 
-  // 2. Simpan data perbaikan ke cloud (Bisa insert baru maupun update data lama)
   saveRepair: async (entry: Omit<RepairEntry, 'id'> & { id?: string }): Promise<boolean> => {
-    if (CURRENT_MODE === 'supabase') {
+    const currentMode = await apiService.getServiceMode();
+    const finalId = entry.id || `rep_${Date.now()}`;
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Skenario Data Baru / Modifikasi Lokal
+    const newLocalEntry = { 
+      ...entry, 
+      id: finalId, 
+      user_id: user?.id || 'offline_user',
+      is_synced: currentMode === 'supabase' // otomatis true jika online, false jika offline
+    };
+
+    // LANGKAH 1: Selalu amankan ke Local Storage HP terlebih dahulu
+    const localData = await AsyncStorage.getItem('garasi_repairs');
+    let allRepairs: any[] = localData ? JSON.parse(localData) : [];
+    
+    if (entry.id) {
+      allRepairs = allRepairs.map(r => r.id === entry.id ? { ...r, ...newLocalEntry } : r);
+    } else {
+      allRepairs = [newLocalEntry, ...allRepairs];
+    }
+    await AsyncStorage.setItem('garasi_repairs', JSON.stringify(allRepairs));
+
+    // LANGKAH 2: Jika mode Online aktif & user login, langsung kirim/upsert ke Cloud
+    if (currentMode === 'supabase' && user) {
       try {
-        const finalId = entry.id || `rep_${Date.now()}`;
-        
         const { error } = await supabase
           .from('repairs')
           .upsert({
             id: finalId,
+            user_id: user.id, // 🔒 Menyimpan ID pemilik akun cloud
             vehicleId: entry.vehicleId,
             serviceType: entry.serviceType,
             date: entry.date,
@@ -64,21 +91,14 @@ export const apiService = {
         if (error) throw error;
         return true;
       } catch (error) {
-        console.error("❌ Error Supabase saveRepair:", error);
+        console.error("❌ Gagal sinkron instan ke Supabase, data tetap aman di HP:", error);
+        // Jika gagal karena putus sinyal mendadak, ubah status antrean ke false
+        const failSync = allRepairs.map(r => r.id === finalId ? { ...r, is_synced: false } : r);
+        await AsyncStorage.setItem('garasi_repairs', JSON.stringify(failSync));
         return false;
       }
     }
 
-    // Jalur Cadangan (Offline Local Storage)
-    const localData = await AsyncStorage.getItem('garasi_repairs');
-    const allRepairs: RepairEntry[] = localData ? JSON.parse(localData) : [];
-    if (entry.id) {
-      const updated = allRepairs.map(r => r.id === entry.id ? { ...r, ...entry } : r);
-      await AsyncStorage.setItem('garasi_repairs', JSON.stringify(updated));
-    } else {
-      const newEntry = { ...entry, id: `rep${Date.now()}` };
-      await AsyncStorage.setItem('garasi_repairs', JSON.stringify([newEntry, ...allRepairs]));
-    }
     return true;
   },
 
@@ -86,39 +106,63 @@ export const apiService = {
   // MODULE 2: FUEL LOGS (DATA PENGISIAN BENSIN)
   // =======================================================================
   
-  // 1. Ambil data bensin secara online dari tabel Supabase
   getFuels: async (vehicleId: string): Promise<FuelEntry[]> => {
-    if (CURRENT_MODE === 'supabase') {
+    const currentMode = await apiService.getServiceMode();
+
+    if (currentMode === 'supabase') {
       try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return [];
+
         const { data, error } = await supabase
           .from('fuels')
           .select('*')
-          .eq('vehicleId', vehicleId);
+          .eq('vehicleId', vehicleId)
+          .eq('user_id', user.id); // 🔒 Keamanan: Filter data bensin milik user
 
         if (error) throw error;
         return (data as FuelEntry[]) || [];
       } catch (error) {
         console.error("❌ Error Supabase getFuels:", error);
-        return [];
       }
     }
 
-    // Jalur Cadangan (Offline Local Storage)
     const localData = await AsyncStorage.getItem('garasi_fuel_entries');
     const allFuels: FuelEntry[] = localData ? JSON.parse(localData) : [];
     return allFuels.filter(f => f.vehicleId === vehicleId);
   },
 
-  // 2. Simpan atau edit data bensin ke cloud Supabase
   saveFuel: async (entry: Omit<FuelEntry, 'id'> & { id?: string }): Promise<boolean> => {
-    if (CURRENT_MODE === 'supabase') {
-      try {
-        const finalId = entry.id || `fe_${Date.now()}`;
+    const currentMode = await apiService.getServiceMode();
+    const finalId = entry.id || `fe_${Date.now()}`;
+    const { data: { user } } = await supabase.auth.getUser();
 
+    const newLocalEntry = {
+      ...entry,
+      id: finalId,
+      user_id: user?.id || 'offline_user',
+      is_synced: currentMode === 'supabase'
+    };
+
+    // LANGKAH 1: Amankan ke lokal
+    const localData = await AsyncStorage.getItem('garasi_fuel_entries');
+    let allFuels: any[] = localData ? JSON.parse(localData) : [];
+    
+    if (entry.id) {
+      allFuels = allFuels.map(f => f.id === entry.id ? { ...f, ...newLocalEntry } : f);
+    } else {
+      allFuels = [...allFuels, newLocalEntry];
+    }
+    await AsyncStorage.setItem('garasi_fuel_entries', JSON.stringify(allFuels));
+
+    // LANGKAH 2: Tembak ke Supabase Cloud
+    if (currentMode === 'supabase' && user) {
+      try {
         const { error } = await supabase
           .from('fuels')
           .upsert({
             id: finalId,
+            user_id: user.id, // 🔒 Menyimpan ID pemilik akun cloud
             vehicleId: entry.vehicleId,
             date: entry.date,
             liters: entry.liters,
@@ -133,21 +177,75 @@ export const apiService = {
         if (error) throw error;
         return true;
       } catch (error) {
-        console.error("❌ Error Supabase saveFuel:", error);
+        console.error("❌ Gagal sinkron instan ke Supabase, data tetap aman di HP:", error);
+        const failSync = allFuels.map(f => f.id === finalId ? { ...f, is_synced: false } : f);
+        await AsyncStorage.setItem('garasi_fuel_entries', JSON.stringify(failSync));
         return false;
       }
     }
 
-    // Jalur Cadangan (Offline Local Storage)
-    const localData = await AsyncStorage.getItem('garasi_fuel_entries');
-    const allFuels: FuelEntry[] = localData ? JSON.parse(localData) : [];
-    if (entry.id) {
-      const updated = allFuels.map(f => f.id === entry.id ? { ...f, ...entry } : f);
-      await AsyncStorage.setItem('garasi_fuel_entries', JSON.stringify(updated));
-    } else {
-      const newEntry = { ...entry, id: `fe${Date.now()}` };
-      await AsyncStorage.setItem('garasi_fuel_entries', JSON.stringify([...allFuels, newEntry]));
-    }
     return true;
+  },
+
+  // =======================================================================
+  // 🔄 MODULE 3: ENGINE SINKRONISASI OTOMATIS (PENGURAS ANTREAN OFFLINE)
+  // =======================================================================
+  syncOfflineDataToServer: async (): Promise<{ success: boolean; count: number }> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { success: false, count: 0 };
+
+      let syncCount = 0;
+
+      // 🔄 1. Kuras Antrean Servis (Repairs)
+      const localRepairs = await AsyncStorage.getItem('garasi_repairs');
+      if (localRepairs) {
+        const repairsArray = JSON.parse(localRepairs);
+        const unSynced = repairsArray.filter((r: any) => !r.is_synced);
+        
+        if (unSynced.length > 0) {
+          const cleanRepairs = unSynced.map((r: any) => ({
+            id: r.id, vehicleId: r.vehicleId, serviceType: r.serviceType, date: r.date,
+            odometer: r.odometer, cost: r.cost, workshop: r.workshop, notes: r.notes,
+            nextIntervalKm: r.nextIntervalKm, tirePosition: r.tirePosition, tireBrand: r.tireBrand,
+            tireSize: r.tireSize, productionCode: r.productionCode, user_id: user.id
+          }));
+
+          const { error } = await supabase.from('repairs').upsert(cleanRepairs);
+          if (!error) {
+            const updated = repairsArray.map((r: any) => ({ ...r, is_synced: true, user_id: user.id }));
+            await AsyncStorage.setItem('garasi_repairs', JSON.stringify(updated));
+            syncCount += cleanRepairs.length;
+          }
+        }
+      }
+
+      // 🔄 2. Kuras Antrean Bensin (Fuels)
+      const localFuels = await AsyncStorage.getItem('garasi_fuel_entries');
+      if (localFuels) {
+        const fuelsArray = JSON.parse(localFuels);
+        const unSynced = fuelsArray.filter((f: any) => !f.is_synced);
+
+        if (unSynced.length > 0) {
+          const cleanFuels = unSynced.map((f: any) => ({
+            id: f.id, vehicleId: f.vehicleId, date: f.date, liters: f.liters,
+            pricePerLiter: f.pricePerLiter, totalCost: f.totalCost, odometer: f.odometer,
+            fuelType: f.fuelType, notes: f.notes, receiptPhoto: f.receiptPhoto, user_id: user.id
+          }));
+
+          const { error } = await supabase.from('fuels').upsert(cleanFuels);
+          if (!error) {
+            const updated = fuelsArray.map((f: any) => ({ ...f, is_synced: true, user_id: user.id }));
+            await AsyncStorage.setItem('garasi_fuel_entries', JSON.stringify(updated));
+            syncCount += cleanFuels.length;
+          }
+        }
+      }
+
+      return { success: true, count: syncCount };
+    } catch (e) {
+      console.error("❌ Error Sinkronisasi Massal:", e);
+      return { success: false, count: 0 };
+    }
   }
 };

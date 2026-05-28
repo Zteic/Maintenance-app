@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { supabase } from '../../utils/supabaseClient'; // 👈 Kunci titik empat
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -25,6 +26,14 @@ export default function LoginScreen() {
     if (error) {
       Alert.alert('Login Gagal', error.message);
     } else {
+      // ➕ TAMBAHKAN BLOK KODE BARU INI DI SINI
+      try {
+        await AsyncStorage.setItem('garasiku_app_mode', 'online');
+        await apiService.syncOfflineDataToServer();
+      } catch (e) {
+        console.error("Gagal melakukan enkripsi sinkronisasi login:", e);
+      }
+
       // Login sukses! Token otomatis disimpan di AsyncStorage oleh Supabase SDK
       router.replace('/'); // Lempar user langsung ke Dashboard Utama Aplikasi
     }

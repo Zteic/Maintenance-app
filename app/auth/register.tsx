@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { supabase } from '../../utils/supabaseClient'; // 👈 Kunci titik empat
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -21,6 +22,12 @@ export default function RegisterScreen() {
     if (error) {
       Alert.alert('Pendaftaran Gagal', error.message);
     } else {
+      try {
+        await AsyncStorage.setItem('garasiku_app_mode', 'online');
+      } catch (e) {
+        console.error(e);
+      }
+
       Alert.alert('Sukses!', 'Akun berhasil dibuat!');
       router.replace('/auth/login');
     }

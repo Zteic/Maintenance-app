@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from "expo-router";
-import { apiService } from "@/utils/apiService";
+import { apiService } from "../utils/apiService"; 
 import * as ImagePicker from "expo-image-picker";
 import {
   View,
@@ -19,7 +18,8 @@ import {
   Image,
   Share,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+
 import * as Notifications from "expo-notifications";
 import {
   Vehicle,
@@ -387,9 +387,9 @@ function AppContent() {
     const vFuel = fuelEntries.filter((f) => f.vehicleId === selectedVehicleId);
 
     const allOdometers = [
-    ...vRepairs.map(r => r.odometer),
-    ...vFuel.map(f => f.odometer)
-  ].filter(odo => !isNaN(odo) && odo > 0);
+      ...vRepairs.map(r => r.odometer),
+      ...vFuel.map(f => f.odometer)
+    ].filter(odo => !isNaN(odo) && odo > 0);
 
     const latestOdo = allOdometers.length > 0 ? Math.max(...allOdometers) : 0;
 
@@ -446,6 +446,7 @@ function AppContent() {
     const distanceM =
       monthlyOdometers.length > 0 ? Math.max(...monthlyOdometers) - Math.min(...monthlyOdometers) : 0;
 
+    // ✨ PENYELAMATAN STRUKTUR OBJEK STATS (Tembok Pengaman Penutup)
     return {
       vehicleRepairs: vRepairs,
       vehicleFuelEntries: vFuel,
@@ -460,6 +461,25 @@ function AppContent() {
       autoLatestOdometer: latestOdo,
     };
   }, [repairs, fuelEntries, reminders, selectedVehicleId, vehicles, timeRules]);
+
+  // 🚀 FUNGSI SMARTHYBRID DATA LOAD (Sudah sejajar rapi)
+  const loadInitialData = useCallback(async (vehicleId: string) => {
+    try {
+      const repairsData = await apiService.getRepairs(vehicleId);
+      setRepairs(repairsData);
+
+      const fuelsData = await apiService.getFuels(vehicleId);
+      setFuelEntries(fuelsData); 
+
+      const loadedReminders = await loadReminders(vehicleId);
+      setReminders(loadedReminders.length > 0 ? loadedReminders : MOCK_REMINDERS);
+      
+      const loadedTireLogs = await loadTireLogs(vehicleId);
+      setTireLogs(loadedTireLogs);
+    } catch (error) {
+      console.error("Error loading data:", error);
+    }
+  }, []);
 
   const refreshData = useCallback(async () => {
     try {
@@ -1058,6 +1078,52 @@ const handleBackupExport = async () => {
   }
 };
 
+  const handleCloudSync = async () => {
+    try {
+      const mode = await AsyncStorage.getItem('garasiku_app_mode');
+      if (mode === 'online') {
+        Alert.alert("Informasi", "Aplikasi kamu sudah berada dalam mode Online / Sinkron Cloud.");
+        return;
+      }
+
+      Alert.alert(
+        "Aktifkan Cloud",
+        "Apakah kamu ingin mengaktifkan sinkronisasi cloud dan mencadangkan data lokal kamu?",
+        [
+          { text: "Batal", style: "cancel" },
+          {
+            text: "Ya, Aktifkan",
+            onPress: async () => {
+              // Cek apakah user sebenarnya sudah login ke Supabase
+              const { data: { user } } = await apiService.getRepairs ? await apiService.getServiceMode() : { data: { user: null } }; 
+              // Catatan: Cara paling aman, panggil via Supabase langsung
+              const { data: authData } = await supabase.auth.getUser();
+
+              if (!authData?.user) {
+                Alert.alert("Perhatian", "Kamu harus login terlebih dahulu agar data bisa dicadangkan ke akunmu.", [
+                  { text: "Ke Halaman Login", onPress: () => router.push('/auth/login') }
+                ]);
+                return;
+              }
+
+              await AsyncStorage.setItem('garasiku_app_mode', 'online');
+              const res = await apiService.syncOfflineDataToServer();
+              if (res.success) {
+                Alert.alert("Sukses", `${res.count} data offline kamu berhasil dicadangkan ke cloud!`);
+                // Segarkan halaman
+                if (selectedVehicleId) {
+                  loadInitialData(selectedVehicleId);
+                }
+              }
+            }
+          }
+        ]
+      );
+    } catch (e) {
+      Alert.alert("Error", "Gagal memproses sinkronisasi.");
+    }
+  };
+
   // 🚀 ENGINE SMART SEARCH & FILTER UNTUK HISTORY
   const filteredHistory = stats.vehicleRepairs.filter(r => {
     if (appMode === 'basic') return true;
@@ -1232,7 +1298,7 @@ const handleBackupExport = async () => {
           </View>
         </View>
 
-        <View style={{ paddingBottom: 8 }} className="w-[548px] h-[56px]">
+        <View style={{ paddingBottom: 8 }}>
           <VehicleSwitcher
             vehicles={vehicles}
             selectedId={selectedVehicleId}
@@ -2582,6 +2648,20 @@ const handleBackupExport = async () => {
                 Export Backup
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+  onPress={handleCloudSync}
+  style={{
+    backgroundColor: "#10b981",
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 10,
+  }}>
+  <Text style={{ textAlign: "center", fontWeight: "bold", color: "#fff" }}>
+    ☁️ Aktifkan Sinkronisasi Cloud
+  </Text>
+</TouchableOpacity>
+
             <TouchableOpacity onPress={() => setShowBackupModal(false)} style={{ padding: 10 }}>
               <Text style={{ color: "#fff", textAlign: "center" }}>Close</Text>
             </TouchableOpacity>
