@@ -1822,129 +1822,190 @@ const handleBackupExport = async () => {
               
               /* 👑 PERCABANGAN UX 2: JIKA USER SUDAH LOGIN / ONLINE */
               <>
-                {/* Profile Card asli bawaan kamu */}
-                <View style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, gap: 16, marginBottom: 20 }}>
-                  {!editingProfile ? (
-                    <>
-                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("userName")}</Text>
-                      <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{profile.name}</Text>
-                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{t("email")}</Text>
-                      <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{profile.email}</Text>
-                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI</Text>
-                      <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600", fontFamily: "Windpower" }}>{appName}</Text>
-                      
-                      {/* BARIS TOMBOL BERDAMPINGAN (EDIT PROFIL & KELUAR CLOUD) */}
-                      <View style={{ flexDirection: "row", gap: 10, marginTop: 5, width: "100%" }}>
-                        <TouchableOpacity
-                          onPress={() => { setEditName(profile.name); setEditEmail(profile.email); setEditAppName(appName); setEditingProfile(true); }}
-                          style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(245,166,35,0.1)", alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ color: "#F5A623", fontWeight: "600" }}>✏️ {t("editProfile")}</Text>
-                        </TouchableOpacity>
+  {/* 📦 KOTAK PROFIL UTAMA (DI-REMASTER MENJADI 2 KOLOM) */}
+  <View style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+    
+    {/* CONTAINER LAYOUT UTAMA: MEMBAGI KIRI DAN KANAN */}
+    <View style={{ flexDirection: "row", width: "100%" }}>
+      
+      {/* 👤 KOLOM KIRI: INFORMASI AKUN */}
+      <View style={{ flex: 1, paddingRight: 15, gap: 12 }}>
+        {!editingProfile ? (
+          // ── Tampilan Kiri (Mode Biasa) ──
+          <>
+            <View>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600", letterSpacing: 0.5 }}>{t("userName")}</Text>
+              <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700", marginTop: 4 }} numberOfLines={1}>{profile.name}</Text>
+            </View>
+            <View>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600", letterSpacing: 0.5 }}>{t("email")}</Text>
+              <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600", marginTop: 4 }} numberOfLines={1}>{profile.email}</Text>
+            </View>
+            <View>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600", letterSpacing: 0.5 }}>NAMA GARASI</Text>
+              <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700", fontFamily: "Windpower", marginTop: 4 }} numberOfLines={1}>{appName}</Text>
+            </View>
+          </>
+        ) : (
+          // ── Tampilan Kiri (Mode Edit) ──
+          <>
+            <View>
+              <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: "700" }}>NAMA LENGKAP (LOCK)</Text>
+              <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: "600", marginTop: 4, paddingLeft: 2 }} numberOfLines={1}>{profile.name}</Text>
+            </View>
+            <View>
+              <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: "700" }}>ALAMAT EMAIL (LOCK)</Text>
+              <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: "600", marginTop: 4, paddingLeft: 2 }} numberOfLines={1}>{profile.email}</Text>
+            </View>
+            <View style={{ gap: 4 }}>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600" }}>NAMA GARASI CUSTOM</Text>
+              <TextInput 
+                value={editAppName} 
+                onChangeText={setEditAppName} 
+                style={{ backgroundColor: "rgba(0,0,0,0.3)", color: "#fff", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, fontFamily: "Windpower", fontSize: 13, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }} 
+                placeholder="Nama Garasi Anda" 
+                placeholderTextColor="rgba(255,255,255,0.2)"
+              />
+            </View>
+          </>
+        )}
+      </View>
 
-                        <TouchableOpacity
-                          activeOpacity={0.8}
-                          onPress={async () => {
-                            Alert.alert("Keluar Akun", "Apakah Anda yakin ingin keluar dari sinkronisasi Cloud?", [
-                              { text: "Batal", style: "cancel" },
-                              {
-                                text: "Keluar",
-                                style: "destructive",
-                                onPress: async () => {
-                                  try {
-                                    // 1. Putuskan sesi di server Supabase
-                                    await supabase.auth.signOut();
-                                    
-                                    // 2. Tulis paksa status ke penyimpanan lokal
-                                    await AsyncStorage.setItem('garasiku_app_mode', 'local');
-                                    
-                                    // 3. Paksa state React untuk berubah di tempat
-                                    setAppModeState('local');
-                                    
-                                    // 4. 🚀 KUNCI PERBAIKAN TEMPO: Lempar paksa rute navigasi kembali ke gerbang login depan
-                                    router.replace('/auth/login');
-                                  } catch (err) {
-                                    console.error("Gagal keluar akun:", err);
-                                  }
-                                }
-                              }
-                            ]);
-                          }}
-                          style={{ flex: 1, backgroundColor: 'rgba(239, 68, 68, 0.1)', paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: "center", borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)' }}
-                        >
-                          <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>🚪 Keluar Cloud</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  ) : (
-                    <>
-                      {/* Form Penguncian Nama & Email Registrasi (Read-Only) */}
-                      <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>NAMA LENGKAP (TIDAK DAPAT DIUBAH)</Text>
-                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: "500", paddingLeft: 4, marginBottom: 4 }}>{profile.name}</Text>
-                      
-                      <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>ALAMAT EMAIL (TIDAK DAPAT DIUBAH)</Text>
-                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: "500", paddingLeft: 4, marginBottom: 4 }}>{profile.email}</Text>
-                      
-                      <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>NAMA GARASI CUSTOM</Text>
-                      <TextInput value={editAppName} onChangeText={setEditAppName} style={{ backgroundColor: "rgba(0,0,0,0.3)", color: "#fff", padding: 15, borderRadius: 12, fontFamily: "Windpower", fontSize: 15, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }} placeholder="Nama Garasi Anda" />
-                      
-                      {/* 🌍 PENGATURAN REGIONAL (SEKARANG MENGGUNAKAN DROPDOWN) */}
-                      <View style={{ marginTop: 15, marginBottom: 5, backgroundColor: 'rgba(0,0,0,0.2)', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-                        <Text style={{ color: '#4ECDC4', fontSize: 11, fontWeight: '800', marginBottom: 12, letterSpacing: 1 }}>PENGATURAN REGIONAL</Text>
-                        
-                        {/* Dropdown Mata Uang */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Text style={{ fontSize: 14 }}>💵</Text>
-                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>Mata Uang</Text>
-                          </View>
-                          <TouchableOpacity 
-                            activeOpacity={0.8}
-                            onPress={() => setActiveDropdown('currency')}
-                            style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Text style={{ color: '#F5A623', fontWeight: 'bold', fontSize: 12 }}>{currency}</Text>
-                            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>
-                          </TouchableOpacity>
-                        </View>
+      {/* ──────── 📏 GARIS PEMBATAS VERTIKAL DI TENGAH ──────── */}
+      <View style={{ width: 1, backgroundColor: "rgba(255,255,255,0.08)", marginVertical: 2 }} />
 
-                        {/* Dropdown Satuan Jarak */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Text style={{ fontSize: 14 }}>🛣️</Text>
-                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>Satuan Jarak</Text>
-                          </View>
-                          <TouchableOpacity 
-                            activeOpacity={0.8}
-                            onPress={() => setActiveDropdown('distance')}
-                            style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Text style={{ color: '#4ECDC4', fontWeight: 'bold', fontSize: 12 }}>{distanceUnit === 'km' ? 'Kilometer (km)' : 'Miles (mi)'}</Text>
-                            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>
-                          </TouchableOpacity>
-                        </View>
+      {/* 🌍 KOLOM KANAN: PENGATURAN REGIONAL */}
+      <View style={{ flex: 1, paddingLeft: 15, gap: 12 }}>
+        
+        {/* Dropdown / Tampilan Mata Uang */}
+        <View>
+          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600", letterSpacing: 0.5 }}>MATA UANG</Text>
+          <TouchableOpacity 
+            disabled={!editingProfile}
+            onPress={() => setActiveDropdown('currency')}
+            style={{ 
+              backgroundColor: editingProfile ? 'rgba(255,255,255,0.05)' : 'transparent', 
+              paddingVertical: editingProfile ? 6 : 0, 
+              paddingHorizontal: editingProfile ? 10 : 0, 
+              borderRadius: 8, 
+              borderWidth: editingProfile ? 1 : 0, 
+              borderColor: 'rgba(255,255,255,0.1)', 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              marginTop: 4
+            }}>
+            <Text style={{ color: '#F5A623', fontWeight: '800', fontSize: 14 }}>💵  {currency}</Text>
+            {editingProfile && <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>}
+          </TouchableOpacity>
+        </View>
 
-                        {/* Dropdown Satuan Volume */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Text style={{ fontSize: 14 }}>⛽</Text>
-                            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>Satuan Volume</Text>
-                          </View>
-                          <TouchableOpacity 
-                            activeOpacity={0.8}
-                            onPress={() => setActiveDropdown('volume')}
-                            style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Text style={{ color: '#4ECDC4', fontWeight: 'bold', fontSize: 12 }}>{volumeUnit === 'L' ? 'Liter (L)' : 'Gallon (Gal)'}</Text>
-                            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
+        {/* Dropdown / Tampilan Satuan Jarak */}
+        <View>
+          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600", letterSpacing: 0.5 }}>SATUAN JARAK</Text>
+          <TouchableOpacity 
+            disabled={!editingProfile}
+            onPress={() => setActiveDropdown('distance')}
+            style={{ 
+              backgroundColor: editingProfile ? 'rgba(255,255,255,0.05)' : 'transparent', 
+              paddingVertical: editingProfile ? 6 : 0, 
+              paddingHorizontal: editingProfile ? 10 : 0, 
+              borderRadius: 8, 
+              borderWidth: editingProfile ? 1 : 0, 
+              borderColor: 'rgba(255,255,255,0.1)', 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              marginTop: 4
+            }}>
+            <Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 14 }}>🛣️  {distanceUnit === 'km' ? 'KM' : 'MI'}</Text>
+            {editingProfile && <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>}
+          </TouchableOpacity>
+        </View>
 
-                      <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
-                        <TouchableOpacity onPress={() => setEditingProfile(false)} style={{ flex: 1, alignItems: "center", padding: 14, justifyContent: "center", backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12 }}><Text style={{ color: "#fff", fontWeight: "600" }}>{t("cancel")}</Text></TouchableOpacity>
-                        <TouchableOpacity onPress={handleSaveProfile} style={{ flex: 2, backgroundColor: "#F5A623", alignItems: "center", padding: 14, borderRadius: 12, justifyContent: "center" }}><Text style={{ color: "#0D1B2A", fontWeight: "800" }}>{t("saveProfile")}</Text></TouchableOpacity>
-                      </View>
-                    </>
-                  )}
-                </View>
-              </>
+        {/* Dropdown / Tampilan Satuan Volume */}
+        <View>
+          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600", letterSpacing: 0.5 }}>SATUAN VOLUME</Text>
+          <TouchableOpacity 
+            disabled={!editingProfile}
+            onPress={() => setActiveDropdown('volume')}
+            style={{ 
+              backgroundColor: editingProfile ? 'rgba(255,255,255,0.05)' : 'transparent', 
+              paddingVertical: editingProfile ? 6 : 0, 
+              paddingHorizontal: editingProfile ? 10 : 0, 
+              borderRadius: 8, 
+              borderWidth: editingProfile ? 1 : 0, 
+              borderColor: 'rgba(255,255,255,0.1)', 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              marginTop: 4
+            }}>
+            <Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 14 }}>⛽  {volumeUnit === 'L' ? 'Liter (L)' : 'Gallon (Gal)'}</Text>
+            {editingProfile && <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>}
+          </TouchableOpacity>
+        </View>
+
+      </View>
+    </View>
+
+    {/* ──────── 🔘 BARIS TOMBOL AKSI (BAGIAN BAWAH KOTAK) ──────── */}
+    {!editingProfile ? (
+      // Tombol Aksi saat Mode Biasa
+      <View style={{ flexDirection: "row", gap: 10, marginTop: 20, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 15, width: "100%" }}>
+        <TouchableOpacity
+          onPress={() => { setEditName(profile.name); setEditEmail(profile.email); setEditAppName(appName); setEditingProfile(true); }}
+          style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(245,166,35,0.1)", alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ color: "#F5A623", fontWeight: "600" }}>✏️ {t("editProfile")}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={async () => {
+            Alert.alert("Keluar Akun", "Apakah Anda yakin ingin keluar dari sinkronisasi Cloud?", [
+              { text: "Batal", style: "cancel" },
+              {
+                text: "Keluar",
+                style: "destructive",
+                onPress: async () => {
+                  try {
+                    await supabase.auth.signOut();
+                    await AsyncStorage.setItem('garasiku_app_mode', 'local');
+                    setAppModeState('local');
+                    router.replace('/auth/login');
+                  } catch (err) {
+                    console.error("Gagal keluar akun:", err);
+                  }
+                }
+              }
+            ]);
+          }}
+          style={{ flex: 1, backgroundColor: 'rgba(239, 68, 68, 0.1)', paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: "center", borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)' }}
+        >
+          <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>🚪 Keluar Cloud</Text>
+        </TouchableOpacity>
+      </View>
+    ) : (
+      // Tombol Aksi saat Mode Edit
+      <View style={{ flexDirection: "row", gap: 10, marginTop: 20, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 15, width: "100%" }}>
+        <TouchableOpacity 
+          onPress={() => setEditingProfile(false)} 
+          style={{ flex: 1, alignItems: "center", padding: 14, justifyContent: "center", backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12 }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "600" }}>{t("cancel")}</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          onPress={handleSaveProfile} 
+          style={{ flex: 2, backgroundColor: "#F5A623", alignItems: "center", padding: 14, borderRadius: 12, justifyContent: "center" }}
+        >
+          <Text style={{ color: "#0D1B2A", fontWeight: "800" }}>{t("saveProfile")}</Text>
+        </TouchableOpacity>
+      </View>
+    )}
+
+  </View>
+</>
             )}
 
             {/* SISA COMPONENT MEMUAT GRAFIK, BANNER, DAN MENU BAWAHAN ASLI */}
