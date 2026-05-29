@@ -11,6 +11,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Print from 'expo-print';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from "@/context/LanguageContext";
+import { apiService } from '@/utils/apiService';
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +48,10 @@ export default function ExportScreen() {
   const [stagedFile, setStagedFile] = useState<any>(null);
   const [stagedData, setStagedData] = useState<any>(null);
   const [exportDone, setExportDone] = useState(false);
+  const [cloudBackups, setCloudBackups] = useState<any[]>([]);
+  const [loadingCloud, setLoadingCloud] = useState(false);
+  const [isCloudUser, setIsCloudUser] = useState(false);
+  const [autoBackupRule, setAutoBackupRule] = useState<string>('off');
 
   // Load Data dari Local Storage saat masuk halaman
   useEffect(() => {
@@ -77,6 +82,35 @@ export default function ExportScreen() {
       return () => clearTimeout(timer);
     }
   }, [exportDone]);
+
+  // ☁️ EFFECT: Ambil daftar arsip backup & aturan auto backup dari server
+  useEffect(() => {
+    const checkCloudUserAndFetch = async () => {
+      if (mode === 'import' || mode === 'backup') {
+        try {
+          const currentMode = await apiService.getServiceMode();
+          if (currentMode === 'supabase') {
+            setIsCloudUser(true);
+            if (mode === 'import') {
+              setLoadingCloud(true);
+              const backups = await apiService.getCloudBackups();
+              setCloudBackups(backups);
+            }
+            // Load aturan auto backup yang tersimpan
+            const savedRule = await AsyncStorage.getItem('garasi_auto_backup_rule');
+            if (savedRule) setAutoBackupRule(savedRule);
+          } else {
+            setIsCloudUser(false);
+          }
+        } catch (err) {
+          console.log("Gagal memuat konfigurasi cloud:", err);
+        } finally {
+          setLoadingCloud(false);
+        }
+      }
+    };
+    checkCloudUserAndFetch();
+  }, [mode]);
 
   // =========================================================
   // SMART DYNAMIC YEAR FINDER
@@ -719,13 +753,13 @@ export default function ExportScreen() {
   };
 
   // =========================================================
-  // BACKUP CODE ENGINE (.VHDB) DIRECT DOWNLOAD
+  // BACKUP CODE ENGINE (.VHDB) - HYBRID LOCAL + CLOUD
   // =========================================================
   const handleExportBackup = async () => {
     setLoading(true);
     setExportDone(false);
     try {
-      setProgressText("🔄 Preparing Database Copy...");
+      setProgressText("🔄 Menyiapkan Salinan Database...");
       await new Promise(r => setTimeout(r, 600)); 
 
       const keys = await AsyncStorage.getAllKeys();
@@ -770,13 +804,63 @@ export default function ExportScreen() {
         data: backupObj
       };
 
-      setProgressText("🔄 Compressing Files...");
-      await new Promise(r => setTimeout(r, 600));
+      // 📊 Hitung statistik internal database untuk struktur metadata Cloud DB
+      const parsedVehicles = backupObj.garasi_vehicles ? JSON.parse(backupObj.garasi_vehicles) : [];
+      const parsedRepairs = backupObj.garasi_repairs ? JSON.parse(backupObj.garasi_repairs) : [];
+      const parsedFuels = backupObj.garasi_fuel_entries ? JSON.parse(backupObj.garasi_fuel_entries) : [];
 
+      const calculatedMetadata = {
+        fileSize: estimatedSize + " KB",
+        vehicleCount: parsedVehicles.length,
+        serviceCount: parsedRepairs.length,
+        fuelCount: parsedFuels.length,
+        appVersion: CURRENT_SCHEMA_VERSION
+      };
+
+      // ☁️ Cek status sinkronisasi akun (Apakah login & online)
+      const currentMode = await apiService.getServiceMode();
+      
+      setLoading(false); // Matikan loader agar Alert dialog tidak terblokir di Android/iOS
+
+      if (currentMode === 'supabase') {
+        // 🌟 JIKA AKUN CLOUD AKTIF: Munculkan opsi pilihan penyimpanan data
+        Alert.alert(
+          "Pilih Lokasi Backup",
+          "Akun Cloud Anda terhubung. Di mana Anda ingin mengamankan berkas database ini?",
+          [
+            {
+              text: "💾 Simpan di Perangkat (Lokal)",
+              onPress: () => saveBackupToLocalStorage(payload)
+            },
+            {
+              text: "☁️ Unggah ke Cloud GarasiKu",
+              onPress: () => saveBackupToCloudStorage(payload, calculatedMetadata)
+            },
+            { text: "Batal", style: "cancel" }
+          ]
+        );
+      } else {
+        // 🚗 JIKA OFFLINE/TAMU: Eksekusi langsung jalur penyimpanan internal lokal
+        saveBackupToLocalStorage(payload);
+      }
+
+    } catch (e) {
+      setLoading(false);
+      Alert.alert("Export Gagal", "Aplikasi gagal memproses enkripsi database.");
+    }
+  };
+
+  // 📝 SUB-ENGINE A: Proses Export Fisik ke File Lokal (Web & Mobile Fixed)
+  const saveBackupToLocalStorage = async (payload: any) => {
+    setLoading(true);
+    try {
+      setProgressText("🔄 Mengompres Berkas...");
       const finalFilename = 'JagaGarasimu';
+      const jsonString = JSON.stringify(payload);
 
       if (Platform.OS === 'web') {
-        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        // 🚀 FIX: Langsung buat blob dan download tanpa interupsi state
+        const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -785,12 +869,14 @@ export default function ExportScreen() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        
+        // Set info selesai setelah file berhasil dilempar ke browser
         setExportDone(true);
       } else if (Platform.OS === 'android') {
         const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (permissions.granted) {
           const savedUri = await FileSystem.StorageAccessFramework.createFileAsync(permissions.directoryUri, finalFilename, 'application/octet-stream');
-          await FileSystem.writeAsStringAsync(savedUri, JSON.stringify(payload));
+          await FileSystem.writeAsStringAsync(savedUri, jsonString);
           setExportDone(true);
         } else {
           setLoading(false);
@@ -801,18 +887,47 @@ export default function ExportScreen() {
         const fileInfo = await FileSystem.getInfoAsync(fileUri);
         if (fileInfo.exists) await FileSystem.deleteAsync(fileUri);
 
-        await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(payload));
+        await FileSystem.writeAsStringAsync(fileUri, jsonString);
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(fileUri, { mimeType: 'application/octet-stream', dialogTitle: 'Simpan Backup GarasiKu' });
           setExportDone(true);
         }
       }
-      if (exportDone || Platform.OS === 'android') {
-        setProgressText("✅ Export Completed");
-        await new Promise(r => setTimeout(r, 400));
+
+      // 🚀 FIX: Gunakan string statis untuk progress text agar tidak balapan dengan state
+      setProgressText("✅ Export Completed");
+      await new Promise(r => setTimeout(r, 400));
+
+    } catch (err) {
+      Alert.alert("Export Gagal", "Gagal menyimpan data ke penyimpanan lokal perangkat.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 📝 SUB-ENGINE B: Proses Unggah & Injeksi Data ke Supabase Cloud
+  const saveBackupToCloudStorage = async (payload: any, metadata: any) => {
+    setLoading(true);
+    setProgressText("☁️ Mengamankan ke Server Cloud...");
+    try {
+      // Menyusun format nama arsip otomatis secara rapi berdasarkan target filter kendaraan
+      const cleanVehicleTag = vehicleName.replace(/,\s*/g, '_').replace(/\s+/g, '');
+      const dateTag = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+      const backupName = `Backup_${cleanVehicleTag}_${dateTag}`;
+
+      const result = await apiService.uploadBackupToCloud(payload, backupName, metadata);
+
+      if (result.success) {
+        setExportDone(true);
+        Alert.alert(
+          "Sukses Cloud Backup!", 
+          `Arsip database "${backupName}" telah berhasil diunggah dan diamankan pada server cloud GarasiKu.`
+        );
+      } else {
+        Alert.alert("Gagal Cloud Backup", "Server menolak enkripsi data, silakan periksa jaringan Anda.");
       }
-    } catch (e) {
-      Alert.alert("Export Gagal", "Aplikasi gagal menyimpan file.");
+    } catch (err) {
+      Alert.alert("Error Cloud", "Terjadi kesalahan internal saat menghubungkan ke kluster storage.");
     } finally {
       setLoading(false);
     }
@@ -873,13 +988,45 @@ export default function ExportScreen() {
     }
   };
 
+  // ☁️ SUB-ENGINE C: Mengunduh file backup dari Supabase Storage ke antrean staged restore
+  const handleCloudBackupSelect = async (backupItem: any) => {
+    setLoading(true);
+    setProgressText("☁️ Mengunduh aman berkas dari cloud...");
+    try {
+      const decrypted = await apiService.downloadBackupFromCloud(backupItem.file_path);
+      
+      if (!decrypted || !decrypted.meta || !decrypted.data || decrypted.meta.app_name !== CURRENT_APP_NAME) {
+        throw new Error("INVALID_FORMAT");
+      }
+
+      setStagedFile({
+        name: backupItem.backup_name + '.vhdb',
+        version: backupItem.app_version,
+        date: backupItem.created_at,
+        size: backupItem.file_size,
+        isFromCloud: true
+      });
+      setStagedData(decrypted);
+    } catch (err: any) {
+      Alert.alert(
+        "Gagal Mengunduh", 
+        err.message === "INVALID_FORMAT" 
+          ? "Berkas di dalam cloud tidak dikenali oleh enkripsi sistem." 
+          : "Koneksi terputus saat mengunduh berkas database."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const executeRestore = async (restoreMode: 'replace' | 'merge') => {
     if (!stagedData) return;
     setLoading(true);
     setProgressText("🚀 Merestore Database...");
 
     try {
-      const dataToRestore = stagedData.data; 
+      const secureDataPayload = migrateDatabaseSchema(stagedData, CURRENT_SCHEMA_VERSION);
+      const dataToRestore = secureDataPayload.data;
 
       if (restoreMode === 'replace') {
         const keys = await AsyncStorage.getAllKeys();
@@ -1000,13 +1147,92 @@ export default function ExportScreen() {
             </View>
           </View>
         ) : mode === 'import' ? (
-          <View style={styles.card}>
-             <View style={styles.iconBox}><Text style={{fontSize:30}}>📥</Text></View>
-             <Text style={styles.cardTitle}>Restore Database Kendaraan</Text>
-             <Text style={styles.cardDesc}>Unggah file berekstensi .vhdb untuk memulihkan seluruh catatan pengisian bensin dan servis garasi Anda.</Text>
-             <TouchableOpacity activeOpacity={0.9} onPress={handleImport} style={styles.btnPrimary}>
-                <Text style={styles.btnPrimaryTxt}>PILIH FILE RESTORE</Text>
-             </TouchableOpacity>
+          <View style={{ gap: 20 }}>
+            {/* 💾 SECTION A: LOCAL RESTORE (KODE ASLI BAWAAN KAMU) */}
+            <View style={styles.card}>
+               <View style={styles.iconBox}><Text style={{fontSize:30}}>💾</Text></View>
+               <Text style={styles.cardTitle}>Restore File Perangkat (.vhdb)</Text>
+               <Text style={styles.cardDesc}>Unggah berkas arsip database lokal untuk memulihkan seluruh catatan kendaraan Anda secara manual.</Text>
+               <TouchableOpacity activeOpacity={0.9} onPress={handleImport} style={styles.btnPrimary}>
+                  <Text style={styles.btnPrimaryTxt}>PILIH FILE DARI STORAGE</Text>
+               </TouchableOpacity>
+            </View>
+
+            {/* ☁️ SECTION B: CLOUD BACKUP RESTORE (INTEGRASI BARU) */}
+            <View>
+              <Text style={styles.sectionLabel}>☁️ CLOUD BACKUP RESTORE ENGINE</Text>
+              
+              {!isCloudUser ? (
+                // Tampilan jika user belum login/sinkron cloud aktif
+                <View style={[styles.card, { borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(255,255,255,0.02)' }]}>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, textAlign: 'center', lineHeight: 20, padding: 10 }}>
+                    Fitur restore otomatis dari awan dinonaktifkan. Silakan aktifkan sinkronisasi Cloud terlebih dahulu pada menu Profil.
+                  </Text>
+                </View>
+              ) : loadingCloud ? (
+                // Indikator loading saat mengambil arsip server
+                <View style={{ padding: 30, alignItems: 'center' }}>
+                  <ActivityIndicator size="small" color="#4ECDC4" />
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 10 }}>Menghubungkan ke kluster cloud...</Text>
+                </View>
+              ) : (
+                // Kontainer daftar arsip backup cloud
+                <View style={{ gap: 10 }}>
+                  {/* Status Banner Akun */}
+                  <View style={{ backgroundColor: 'rgba(78,205,196,0.08)', paddingHorizontal: 15, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(78,205,196,0.2)' }}>
+                    <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800' }}>
+                      🟢 {cloudBackups.length} Backup Cloud Ditemukan Pada Akun Ini
+                    </Text>
+                  </View>
+
+                  {cloudBackups.length === 0 ? (
+                    // Kondisi jika akun cloud aktif namun belum pernah melakukan backup awan
+                    <View style={[styles.card, { padding: 30 }]}>
+                      <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, textAlign: 'center' }}>
+                        Belum ada arsip riwayat backup cloud yang tersimpan pada server akun Anda.
+                      </Text>
+                    </View>
+                  ) : (
+                    // Mapping data list backup cloud dari database
+                    cloudBackups.map((item) => (
+                      <View key={item.id} style={[styles.previewCard, { borderColor: 'rgba(255,255,255,0.05)', padding: 16 }]}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <View style={{ flex: 1, paddingRight: 10 }}>
+                            <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '800' }} numberOfLines={1}>
+                              📁 {item.backup_name}
+                            </Text>
+                            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 4 }}>
+                              Diunggah: {new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} &bull; v{item.app_version}
+                            </Text>
+                            
+                            {/* Rincian statistik database arsip */}
+                            <View style={{ flexDirection: 'row', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+                              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🚗 <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{item.vehicle_count}</Text> Kendaraan</Text>
+                              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>⛽ <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{item.fuel_count}</Text> BBM</Text>
+                              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🛠️ <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{item.service_count}</Text> Servis</Text>
+                            </View>
+                          </View>
+                          
+                          {/* Sisi Kanan: Ukuran berkas & Tombol Restore Awan */}
+                          <View style={{ alignItems: 'flex-end', gap: 12 }}>
+                            <Text style={{ color: '#F5A623', fontSize: 12, fontWeight: '800', fontFamily: 'SpaceMono' }}>
+                              {item.file_size}
+                            </Text>
+                            <TouchableOpacity 
+                              activeOpacity={0.8}
+                              onPress={() => handleCloudBackupSelect(item)}
+                              style={{ backgroundColor: 'rgba(78,205,196,0.15)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#4ECDC4' }}
+                            >
+                              <Text style={{ color: '#4ECDC4', fontSize: 11, fontWeight: '900' }}>RESTORE</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </View>
+              )}
+            </View>
           </View>
         ) : (
           <View style={{ gap: 20 }}>
@@ -1024,6 +1250,119 @@ export default function ExportScreen() {
              ))}
            </ScrollView>
             </View>
+
+            {/* ☁️ INTEGRASI OPTION: SELEKTOR JADWAL AUTO BACKUP CLOUD (ADAPTIF USER ONLINE/OFFLINE) */}
+            {mode === 'backup' && (
+              isCloudUser ? (
+                <View style={{ marginBottom: 5 }}>
+                  <Text style={styles.sectionLabel}>🔄 ATURAN OTOMATISASI DATA</Text>
+                  
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={async () => {
+                      // 🌐 HANDLE JIKA BERJALAN DI TEMPO WEB (BROWSER)
+                      if (Platform.OS === 'web') {
+                        const webChoice = window.prompt(
+                          "Pilih Jadwal Auto Backup Cloud:\n\nKetik ANGKA pilihannya:\n1 = Manual Only (Nonaktif)\n2 = Harian (Setiap Hari)\n3 = Mingguan (Setiap Minggu)\n4 = Bulanan (Setiap Bulan)", 
+                          autoBackupRule === 'off' ? '1' : autoBackupRule === 'daily' ? '2' : autoBackupRule === 'weekly' ? '3' : '4'
+                        );
+                        
+                        if (webChoice === '1') {
+                          await AsyncStorage.setItem('garasi_auto_backup_rule', 'off');
+                          setAutoBackupRule('off');
+                        } else if (webChoice === '2') {
+                          await AsyncStorage.setItem('garasi_auto_backup_rule', 'daily');
+                          setAutoBackupRule('daily');
+                        } else if (webChoice === '3') {
+                          await AsyncStorage.setItem('garasi_auto_backup_rule', 'weekly');
+                          setAutoBackupRule('weekly');
+                        } else if (webChoice === '4') {
+                          await AsyncStorage.setItem('garasi_auto_backup_rule', 'monthly');
+                          setAutoBackupRule('monthly');
+                        }
+                        return; 
+                      }
+
+                      // 📱 HANDLE JIKA BERJALAN DI MOBILE APP (ANDROID/IOS)
+                      Alert.alert(
+                        "Jadwal Auto Backup Cloud",
+                        "Pilih seberapa sering sistem harus mengamankan data Anda ke cloud secara otomatis:",
+                        [
+                          {
+                            text: "🔒 Manual (Nonaktif)",
+                            onPress: async () => {
+                              await AsyncStorage.setItem('garasi_auto_backup_rule', 'off');
+                              setAutoBackupRule('off');
+                            }
+                          },
+                          {
+                            text: "📅 Harian (Setiap Hari)",
+                            onPress: async () => {
+                              await AsyncStorage.setItem('garasi_auto_backup_rule', 'daily');
+                              setAutoBackupRule('daily');
+                            }
+                          },
+                          {
+                            text: "📆 Mingguan (Setiap Minggu)",
+                            onPress: async () => {
+                              await AsyncStorage.setItem('garasi_auto_backup_rule', 'weekly');
+                              setAutoBackupRule('weekly');
+                            }
+                          },
+                          {
+                            text: "🗄️ Bulanan (Setiap Bulan)",
+                            onPress: async () => {
+                              await AsyncStorage.setItem('garasi_auto_backup_rule', 'monthly');
+                              setAutoBackupRule('monthly');
+                            }
+                          },
+                          { text: "Batal", style: "cancel" }
+                        ]
+                      );
+                    }}
+                    style={{
+                      backgroundColor: "#1A2B3C",
+                      borderRadius: 14,
+                      paddingHorizontal: 16,
+                      paddingVertical: 14,
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      borderWidth: 1,
+                      borderColor: "rgba(255,255,255,0.05)"
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                      <Text style={{ fontSize: 16 }}>☁️</Text>
+                      <View>
+                        <Text style={{ color: "#FFF", fontSize: 13, fontWeight: "700" }}>Auto Backup Cloud</Text>
+                        <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 2 }}>
+                          Status sinkronisasi background berkala
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Text style={{ 
+                        color: autoBackupRule === 'off' ? "rgba(255,255,255,0.4)" : "#4ECDC4", 
+                        fontSize: 13, 
+                        fontWeight: "800" 
+                      }}>
+                        {autoBackupRule === 'off' ? 'Manual' : autoBackupRule === 'daily' ? 'Harian' : autoBackupRule === 'weekly' ? 'Mingguan' : 'Bulanan'}
+                      </Text>
+                      <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>▼</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                // 🚗 Tampilan Alternatif yang Menenangkan Jika Pengguna Masih Mode Offline / Tamu
+                <View style={{ backgroundColor: "rgba(255,255,255,0.02)", padding: 16, borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                  <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, lineHeight: 18 }}>
+                    ℹ️ Anda menggunakan **Penyimpanan Lokal**. File arsip ekspor `.vhdb` dapat Anda unduh secara manual di bawah dan disimpan ke Google Drive, Flashdisk, atau memori internal HP Anda sebagai cadangan mandiri.
+                  </Text>
+                </View>
+              )
+            )}
 
             {/* FILTER PERIODE DENGAN TAHUN DINAMIS & CUSTOM DATE */}
             {mode === 'pdf' && (
@@ -1160,7 +1499,10 @@ export default function ExportScreen() {
                   disabled={isDataEmpty && mode === 'pdf'}
                 >
                   <Text style={[styles.btnPrimaryTxt, isDataEmpty && mode === 'pdf' && { color: 'rgba(255,255,255,0.3)' }]}>
-                    {mode === 'pdf' ? 'GENERATE HYBRID PDF' : 'EXPORT BACKUP (.VHDB)'}
+                    {mode === 'pdf' 
+                      ? 'GENERATE PDF' 
+                      : (isCloudUser ? 'MULAI EKSPOR' : 'UNDUH FILE BACKUP (.VHDB)')
+                    }
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1191,6 +1533,74 @@ export default function ExportScreen() {
       )}
     </View>
   );
+}
+
+// 🚀 CROSS-VERSION COMPATIBILITY MIGRATION ENGINE
+function migrateDatabaseSchema(importedData: any, targetVersion: string): any {
+  console.log(`🤖 Menjalankan Migrasi Skema: v${importedData.meta?.schema_version || '1.0.0'} -> v${targetVersion}`);
+  
+  const data = { ...importedData.data };
+
+  // 🚗 1. Validasi & Migrasi Data Kendaraan (garasi_vehicles)
+  if (data.garasi_vehicles) {
+    try {
+      const vehicles = JSON.parse(data.garasi_vehicles);
+      const migratedVehicles = vehicles.map((v: any) => {
+        // Jika cadangan versi lama tidak punya field tankCapacity, beri nilai default 4.0L
+        if (v.tankCapacity === undefined) v.tankCapacity = 4.0;
+        // Jika tidak punya catatan warna aksen, beri warna default
+        if (!v.color) v.color = '#4ECDC4';
+        // Pastikan format odometer berupa angka
+        v.currentOdometer = parseInt(v.currentOdometer, 10) || 0;
+        return v;
+      });
+      data.garasi_vehicles = JSON.stringify(migratedVehicles);
+    } catch (e) {
+      console.log("Gagal migrasi skema kendaraan:", e);
+    }
+  }
+
+  // 🛠️ 2. Validasi & Migrasi Data Servis (garasi_repairs)
+  if (data.garasi_repairs) {
+    try {
+      const repairs = JSON.parse(data.garasi_repairs);
+      const migratedRepairs = repairs.map((r: any) => {
+        // Buat compatibility dengan field lama/baru
+        if (r.cost === undefined && r.price !== undefined) r.cost = r.price; // fallback field lama
+        r.cost = parseFloat(r.cost) || 0;
+        r.odometer = parseInt(r.odometer, 10) || 0;
+        // Abaikan atau hapus field yang sudah deprecated/tidak dipakai lagi
+        if (r.old_unused_field) delete r.old_unused_field; 
+        return r;
+      });
+      data.garasi_repairs = JSON.stringify(migratedRepairs);
+    } catch (e) {
+      console.log("Gagal migrasi skema perbaikan:", e);
+    }
+  }
+
+  // ⛽ 3. Validasi & Migrasi Data Bensin (garasi_fuel_entries)
+  if (data.garasi_fuel_entries) {
+    try {
+      const fuels = JSON.parse(data.garasi_fuel_entries);
+      const migratedFuels = fuels.map((f: any) => {
+        if (f.totalCost === undefined && f.cost !== undefined) f.totalCost = f.cost;
+        f.liters = parseFloat(f.liters) || 0;
+        f.pricePerLiter = parseFloat(f.pricePerLiter) || 0;
+        f.totalCost = parseFloat(f.totalCost) || 0;
+        f.odometer = parseInt(f.odometer, 10) || 0;
+        return f;
+      });
+      data.garasi_fuel_entries = JSON.stringify(migratedFuels);
+    } catch (e) {
+      console.log("Gagal migrasi skema bensin:", e);
+    }
+  }
+
+  return {
+    ...importedData,
+    data
+  };
 }
 
 const styles = StyleSheet.create({

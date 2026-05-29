@@ -242,10 +242,90 @@ export const apiService = {
         }
       }
 
+      // ... Ini batas akhir fungsionalitas syncOfflineDataToServer bawaan kamu ...
       return { success: true, count: syncCount };
     } catch (e) {
       console.error("❌ Error Sinkronisasi Massal:", e);
       return { success: false, count: 0 };
+    }
+  }, // 👈 Gunakan koma biasa untuk memisahkan fungsi di dalam satu rumpun objek
+
+  // =======================================================================
+  // ☁️ MODULE 4: CLOUD BACKUP & RESTORE SYSTEM (HYBRID ENGINE)
+  // =======================================================================
+  
+  // 1. Mengambil daftar metadata seluruh file backup cloud milik user yang aktif
+  getCloudBackups: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('cloud_backups')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error("❌ Gagal mengambil daftar backup cloud:", e);
+      return [];
+    }
+  },
+
+  // 2. Mengunggah file fisik .vhdb ke Supabase Storage & menyuntik metadatanya ke tabel database
+  uploadBackupToCloud: async (payload: any, backupName: string, metadata: any) => {
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+      if (!user) return { success: false, error: 'NO_AUTH' };
+
+      const timestamp = Date.now();
+      const filePath = `${user.id}/backup_${timestamp}.vhdb`;
+      const fileBody = JSON.stringify(payload);
+
+      // A. Unggah mentahan file string JSON ke private storage bucket
+      const { error: uploadError } = await supabase.storage
+        .from('garasiku_backups')
+        .upload(filePath, fileBody, {
+          contentType: 'application/json',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // B. Daftarkan catatan riwayat metadatanya ke tabel cloud_backups
+      const { error: dbError } = await supabase
+        .from('cloud_backups')
+        .insert({
+          user_id: user.id,
+          backup_name: backupName,
+          file_path: filePath,
+          file_size: metadata.fileSize,
+          vehicle_count: metadata.vehicleCount,
+          fuel_count: metadata.fuelCount,
+          service_count: metadata.serviceCount,
+          app_version: metadata.appVersion
+        });
+
+      if (dbError) throw dbError;
+      return { success: true };
+    } catch (e: any) {
+      console.error("❌ Gagal mengunggah backup ke cloud:", e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  // 3. Men-download file fisik string JSON .vhdb dari Storage untuk dikonversi ulang
+  downloadBackupFromCloud: async (filePath: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('garasiku_backups')
+        .download(filePath);
+
+      if (error) throw error;
+      const textContent = await data.text();
+      return JSON.parse(textContent);
+    } catch (e) {
+      console.error("❌ Gagal mengunduh file backup dari cloud:", e);
+      return null;
     }
   }
 };

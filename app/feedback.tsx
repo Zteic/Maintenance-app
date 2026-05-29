@@ -126,6 +126,7 @@ export default function FeedbackScreen() {
           {REPORT_TYPES.map(type => (
             <TouchableOpacity 
               key={type} 
+              activeOpacity={0.9} // 👈 FIX: Ditambahkan agar opasitas kembali normal setelah diketuk
               onPress={() => setReportType(type)}
               style={[styles.pill, reportType === type && styles.pillActive]}
             >
@@ -153,11 +154,20 @@ export default function FeedbackScreen() {
           <>
             <Text style={styles.label}>KENDARAAN TERKAIT (OPSIONAL)</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, marginBottom: 20 }}>
-              <TouchableOpacity onPress={() => setSelectedVehicle('none')} style={[styles.pill, selectedVehicle === 'none' && styles.pillActive]}>
+              <TouchableOpacity 
+                activeOpacity={0.9} // 👈 FIX: Ditambahkan juga pada opsi "Tidak Ada"
+                onPress={() => setSelectedVehicle('none')} 
+                style={[styles.pill, selectedVehicle === 'none' && styles.pillActive]}
+              >
                 <Text style={[styles.pillTxt, selectedVehicle === 'none' && styles.pillTxtActive]}>Tidak Ada</Text>
               </TouchableOpacity>
               {vehicles.map(v => (
-                <TouchableOpacity key={v.id} onPress={() => setSelectedVehicle(v.id)} style={[styles.pill, selectedVehicle === v.id && styles.pillActive]}>
+                <TouchableOpacity 
+                  key={v.id} 
+                  activeOpacity={0.9} // 👈 FIX: Ditambahkan pada daftar list kendaraan
+                  onPress={() => setSelectedVehicle(v.id)} 
+                  style={[styles.pill, selectedVehicle === v.id && styles.pillActive]}
+                >
                   <Text style={[styles.pillTxt, selectedVehicle === v.id && styles.pillTxtActive]}>{v.name}</Text>
                 </TouchableOpacity>
               ))}
@@ -167,7 +177,7 @@ export default function FeedbackScreen() {
 
         {/* UPLOAD SCREENSHOT */}
         <Text style={styles.label}>SCREENSHOT BUKTI (OPSIONAL)</Text>
-        <TouchableOpacity onPress={pickImage} style={styles.uploadBox}>
+        <TouchableOpacity activeOpacity={0.9} onPress={pickImage} style={styles.uploadBox}>
           {screenshot ? (
             <Image source={{ uri: screenshot }} style={{ width: '100%', height: '100%', borderRadius: 14 }} />
           ) : (
@@ -189,7 +199,7 @@ export default function FeedbackScreen() {
         </View>
 
         {/* TOMBOL KIRIM */}
-        <TouchableOpacity onPress={handleSubmit} disabled={isSubmitting} style={styles.btnSubmit}>
+        <TouchableOpacity activeOpacity={0.9} onPress={handleSubmit} disabled={isSubmitting} style={styles.btnSubmit}>
           {isSubmitting ? <ActivityIndicator color="#0D1B2A" /> : <Text style={styles.btnSubmitTxt}>KIRIM LAPORAN SEKARANG</Text>}
         </TouchableOpacity>
 
