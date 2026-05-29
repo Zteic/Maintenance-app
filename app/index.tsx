@@ -1850,11 +1850,11 @@ const handleBackupExport = async () => {
           // ── Tampilan Kiri (Mode Edit) ──
           <>
             <View>
-              <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: "700" }}>NAMA LENGKAP (LOCK)</Text>
+              <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: "700" }}>NAMA LENGKAP</Text>
               <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: "600", marginTop: 4, paddingLeft: 2 }} numberOfLines={1}>{profile.name}</Text>
             </View>
             <View>
-              <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: "700" }}>ALAMAT EMAIL (LOCK)</Text>
+              <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: "700" }}>ALAMAT EMAIL</Text>
               <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: "600", marginTop: 4, paddingLeft: 2 }} numberOfLines={1}>{profile.email}</Text>
             </View>
             <View style={{ gap: 4 }}>
