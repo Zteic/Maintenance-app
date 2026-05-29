@@ -22,6 +22,8 @@ import {
   saveCustomServiceTypes,
 } from "@/utils/storage";
 import { apiService } from "@/utils/apiService";
+import { useRegional } from "@/context/RegionalContext"; 
+import { getCurrencySymbol } from "@/utils/formatters"; 
 
 const DEFAULT_SERVICE_TYPES = [
   "Ganti Oli",
@@ -88,6 +90,9 @@ export default function AddRepairSheet({
   const [tireDotCode, setTireDotCode] = useState("");
 
   const showTireFields = isTireService(serviceTypeInput);
+
+  const { currency, distanceUnit } = useRegional();
+  const currencySymbol = getCurrencySymbol(currency);
 
   useEffect(() => {
     loadCustomServiceTypes().then((types) => {
@@ -203,47 +208,44 @@ export default function AddRepairSheet({
   await updateReminder(updatedReminder); 
 };
 
-  const handleSave = async () => { // 🚀 Tambahkan keyword 'async' di sini
+  const handleSave = async () => {
     const finalType = serviceTypeInput.trim() || (isId ? "Servis Umum" : "General Service");
     saveNewCustomType(finalType);
 
-    // Buat objek data yang "Flat" agar sesuai dengan RepairHistory.tsx
     const entry: any = {
       vehicleId,
       serviceType: finalType,
-      date: new Date(date).toISOString(), // Pastikan format tanggal konsisten
-      odometer: parseInt(odometer, 10) || 0,
-      cost: parseInt(cost.replace(/\D/g, ""), 10) || 0,
+      date: new Date(date).toISOString(),
+      odometer: parseFloat(odometer.replace(/[^0-9.,]/g, "").replace(/,/g, ".")) || 0,
+      cost: parseFloat(cost.replace(/[^0-9.,]/g, "").replace(/,/g, ".")) || 0,
       workshop: workshop || (isId ? "Bengkel" : "Workshop"),
       notes: receiptImages.length > 0
         ? `${notes}\n[receipts:${receiptImages.join(",")}]`
         : notes,
-      nextIntervalKm: parseInt(nextInterval, 10) || 5000,
+      nextIntervalKm: parseInt(nextInterval.replace(/[^0-9]/g, ""), 10) || 5000,
       
-      // Kirim data ban secara langsung (Flat), bukan di dalam objek tireInfo
       tirePosition: showTireFields ? tirePosition : undefined,
       tireBrand: showTireFields ? tireBrand.trim() : undefined,
       tireSize: showTireFields ? tireSize.trim() : undefined,
       productionCode: showTireFields ? tireDotCode.trim() : undefined,
     };
 
-    // 🚀 SUNTIKAN LOGIKA SERVER BARU: Kirim data lewat apiService
-    let success = false;
-    if (isEditing && editEntry) {
-      success = await apiService.saveRepair({ ...entry, id: editEntry.id });
-    } else {
-      success = await apiService.saveRepair(entry);
+    // 🚀 Coba kirim ke server (jika gagal, biarkan saja)
+    try {
+      if (isEditing && editEntry) {
+        await apiService.saveRepair({ ...entry, id: editEntry.id });
+      } else {
+        await apiService.saveRepair(entry);
+      }
+    } catch (e) {
+      console.log("Server tidak terhubung, menyimpan ke memori lokal...");
     }
 
-    if (success) {
-      // Jika server berhasil merespon, triger fungsi onSave bawaan index.tsx untuk memperbarui UI
-      if (isEditing && editEntry) {
-        onSave({ ...entry, id: editEntry.id }); 
-      } else {
-        onSave(entry);
-      }
+    // 💾 SELALU SIMPAN KE MEMORI LOKAL UI
+    if (isEditing && editEntry) {
+      onSave({ ...entry, id: editEntry.id }); 
     } else {
-      Alert.alert("Error", "❌ Gagal menyimpan data perbaikan ke server lokal!");
+      onSave(entry);
     }
     
     onClose();
@@ -500,12 +502,12 @@ export default function AddRepairSheet({
                     {/* --- BAGIAN ODOMETER --- */}
                     <View style={{ flex: 1, gap: 8 }}>
                       <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: 1 }}>
-                        {t("odometer")}
+                        ODOMETER ({distanceUnit.toUpperCase()})
                       </Text>
                       <TextInput
                         value={odometer}
                         onChangeText={setOdometer}
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad" // 👈 Support Koma
                         placeholder="0"
                         placeholderTextColor="rgba(255,255,255,0.3)"
                         style={{ ...inputStyle, fontFamily: "SpaceMono", height: 48 }}
@@ -514,32 +516,22 @@ export default function AddRepairSheet({
                     
                   </View>
 
-                  {/* Cost */}
+                  {/* --- BAGIAN COST (BIAYA) --- */}
                   <View style={{ gap: 8 }}>
-                    <Text
-                      style={{
-                        color: "rgba(255,255,255,0.5)",
-                        fontSize: 11,
-                        letterSpacing: 1,
-                      }}
-                    >
-                      {t("cost")}
+                    <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: 1 }}>
+                      {isId ? "BIAYA" : "COST"} ({currency})
                     </Text>
-                    <TextInput
-                      value={cost}
-                      onChangeText={setCost}
-                      keyboardType="numeric"
-                      placeholder="0"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      style={{
-                        ...inputStyle,
-                        color: "#F5A623",
-                        fontSize: 16,
-                        fontWeight: "600",
-                        borderColor: "rgba(245,166,35,0.2)",
-                        fontFamily: "SpaceMono",
-                      }}
-                    />
+                    <View style={{ flexDirection: "row", alignItems: "center", ...inputStyle, paddingVertical: 0, paddingHorizontal: 14, borderColor: "rgba(245,166,35,0.2)" }}>
+                      <Text style={{ color: "#F5A623", fontFamily: "SpaceMono", fontWeight: "700", marginRight: 8 }}>{currencySymbol}</Text>
+                      <TextInput
+                        value={cost}
+                        onChangeText={setCost}
+                        keyboardType="decimal-pad" // 👈 Support Koma
+                        placeholder="0"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        style={{ flex: 1, color: "#F5A623", fontSize: 16, fontWeight: "600", fontFamily: "SpaceMono", paddingVertical: 14 }}
+                      />
+                    </View>
                   </View>
 
                   {/* Workshop */}
@@ -576,7 +568,7 @@ export default function AddRepairSheet({
                     <TextInput
                       value={nextInterval}
                       onChangeText={setNextInterval}
-                      keyboardType="numeric"
+                      keyboardType="decimal-pad"
                       placeholder="5000"
                       placeholderTextColor="rgba(255,255,255,0.3)"
                       style={{
@@ -714,7 +706,7 @@ export default function AddRepairSheet({
                           onChangeText={(v) =>
                             setTireDotCode(v.replace(/\D/g, "").slice(0, 4))
                           }
-                          keyboardType="numeric"
+                          keyboardType="decimal-pad"
                           placeholder="e.g. 2423"
                           maxLength={4}
                           placeholderTextColor="rgba(255,255,255,0.3)"

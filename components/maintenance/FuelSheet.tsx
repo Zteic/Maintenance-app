@@ -19,6 +19,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { apiService } from "@/utils/apiService";
+import { useRegional } from "@/context/RegionalContext";
+import { getCurrencySymbol, formatCurrency } from "@/utils/formatters";
+
 
 interface FuelSheetProps {
   visible: boolean;
@@ -52,6 +55,8 @@ export default function FuelSheet({
 }: FuelSheetProps) {
   const { lang } = useLanguage();
   const router = useRouter();
+  const { currency, distanceUnit, volumeUnit } = useRegional();
+  const currencySymbol = getCurrencySymbol(currency);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [liters, setLiters] = useState("");
   const [pricePerLiter, setPricePerLiter] = useState("");
@@ -71,9 +76,24 @@ export default function FuelSheet({
       const loadFuelPrices = async () => {
         try {
           const saved = await AsyncStorage.getItem(STORAGE_KEY);
+          let parsedPrices = [];
           if (saved) {
-            setSavedPrices(JSON.parse(saved));
+            parsedPrices = JSON.parse(saved);
           }
+          
+          // 🚀 FIX: Pastikan Bensin Eceran (Manual) selalu ada di memori saat modal dibuka
+          const hasEceran = parsedPrices.find((p: any) => p.brand === "Bensin Eceran");
+          if (!hasEceran) {
+            parsedPrices.push({
+              id: `e_manual_temp`,
+              brand: "Bensin Eceran",
+              product: "Input Manual",
+              price: "0",
+              isManual: true
+            });
+          }
+          
+          setSavedPrices(parsedPrices);
         } catch (e) {
           console.error("Gagal memuat referensi harga bensin", e);
         }
@@ -145,9 +165,9 @@ export default function FuelSheet({
   const totalCost =
     (parseFloat(liters) || 0) * (parseFloat(pricePerLiter) || 0);
 
-  const handleSave = async () => { // 🚀 Tambahkan keyword 'async' di sini
-    const l = parseFloat(liters) || 0;
-    const p = parseFloat(pricePerLiter.replace(/\D/g, "")) || 0;
+  const handleSave = async () => {
+    const l = parseFloat(liters.replace(/[^0-9.,]/g, "").replace(/,/g, ".")) || 0;
+    const p = parseFloat(pricePerLiter.replace(/[^0-9.,]/g, "").replace(/,/g, ".")) || 0;
     if (!l || !p) return;
 
     const fuelLabel = selectedFuelName || (lang === "id" ? "Bensin" : "Fuel");
@@ -157,34 +177,36 @@ export default function FuelSheet({
       receiptImage ? `[receipt:${receiptImage}]` : ""
     }`.trim();
 
-    // Siapkan struktur objek pengiriman
     const entryData: any = {
       vehicleId,
       date,
       liters: l,
       pricePerLiter: p,
       totalCost: l * p,
-      odometer: parseInt(odometer, 10) || currentOdometer,
+      odometer: parseInt(odometer.replace(/[^0-9]/g, ""), 10) || currentOdometer,
       fuelType: fuelLabel,
       notes: finalNotes,
       receiptPhoto: receiptImage || undefined,
     };
 
-    // Jika sedang dalam mode edit, sertakan ID lama agar server melakukan UPDATE, bukan INSERT
+    // 🚀 Coba kirim ke server (jika gagal, biarkan saja)
+    try {
+      if (editEntry) {
+        await apiService.saveFuel({ ...entryData, id: editEntry.id });
+      } else {
+        await apiService.saveFuel(entryData);
+      }
+    } catch (error) {
+      console.log("Server tidak terhubung, menyimpan ke memori lokal...");
+    }
+
+    // 💾 SELALU SIMPAN KE MEMORI LOKAL UI
     if (editEntry) {
-      entryData.id = editEntry.id;
-    }
-
-    // 🚀 SUNTIKAN LOGIKA SERVER BARU: Kirim ke server Node.js lokal via apiService
-    const success = await apiService.saveFuel(entryData);
-
-    if (success) {
-      // Jika server sukses menerima, oper ke fungsi onSave utama agar halaman depan melakukan refresh
-      onSave(entryData);
+      onSave({ ...entryData, id: editEntry.id });
     } else {
-      Alert.alert("Error", "❌ Gagal menyimpan data bensin ke server lokal!");
+      onSave(entryData);
     }
-
+    
     onClose();
   };
 
@@ -391,9 +413,10 @@ export default function FuelSheet({
                               padding: 8,
                               borderWidth: 1,
                               borderColor: "rgba(255,255,255,0.1)",
+                              maxHeight: 220,
                             }}
                           >
-                            <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled={true}>
+                            <ScrollView nestedScrollEnabled={true}>
                               {savedPrices.map((fuel) => (
                                 <TouchableOpacity
                                   key={fuel.id}
@@ -404,9 +427,16 @@ export default function FuelSheet({
                                     borderBottomColor: "rgba(255,255,255,0.05)",
                                   }}
                                 >
-                                  <Text style={{ color: "#FFF", fontSize: 14 }}>
-                                    {fuel.brand} - {fuel.product.replace(/\s*\(RON\s*\d+\)/gi, "")}
-                                  </Text>
+                                  {/* 🚀 Tampilan khusus untuk Bensin Eceran agar mudah dicari */}
+                                  {fuel.brand === "Bensin Eceran" ? (
+                                    <Text style={{ color: "#4ECDC4", fontSize: 14, fontWeight: "bold" }}>
+                                      ⛽ Bensin Eceran (Input Manual)
+                                    </Text>
+                                  ) : (
+                                    <Text style={{ color: "#FFF", fontSize: 14 }}>
+                                      {fuel.brand} - {fuel.product.replace(/\s*\(RON\s*\d+\)/gi, "")}
+                                    </Text>
+                                  )}
                                 </TouchableOpacity>
                               ))}
                             </ScrollView>
@@ -480,7 +510,7 @@ export default function FuelSheet({
                           letterSpacing: 1,
                         }}
                       >
-                        {label.odometer}
+                        {label.odometer.replace(/\(KM\)/i, "").trim()} ({distanceUnit.toUpperCase()})
                       </Text>
                       <TextInput
                         value={odometer}
@@ -494,15 +524,13 @@ export default function FuelSheet({
 
                   {/* Liters & Price */}
                   <View style={{ flexDirection: "row", gap: 12 }}>
+                    
+                    {/* --- Kolom Liter (TIDAK DIUBAH) --- */}
                     <View style={{ flex: 1, gap: 8 }}>
-                      <Text
-                        style={{
-                          color: "rgba(255,255,255,0.5)",
-                          fontSize: 11,
-                          letterSpacing: 1,
-                        }}
-                      >
-                        {label.liters}
+                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: 1 }}>
+                        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: 1 }}>
+                        VOLUME ({volumeUnit})
+                      </Text>
                       </Text>
                       <TextInput
                         value={liters}
@@ -510,11 +538,7 @@ export default function FuelSheet({
                         keyboardType="decimal-pad"
                         placeholder={tankCapacity ? `Est: ${tankCapacity}L` : "0.0"}
                         placeholderTextColor="rgba(255,255,255,0.3)"
-                        style={{
-                          ...inputStyle,
-                          color: "#4ECDC4",
-                          fontFamily: "SpaceMono",
-                        }}
+                        style={{ ...inputStyle, color: "#4ECDC4", fontFamily: "SpaceMono" }}
                       />
                       {tankCapacity && (
                         <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>
@@ -522,41 +546,39 @@ export default function FuelSheet({
                         </Text>
                       )}
                     </View>
+
+                    {/* --- Kolom Harga (SUDAH DIUBAH: DIBUKA KUNCINYA UNTUK ECERAN) --- */}
                     <View style={{ flex: 1, gap: 8 }}>
-                      <Text
-                        style={{
-                          color: "rgba(255,255,255,0.5)",
-                          fontSize: 11,
-                          letterSpacing: 1,
-                        }}
-                      >
-                        {label.price}
+                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: 1 }}>
+                        {/* Ubah judul label jika sedang memilih eceran */}
+                        {selectedFuelName.includes("Eceran") 
+                          ? (lang === "id" ? "HARGA MANUAL / L" : "MANUAL PRICE / L") 
+                          : label.price}
                       </Text>
-                      <View
-                        style={{
-                          ...inputStyle,
-                          backgroundColor: "rgba(255,255,255,0.03)",
-                          borderColor: "rgba(245,166,35,0.2)",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: pricePerLiter
-                              ? "#F5A623"
-                              : "rgba(255,255,255,0.2)",
-                            fontFamily: "SpaceMono",
-                            fontWeight: "700",
-                          }}
-                        >
-                          {pricePerLiter
-                            ? `Rp ${parseInt(pricePerLiter).toLocaleString(
-                                "id-ID",
-                              )}`
-                            : "---"}
-                        </Text>
-                      </View>
+                      
+                      {selectedFuelName.includes("Eceran") ? (
+                        /* 🔓 TAMPILAN JIKA ECERAN: Munculkan TextInput agar bisa diketik bebas */
+                        <View style={{ ...inputStyle, flexDirection: "row", alignItems: "center", height: 48, paddingVertical: 0 }}>
+                          <Text style={{ color: "#F5A623", fontFamily: "SpaceMono", fontWeight: "700", marginRight: 6 }}>Rp</Text>
+                          <TextInput
+                            value={pricePerLiter}
+                            onChangeText={(val) => setPricePerLiter(val.replace(/[^0-9.,]/g, "").replace(/,/g, "."))}
+                            keyboardType="decimal-pad" // 👈 Penting untuk user luar negeri!
+                            placeholder="0"
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                            style={{ flex: 1, color: "#F5A623", fontFamily: "SpaceMono", fontWeight: "700", padding: 0 }}
+                          />
+                        </View>
+                      ) : (
+                        /* 🔒 TAMPILAN JIKA BUKAN ECERAN: Tetap statis dan diformat otomatis (Read-Only) */
+                        <View style={{ ...inputStyle, backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(245,166,35,0.2)", justifyContent: "center", height: 48 }}>
+                          <Text style={{ color: pricePerLiter ? "#F5A623" : "rgba(255,255,255,0.2)", fontFamily: "SpaceMono", fontWeight: "700" }}>
+                            {pricePerLiter ? formatCurrency(parseFloat(pricePerLiter), currency) : "---"}
+                          </Text>
+                        </View>
+                      )}
                     </View>
+
                   </View>
 
                   {/* Upload Struk Section */}
@@ -657,11 +679,9 @@ export default function FuelSheet({
                           fontFamily: "SpaceMono",
                         }}
                       >
-                        {new Intl.NumberFormat("id-ID", {
-                          style: "currency",
-                          currency: "IDR",
-                          maximumFractionDigits: 0,
-                        }).format(totalCost)}
+                        <Text style={{ color: "#F5A623", fontSize: 18, fontWeight: "800", fontFamily: "SpaceMono" }}>
+                        {formatCurrency(totalCost, currency)}
+                      </Text>
                       </Text>
                     </View>
                   )}

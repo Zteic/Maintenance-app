@@ -2,12 +2,10 @@ import React, { useState, useCallback, useMemo } from "react";
 import { View, Text, TouchableOpacity, Modal, Image, Dimensions, StyleSheet, FlatList } from "react-native";
 import { FuelEntry, Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
+import { useRegional } from "@/context/RegionalContext";
+import { formatCurrency } from "@/utils/formatters";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
-}
 
 const BRAND_LOGOS: any = {
   pertamina: require('@/assets/images/Pertamina.png'),
@@ -48,6 +46,7 @@ function FuelLogComponent({
 }: FuelLogProps) {
   const { lang } = useLanguage();
   const isId = lang === "id";
+  const { currency, distanceUnit, volumeUnit } = useRegional();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -132,7 +131,7 @@ function FuelLogComponent({
             </View>
           </View>
           <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <Text style={styles.totalPriceText}>{formatCurrency(entry.totalCost)}</Text>
+            <Text style={styles.totalPriceText}>{formatCurrency(entry.totalCost, currency)}</Text>
             <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
           </View>
         </TouchableOpacity>
@@ -140,7 +139,7 @@ function FuelLogComponent({
         {isExpanded && (
           <View style={{ marginTop: 16, gap: 12 }}>
             <View style={{ flexDirection: "row", gap: 8 }}>
-              <View style={styles.miniStatBox}><Text style={styles.miniLabel}>HARGA/L</Text><Text style={styles.miniValue}>{formatCurrency(entry.pricePerLiter)}</Text></View>
+              <View style={styles.miniStatBox}><Text style={styles.miniLabel}>HARGA/L</Text><Text style={styles.miniValue}>{formatCurrency(entry.pricePerLiter, currency)}</Text></View>
               {eff && <View style={styles.miniStatBox}><Text style={styles.miniLabel}>KM/LITER</Text><Text style={[styles.miniValue, { color: isFlagged ? "#FF5252" : "#4ECDC4" }]}>{eff.kmPerL.toFixed(1)}</Text></View>}
             </View>
             {userDescription ? <Text style={styles.descriptionText}>"{userDescription}"</Text> : null}
@@ -153,9 +152,9 @@ function FuelLogComponent({
         )}
       </View>
     );
-  }, [expandedId, isId, onEdit, efficiencies]);
+    }, [expandedId, isId, onEdit, efficiencies, currency, distanceUnit, volumeUnit]);
 
-  return (
+    return (
     <View style={{ flex: 1 }}>
       <FlatList
         data={sorted}

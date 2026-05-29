@@ -2,14 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, Modal, Dimensions, Platform, FlatList } from 'react-native';
 import { RepairEntry } from '@/types/maintenance';
 import { useLanguage } from '@/context/LanguageContext';
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+import { useRegional } from '@/context/RegionalContext'; 
+import { formatCurrency } from '@/utils/formatters';
 
 function extractReceipts(notes: string): { cleanNotes: string; receipts: string[] } {
   const match = notes.match(/\[receipts:(.*?)\]/);
@@ -78,6 +72,7 @@ function RepairHistoryComponent({
   const [deleteRepairId, setDeleteRepairId] = useState<string | null>(null);
   const { t, lang } = useLanguage();
   const isId = lang === 'id';
+  const { currency, distanceUnit } = useRegional();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -184,12 +179,12 @@ function RepairHistoryComponent({
                 <View style={{ flex: 1, marginLeft: 15 }}>
                   <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>{repair.serviceType}</Text>
                   <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>
-                    {dateStr} • {repair.odometer.toLocaleString()} km
+                    {dateStr} • {repair.odometer.toLocaleString()} {distanceUnit}
                   </Text>
                 </View>
 
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: '#F5A623', fontSize: 14, fontWeight: '800', fontFamily: 'SpaceMono' }}>{formatCurrency(repair.cost)}</Text>
+                  <Text style={{ color: '#F5A623', fontSize: 14, fontWeight: '800', fontFamily: 'SpaceMono' }}>{formatCurrency(repair.cost, currency)}</Text>
                   <View style={{ marginTop: 8, opacity: 0.3 }}>
                     <Text style={{ color: 'white', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
                   </View>
@@ -209,7 +204,7 @@ function RepairHistoryComponent({
                       {repair.estimatedCost ? (
                         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
                           <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>ESTIMASI AWAL</Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Rp {Number(repair.estimatedCost).toLocaleString('id-ID')}</Text>
+                          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>{formatCurrency(Number(repair.estimatedCost), currency)}</Text>
                         </View>
                       ) : null}
                     </View>
@@ -236,7 +231,7 @@ function RepairHistoryComponent({
                       </View>
                       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
                         <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>NEXT INTERVAL</Text>
-                        <Text style={{ color: '#4ECDC4', fontSize: 13, fontWeight: '700' }}>+{repair.nextIntervalKm?.toLocaleString() || '0'} km</Text>
+                        <Text style={{ color: '#4ECDC4', fontSize: 13, fontWeight: '700' }}>+{repair.nextIntervalKm?.toLocaleString() || '0'} {distanceUnit}</Text>
                       </View>
                     </View>
 
