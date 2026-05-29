@@ -124,9 +124,11 @@ function RepairHistoryComponent({
             justifyContent: 'space-between', 
             alignItems: 'center', 
             marginTop: 10,
-            marginBottom: 15
+            marginBottom: 15,
+            width: '100%' // 👈 FIX 1: Memaksa lebar penuh 100%
           }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            {/* 👈 FIX 2: Menambahkan flex: 1 agar judul mengambil sisa ruang dan mendorong tombol ke kanan */}
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ fontSize: 20 }}>🛠️</Text>
               <Text style={{ 
                 color: '#FFFFFF', 
@@ -137,23 +139,21 @@ function RepairHistoryComponent({
                 {isId ? "Riwayat Perbaikan" : "Repair History"}
               </Text>
             </View>
-
-            {appMode === 'advance' && (
-              <TouchableOpacity 
-                activeOpacity={0.9} 
-                onPress={onToggleSearch} 
-                style={{ 
-                  paddingHorizontal: 10, 
-                  paddingVertical: 6, 
-                  backgroundColor: 'rgba(255,255,255,0.05)', 
-                  borderRadius: 8,
-                }}
-              >
-                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>
-                  {hideSearch ? '⮛' : '⮙'}
-                </Text>
-              </TouchableOpacity>
-            )}
+            
+            <TouchableOpacity 
+              activeOpacity={0.9} 
+              onPress={onToggleSearch} 
+              style={{ 
+                paddingHorizontal: 10, 
+                paddingVertical: 6, 
+                backgroundColor: 'rgba(255,255,255,0.05)', 
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>
+                {hideSearch ? '🡻' : '🢁'}
+              </Text>
+            </TouchableOpacity>
           </View>
         }
 

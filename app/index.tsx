@@ -1173,8 +1173,6 @@ const handleBackupExport = async () => {
 
   // 🚀 ENGINE SMART SEARCH & FILTER UNTUK HISTORY
   const filteredHistory = stats.vehicleRepairs.filter(r => {
-    if (appMode === 'basic') return true;
-
     // 1. Filter dari Search Bar
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
@@ -1204,8 +1202,6 @@ const handleBackupExport = async () => {
 
   // 🚀 ENGINE SMART SEARCH & FILTER UNTUK BBM
   const filteredFuel = stats.vehicleFuelEntries.filter(f => {
-    if (appMode === 'basic') return true;
-
     // 1. Filter dari Search Bar
     if (fuelSearchQuery.trim() !== '') {
       const q = fuelSearchQuery.toLowerCase();
@@ -1461,7 +1457,7 @@ const handleBackupExport = async () => {
           <View key="tab-history" style={{ flex: 1, width: "100%", paddingTop: 10 }}>
             
             {/* ADVANCED SEARCH UI (Hanya termuat jika mode advance aktif) */}
-            {appMode === 'advance' && !hideSearch && (
+            {!hideSearch && (
               <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
                 
                 {/* Quick Filters History */}
@@ -1594,7 +1590,7 @@ const handleBackupExport = async () => {
           <View key="tab-fuel" style={{ flex: 1, width: "100%", paddingTop: 10 }}>
             
             {/* ADVANCED SEARCH UI & QUICK FILTER BBM */}
-            {appMode === 'advance' && !hideSearch && (
+            {!hideSearch && (
               <View style={{ marginHorizontal: 20, marginBottom: 15, marginTop: 5 }}>
                 
                 {/* Quick Filters BBM */}

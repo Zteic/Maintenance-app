@@ -175,16 +175,14 @@ function FuelLogComponent({
                 <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 }}>{isId ? "Riwayat BBM" : "Fuel Log"}</Text>
                 {appMode === 'advance' && fuelEntries.length > 0 && (
                   <TouchableOpacity activeOpacity={0.9} onPress={onToggleStats} style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, marginLeft: 2 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>{hideStats ? '⮛' : '⮙'}</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>{hideStats ? '🡻' : '🢁'}</Text>
                   </TouchableOpacity>
                 )}
               </View>
-              {appMode === 'advance' && (
                 <TouchableOpacity activeOpacity={0.9} onPress={onToggleSearch} style={{ paddingHorizontal: 10, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8 }}>
-                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>{hideSearch ? '⮛' : '⮙'}</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '700' }}>{hideSearch ? '🡻' : '🢁'}</Text>
                 </TouchableOpacity>
-              )}
-            </View>
+             </View>
 
             {appMode === 'advance' && !hideStats && fuelEntries.length > 0 && (
               <View style={{ marginBottom: 15 }}>
