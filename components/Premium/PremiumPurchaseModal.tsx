@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePremium } from '@/context/PremiumContext';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface PremiumModalProps {
   visible: boolean;
@@ -13,8 +15,9 @@ export default function PremiumPurchaseModal({ visible, onClose, prefillFeature 
   const { upgradeToPremium, restorePurchase } = usePremium();
   const [loading, setLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
+  const router = useRouter();
 
-  // Poin 5: Daftar Perbandingan Fitur FREE vs PREMIUM
+  // Daftar Perbandingan Fitur FREE vs PREMIUM
   const featuresCompare = [
     { name: 'Histori Kendaraan & BBM', free: 'Basic (Terbatas)', pro: 'Tanpa Batas' },
     { name: 'Advanced Search & Filter', free: '✕', pro: '✓ (Multi-Tab)' },
@@ -25,6 +28,31 @@ export default function PremiumPurchaseModal({ visible, onClose, prefillFeature 
   ];
 
   const handleUpgrade = async () => {
+    // 🔒 1. CEGAH TRANSAKSI JIKA BELUM LOGIN CLOUD
+    const currentMode = await AsyncStorage.getItem('garasiku_app_mode');
+    
+    if (currentMode === 'local') {
+      Alert.alert(
+        "Akses Ditolak", 
+        "Untuk mengamankan pembelian Premium Lifetime Anda seumur hidup, silakan Login atau Daftar akun Cloud terlebih dahulu.",
+        [
+          { text: "Nanti Saja", style: "cancel" },
+          { 
+            text: "Login / Daftar", 
+            onPress: () => {
+              onClose(); // Tutup modal premiumnya dulu
+              // Jeda sejenak agar modal tertutup mulus sebelum pindah halaman
+              setTimeout(() => {
+                router.push('/auth/login');
+              }, 150);
+            }
+          }
+        ]
+      );
+      return; // Hentikan eksekusi, jangan lanjut ke proses pembayaran
+    }
+
+    // 🔓 2. JIKA SUDAH LOGIN, LANJUTKAN PROSES PEMBAYARAN
     setLoading(true);
     const success = await upgradeToPremium();
     setLoading(false);
@@ -63,7 +91,7 @@ export default function PremiumPurchaseModal({ visible, onClose, prefillFeature 
             <Text style={styles.heroSub}>Akses Fitur Manajemen Kendaraan Tingkat Lanjut Tanpa Batas</Text>
           </LinearGradient>
 
-          {/* Poin 4: Box Preview jika dipicu oleh fitur terkunci tertentu */}
+          {/* Box Preview jika dipicu oleh fitur terkunci tertentu */}
           {prefillFeature && (
             <View style={styles.prefillBox}>
               <Text style={styles.prefillLabel}>FITUR PRO TERKUNCI:</Text>
@@ -72,7 +100,7 @@ export default function PremiumPurchaseModal({ visible, onClose, prefillFeature 
             </View>
           )}
 
-          {/* Poin 5: Tabel Perbandingan Fitur */}
+          {/* Tabel Perbandingan Fitur */}
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Perbandingan Akses Fitur</Text>
             <View style={styles.tableContainer}>
@@ -91,7 +119,7 @@ export default function PremiumPurchaseModal({ visible, onClose, prefillFeature 
             </View>
           </View>
 
-          {/* Poin 5: Fitur Upcoming / Masa Depan */}
+          {/* Fitur Upcoming / Masa Depan */}
           <View style={styles.upcomingBox}>
             <Text style={styles.upcomingTitle}>✨ Investasi Cerdas Seumur Hidup:</Text>
             <Text style={styles.upcomingText}>• Cukup beli sekali, gratis update ke seluruh modul fitur premium masa depan tanpa biaya langganan bulanan tambahan apa pun.</Text>
@@ -99,7 +127,7 @@ export default function PremiumPurchaseModal({ visible, onClose, prefillFeature 
 
         </ScrollView>
 
-        {/* Poin 6: Sticky Bottom Action Sheet (Upgrade Flow) */}
+        {/* Sticky Bottom Action Sheet (Upgrade Flow) */}
         <View style={styles.bottomPurchaseBar}>
           <View style={styles.priceContainer}>
             <Text style={styles.priceLabel}>One Time Purchase · Lifetime Access</Text>
@@ -115,7 +143,7 @@ export default function PremiumPurchaseModal({ visible, onClose, prefillFeature 
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Poin 7: Restore Purchase Button */}
+          {/* Restore Purchase Button */}
           <TouchableOpacity onPress={handleRestore} style={styles.restoreBtn} activeOpacity={0.7} disabled={restoreLoading}>
             {restoreLoading ? <ActivityIndicator color="rgba(255,255,255,0.3)" size="small" /> : <Text style={styles.restoreBtnText}>Restore Purchase</Text>}
           </TouchableOpacity>

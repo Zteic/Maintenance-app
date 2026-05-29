@@ -187,6 +187,11 @@ function AppContent() {
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [storageSize, setStorageSize] = useState('0.00 MB');
   const isId = lang === "id";
+  const smoothNavigate = useCallback((path: any) => {
+    requestAnimationFrame(() => {
+      router.push(path);
+    });
+  }, [router]);
 
   // 🚀 REVISI SUPER CERDAS: Engine Sinkronisasi Otomatis Kata Kunci Pengingat dengan Cross-Fuzzy Fallback
   const syncUpcomingReminder = useCallback((serviceType: string, currentOdo: number, nextIntervalKm: number) => {
@@ -1735,13 +1740,6 @@ const handleBackupExport = async () => {
             {/* Header internal Tab Profile */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingTop: 10, width: "100%" }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
-                <TouchableOpacity onPress={() => router.setParams({ tab: 'home' })} style={{ marginRight: 5 }}>
-                  <Text style={{ color: "#F5A623", fontSize: 16 }}>← Kembali</Text>
-                </TouchableOpacity>
-
-                <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "800", textAlign: "center" }}>
-                  {t("myProfile")}
-                </Text>
                 {__DEV__ && (
                   <TouchableOpacity
                     activeOpacity={0.7}
@@ -1771,7 +1769,6 @@ const handleBackupExport = async () => {
                 }}>
                   <Text style={{ fontSize: 12 }}>☁️</Text>
                   <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '700' }}>Cloud: Terhubung</Text>
-                  <Text style={{ color: '#4ECDC4', fontSize: 10, marginLeft: 2 }}>❯</Text>
                 </View>
               )}
             </View>
@@ -1779,8 +1776,8 @@ const handleBackupExport = async () => {
             {/* 🚗 PERCABANGAN UX 1: JIKA USER TEKAN KELUAR CLOUD / MEMILIH MODE OFFLINE TAMU */}
             {appModeState === 'local' ? (
               <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => router.push('/auth/login')} // 👈 Jika diklik, otomatis langsung lompat masuk ke menu login depan
+                activeOpacity={0.8}
+                onPress={() => smoothNavigate('/auth/login')} // 👈 UPDATE INI
                 style={{ 
                   backgroundColor: '#1A2B3C', 
                   padding: 25, 
@@ -1891,17 +1888,17 @@ const handleBackupExport = async () => {
             {/* SISA COMPONENT MEMUAT GRAFIK, BANNER, DAN MENU BAWAHAN ASLI */}
             <PremiumSection onOpenPremiumPage={() => { setActivePrefillFeature(null); setPremiumModalVisible(true); }} />
 
+            {/* Action Buttons */}
             <View style={{ marginTop: 16, gap: 12 }}>
               <TouchableOpacity onPress={() => setShowPriceUpdate(true)} activeOpacity={0.85} style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: "rgba(245,166,35,0.2)" }}>
                 <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", borderWidth: 1, borderColor: "rgba(245,166,35,0.3)", alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 22 }}>⛽</Text></View>
                 <View style={{ flex: 1 }}><Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>Update Harga Bensin</Text><Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>Atur harga BBM per liter saat ini</Text></View>
-                <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => router.push('/export')} style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: "rgba(78,205,196,0.3)" }}>
+              {/* 🚀 Menggunakan smoothNavigate */}
+              <TouchableOpacity onPress={() => smoothNavigate('/export')} activeOpacity={0.8} style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: "rgba(78,205,196,0.3)" }}>
                 <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 22 }}>📊</Text></View>
                 <View style={{ flex: 1 }}><Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>Backup and Restore</Text><Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>💽 Penggunaan Memori: {storageSize}</Text></View>
-                <Text style={{ color: "#4ECDC4", fontSize: 18 }}>›</Text>
               </TouchableOpacity>
             </View>
 
@@ -1920,19 +1917,22 @@ const handleBackupExport = async () => {
 
             <View style={{ marginTop: 25 }}>
               <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>BANTUAN & PENGEMBANGAN</Text>
-              <TouchableOpacity onPress={() => router.push('/feedback')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 22, marginRight: 15 }}>🐞</Text><View style={{ flex: 1 }}><Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Laporkan Bug & Saran</Text><Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Kirim masukan langsung ke developer</Text></View><Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/feedback-history')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 22, marginRight: 15 }}>📋</Text><View style={{ flex: 1 }}><Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Riwayat Feedback</Text><Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Pantau status laporan Anda</Text></View><Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18 }}>›</Text></TouchableOpacity>
+              {/* 🚀 Menggunakan smoothNavigate */}
+              <TouchableOpacity activeOpacity={0.8} onPress={() => smoothNavigate('/feedback')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 22, marginRight: 15 }}>🐞</Text><View style={{ flex: 1 }}><Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Laporkan Bug & Saran</Text><Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Kirim masukan langsung ke developer</Text></View></TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.8} onPress={() => smoothNavigate('/feedback-history')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A2B3C', padding: 18, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 22, marginRight: 15 }}>📋</Text><View style={{ flex: 1 }}><Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Riwayat Feedback</Text><Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Pantau status laporan Anda</Text></View>
+              </TouchableOpacity>
             </View>
 
             <View style={{ marginTop: 25, marginBottom: 20 }}>
               <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '800', marginBottom: 10, marginLeft: 5, letterSpacing: 1 }}>INFORMASI & LEGAL</Text>
               <View style={{ backgroundColor: '#1A2B3C', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-                <TouchableOpacity onPress={() => router.push('/changelog')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>✨</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Apa yang Baru (What's New)</Text><Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push('/privacy')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>🛡️</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Kebijakan Privasi (Privacy Policy)</Text><Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push('/terms')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>📜</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Syarat & Ketentuan</Text><Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push('/contact')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>✉️</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Hubungi Developer</Text><Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push('/check-updates')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>🔄</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Periksa Pembaruan</Text><Text style={{ color: 'rgba(255,255,255,0.3)' }}>›</Text></TouchableOpacity>
-                <TouchableOpacity onPress={handleResetData} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: 'rgba(255,82,82,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>⚠️</Text><Text style={{ color: '#FF5252', flex: 1, fontWeight: '700' }}>Hapus Semua Data Aplikasi</Text></TouchableOpacity>
+                {/* 🚀 Menggunakan smoothNavigate */}
+                <TouchableOpacity activeOpacity={0.8} onPress={() => smoothNavigate('/changelog')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>✨</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Apa yang Baru (What's New)</Text></TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.8} onPress={() => smoothNavigate('/privacy')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>🛡️</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Kebijakan Privasi (Privacy Policy)</Text></TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.8} onPress={() => smoothNavigate('/terms')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>📜</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Syarat & Ketentuan</Text></TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.8} onPress={() => smoothNavigate('/contact')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>✉️</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Hubungi Developer</Text></TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.8} onPress={() => smoothNavigate('/check-updates')} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>🔄</Text><Text style={{ color: '#FFF', flex: 1, fontWeight: '600' }}>Periksa Pembaruan</Text></TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.8} onPress={handleResetData} style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: 'rgba(255,82,82,0.05)' }}><Text style={{ fontSize: 18, marginRight: 12 }}>⚠️</Text><Text style={{ color: '#FF5252', flex: 1, fontWeight: '700' }}>Hapus Semua Data Aplikasi</Text></TouchableOpacity>
               </View>
             </View>
           </ScrollView>
