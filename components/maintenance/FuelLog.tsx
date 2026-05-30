@@ -131,7 +131,7 @@ function FuelLogComponent({
             </View>
           </View>
           <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <Text style={styles.totalPriceText}>{formatCurrency(entry.totalCost, currency)}</Text>
+            <Text style={styles.totalPriceText}>{formatCurrency(entry.totalCost, entry.currencySnapshot || currency)}</Text>
             <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
           </View>
         </TouchableOpacity>
@@ -139,7 +139,7 @@ function FuelLogComponent({
         {isExpanded && (
           <View style={{ marginTop: 16, gap: 12 }}>
             <View style={{ flexDirection: "row", gap: 8 }}>
-              <View style={styles.miniStatBox}><Text style={styles.miniLabel}>HARGA/L</Text><Text style={styles.miniValue}>{formatCurrency(entry.pricePerLiter, currency)}</Text></View>
+              <View style={styles.miniStatBox}><Text style={styles.miniLabel}>HARGA/L</Text><Text style={styles.miniValue}>{formatCurrency(entry.pricePerLiter, entry.currencySnapshot || currency)}</Text></View>
               {eff && <View style={styles.miniStatBox}><Text style={styles.miniLabel}>KM/LITER</Text><Text style={[styles.miniValue, { color: isFlagged ? "#FF5252" : "#4ECDC4" }]}>{eff.kmPerL.toFixed(1)}</Text></View>}
             </View>
             {userDescription ? <Text style={styles.descriptionText}>"{userDescription}"</Text> : null}

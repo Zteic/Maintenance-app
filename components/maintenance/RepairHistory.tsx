@@ -184,7 +184,7 @@ function RepairHistoryComponent({
                 </View>
 
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: '#F5A623', fontSize: 14, fontWeight: '800', fontFamily: 'SpaceMono' }}>{formatCurrency(repair.cost, currency)}</Text>
+                  <Text style={{ color: '#F5A623', fontSize: 14, fontWeight: '800', fontFamily: 'SpaceMono' }}>{formatCurrency(repair.cost, repair.currencySnapshot || currency)}</Text>
                   <View style={{ marginTop: 8, opacity: 0.3 }}>
                     <Text style={{ color: 'white', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
                   </View>
@@ -204,7 +204,7 @@ function RepairHistoryComponent({
                       {repair.estimatedCost ? (
                         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
                           <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>ESTIMASI AWAL</Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>{formatCurrency(Number(repair.estimatedCost), currency)}</Text>
+                          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>{formatCurrency(Number(repair.estimatedCost), repair.currencySnapshot || currency)}</Text>
                         </View>
                       ) : null}
                     </View>

@@ -12,6 +12,7 @@ export default function LoginScreen() {
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const resetRedirectUrl = Linking.createURL('/auth/reset-password');
   const router = useRouter();
 
   // 🚗 Fungsi Menangani Pengguna yang Memilih Mode Offline (Tanpa Akun)
@@ -87,45 +88,76 @@ export default function LoginScreen() {
   }
 
   // 🔐 FUNGSI LUPA PASSWORD
+  // 🔐 FUNGSI LUPA PASSWORD (SUDAH DIPERBAIKI)
   async function handleForgotPassword() {
-    // Pastikan user sudah mengetikkan email, bukan username kosong
-    if (!loginIdentifier || !loginIdentifier.includes('@')) {
-      Alert.alert('Perhatian', 'Silakan ketik alamat Email Anda di kolom pengisian terlebih dahulu, lalu tekan tombol Lupa Password.');
+    if (!loginIdentifier) {
+      Alert.alert('Perhatian', 'Silakan ketik Email atau Username Anda terlebih dahulu.');
       return;
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(loginIdentifier.trim());
-    setLoading(false);
+    let finalEmail = loginIdentifier.trim();
 
-    if (error) {
-      Alert.alert('Gagal Mengirim Tautan', error.message);
-    } else {
-      Alert.alert('Cek Email Anda', 'Tautan untuk mereset password telah dikirim ke email Anda.');
-    }
-   }
-
-    async function handleGoogleSignIn() {
     try {
-      // 1. Buat URL khusus untuk kembali ke aplikasi Anda (misal: exp://... atau garasiku://)
+      // 🚀 1. Ambil email asli jika pengguna menginput Username (tidak ada '@')
+      if (!finalEmail.includes('@')) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', finalEmail)
+          .maybeSingle(); // Aman jika tidak ditemukan
+
+        if (profileError || !profileData) {
+          setLoading(false);
+          Alert.alert("Perhatian", "Nama pengguna (Username) tidak ditemukan.");
+          return;
+        }
+        
+        finalEmail = profileData.email; 
+      }
+
+      // 🚀 2. Buat URL kembali khusus untuk mengarahkan pengguna ke halaman reset aplikasi
+      const resetRedirectUrl = Linking.createURL('/auth/reset-password'); 
+
+      // 🚀 3. Kirim permintaan reset password ke Supabase
+      const { error } = await supabase.auth.resetPasswordForEmail(finalEmail, {
+        redirectTo: resetRedirectUrl, // Menjamin tautan balik ke aplikasi aman
+      });
+
+      setLoading(false);
+
+      if (error) {
+        Alert.alert('Gagal Mengirim Tautan', error.message);
+      } else {
+        Alert.alert(
+          'Cek Email Anda', 
+          `Tautan untuk mereset password telah berhasil dikirim ke email: ${finalEmail}`
+        );
+      }
+
+    } catch (err: any) {
+      setLoading(false);
+      Alert.alert('Error', 'Terjadi kesalahan sistem: ' + err.message);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    try {
       const redirectUrl = Linking.createURL('/'); 
       
-      // 2. Minta URL Login dari Supabase
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
-          skipBrowserRedirect: true, // 👈 Wajib true untuk React Native/Expo
+          skipBrowserRedirect: true, 
         },
       });
 
       if (error) throw error;
 
-      // 3. Buka browser di dalam aplikasi
       if (data?.url) {
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
         
-        // 4. Jika berhasil login, Supabase otomatis menangkap sesinya dan Anda bisa arahkan user
         if (result.type === 'success') {
           await AsyncStorage.setItem('garasiku_app_mode', 'online');
           router.replace('/'); 
@@ -160,16 +192,19 @@ export default function LoginScreen() {
       />
 
       {/* 🚀 TOMBOL LUPA PASSWORD */}
-      <TouchableOpacity onPress={handleForgotPassword} style={{ alignSelf: 'flex-end', marginBottom: 15 }}>
-        <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '600' }}>Lupa Password?</Text>
-      </TouchableOpacity>
+      <TouchableOpacity 
+  onPress={() => router.push('/auth/reset-password')} 
+  style={{ alignSelf: 'flex-end', marginBottom: 15 }}
+>
+  <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '600' }}>Lupa Password?</Text>
+</TouchableOpacity>
 
       <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>MASUK</Text>}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push('/auth/register')}>
-        <Text style={styles.linkText}>Belum punya akun? Daftar gratis di sini</Text>
+        <Text style={styles.linkText}>Belum punya akun? Daftar di sini</Text>
       </TouchableOpacity>
 
       {/* 🔘 Pembatas Visual */}
