@@ -5,7 +5,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { supabase } from '../utils/supabaseClient';
 const REPORT_TYPES = ['Bug/Error', 'Saran Fitur', 'Request Update', 'Masalah Performa', 'Masalah Backup', 'Masalah Export PDF', 'Masalah Sinkronisasi', 'Lainnya'];
 
 export default function FeedbackScreen() {
@@ -58,23 +58,26 @@ export default function FeedbackScreen() {
     setIsSubmitting(true);
     
     try {
-      // 1. Simulasi Upload Screenshot
-      if (screenshot) {
-        setLoadingText("Uploading Screenshot...");
-        await new Promise(r => setTimeout(r, 1000));
-      }
+      // 1. Ambil Sesi User Login & Profil Pengguna untuk mengidentifikasi pengirim
+      const { data: { user } } = await supabase.auth.getUser();
+      const savedProfile = await AsyncStorage.getItem('garasi_user_profile');
+      const localProfile = savedProfile ? JSON.parse(savedProfile) : null;
 
       // 2. Kumpulkan Device Info Secara Otomatis
       setLoadingText("Sending Report...");
       const appVersion = Constants.expoConfig?.version || '1.0.0';
       const deviceInfo = `${Device.brand} ${Device.modelName} (Android ${Device.osVersion})`;
       
+      // 3. Susun data payload yang komplit untuk server & lokal
       const payload = {
         id: `fb_${Date.now()}`,
+        user_id: user?.id || null, // Hubungkan ke ID Auth Supabase jika login
+        user_name: user?.user_metadata?.full_name || localProfile?.name || 'Tamu Offline',
+        user_email: user?.email || localProfile?.email || '-',
         report_type: reportType,
-        title,
-        description,
-        screenshot,
+        title: title.trim(),
+        description: description.trim(),
+        screenshot: screenshot, // Mengirimkan URI gambar string lokal / CDN base64
         vehicle_id: selectedVehicle === 'none' ? null : selectedVehicle,
         app_version: appVersion,
         device_info: deviceInfo,
@@ -83,13 +86,18 @@ export default function FeedbackScreen() {
         created_at: new Date().toISOString()
       };
 
-      // 🚀 INTEGRASI DATABASE DEVELOPER (Supabase/Firebase)
-      // Di sinilah nanti Anda menaruh kode: await supabase.from('feedback_reports').insert([payload]);
-      
-      // Simulasi delay jaringan API
-      await new Promise(r => setTimeout(r, 1500));
+      console.log("LOG: Mengirim laporan ke tabel feedbacks Supabase...", payload);
 
-      // 3. Simpan ke Riwayat Lokal Pengguna
+      // 🚀 4. INTEGRASI DATABASE DEVELOPER: Kirim langsung ke tabel 'feedbacks' Supabase
+      const { error: serverError } = await supabase
+        .from('feedbacks')
+        .insert([payload]);
+
+      if (serverError) {
+        throw serverError; // Jika server bermasalah, lemparkan ke blok catch di bawah
+      }
+
+      // 5. Simpan ke Riwayat Lokal Pengguna (Agar tab Riwayat Feedback terisi)
       const existingHistory = await AsyncStorage.getItem('garasi_feedback_history');
       const historyArr = existingHistory ? JSON.parse(existingHistory) : [];
       await AsyncStorage.setItem('garasi_feedback_history', JSON.stringify([payload, ...historyArr]));
@@ -99,9 +107,10 @@ export default function FeedbackScreen() {
         { text: "OK", onPress: () => router.back() }
       ]);
 
-    } catch (e) {
+    } catch (e: any) {
       setIsSubmitting(false);
-      Alert.alert("Pengiriman Gagal", "Gagal menghubungi server. Periksa koneksi internet Anda.", [
+      console.error("ERROR SENDING FEEDBACK:", e.message);
+      Alert.alert("Pengiriman Gagal", "Gagal menghubungi server database: " + e.message, [
         { text: "Coba Lagi", onPress: handleSubmit },
         { text: "Batal", style: "cancel" }
       ]);

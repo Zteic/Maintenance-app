@@ -2,16 +2,41 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { supabase } from '../utils/supabaseClient';
 export default function FeedbackHistoryScreen() {
   const router = useRouter();
   const [history, setHistory] = useState<any[]>([]);
 
   useEffect(() => {
     const loadHistory = async () => {
-      const data = await AsyncStorage.getItem('garasi_feedback_history');
-      if (data) setHistory(JSON.parse(data));
+      try {
+        // 1. Cek sesi login saat ini
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          // 🚀 JIKA USER ONLINE: Tarik live status pengerjaan bug langsung dari server Supabase
+          console.log("LOG: Menarik data riwayat feedback dari Supabase...");
+          const { data: serverData, error } = await supabase
+            .from('feedbacks')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (!error && serverData && serverData.length > 0) {
+            setHistory(serverData);
+            // Sinkronisasikan salinan terbaru ke penyimpanan lokal untuk backup offline
+            await AsyncStorage.setItem('garasi_feedback_history', JSON.stringify(serverData));
+            return;
+          }
+        }
+      } catch (err) {
+        console.log("Gagal mengambil data dari server, beralih ke cache lokal");
+      }
+
+      // 🔄 JIKA OFFLINE/TAMU: Ambil data cadangan dari memori lokal HP seperti biasa
+      const localData = await AsyncStorage.getItem('garasi_feedback_history');
+      if (localData) setHistory(JSON.parse(localData));
     };
+
     loadHistory();
   }, []);
 
