@@ -12,37 +12,46 @@ export default function RegisterScreen() {
   const router = useRouter();
 
 // Perbarui isi fungsi handleRegister() agar menyertakan opsi 'data full_name':
-  async function handleRegister() {
-    if (!name || !email || !password) {
-      Alert.alert('Error', 'Semua kolom wajib diisi!');
+  const handleRegister = async () => {
+    // 1. Cek apakah Username sudah ada di database
+    const { data: existingUser, error: checkError } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('username', usernameInput) // Ganti usernameInput dengan state username Anda
+      .single();
+
+    if (existingUser) {
+      Alert.alert("Gagal", "Nama pengguna (Username) sudah dipakai, silakan pilih yang lain.");
+      return; // Hentikan proses register
+    }
+
+    // 2. Jika aman, daftarkan ke Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: emailInput,       // Ganti dengan state email
+      password: passwordInput, // Ganti dengan state password
+    });
+
+    if (authError) {
+      Alert.alert("Gagal Daftar", authError.message);
       return;
     }
-    setLoading(true);
-    
-    const { error } = await supabase.auth.signUp({ 
-      email, 
-      password,
-      options: {
-        data: {
-          full_name: name.trim()
-        }
-      }
-    });
-    setLoading(false);
 
-    if (error) {
-      Alert.alert('Pendaftaran Gagal', error.message);
-    } else {
-      try {
-        await AsyncStorage.setItem('garasiku_app_mode', 'online');
-      } catch (e) {
-        console.error(e);
-      }
+    // 3. Simpan data username dan email ke tabel profiles
+    if (authData.user) {
+      const { error: profileError } = await supabase.from('profiles').insert({
+        id: authData.user.id,
+        username: usernameInput,
+        email: emailInput
+      });
 
-      Alert.alert('Sukses!', 'Akun berhasil dibuat!');
-      router.replace('/auth/login');
+      if (profileError) {
+        console.error("Gagal simpan profil:", profileError.message);
+      }
+      
+      Alert.alert("Sukses", "Akun berhasil dibuat!");
+      // Arahkan ke halaman login...
     }
-  }
+  };
 
   return (
     <View style={styles.container}>

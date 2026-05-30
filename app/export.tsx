@@ -924,10 +924,14 @@ export default function ExportScreen() {
           `Arsip database "${backupName}" telah berhasil diunggah dan diamankan pada server cloud GarasiKu.`
         );
       } else {
-        Alert.alert("Gagal Cloud Backup", "Server menolak enkripsi data, silakan periksa jaringan Anda.");
+        // 🚀 FIX: Tampilkan error asli dari Supabase agar ketahuan masalahnya apa
+        Alert.alert(
+          "Gagal Cloud Backup", 
+          `Sistem ditolak oleh server.\n\nDetail: ${result.error}`
+        );
       }
-    } catch (err) {
-      Alert.alert("Error Cloud", "Terjadi kesalahan internal saat menghubungkan ke kluster storage.");
+    } catch (err: any) {
+      Alert.alert("Error Cloud", `Terjadi kesalahan internal: ${err.message}`);
     } finally {
       setLoading(false);
     }
