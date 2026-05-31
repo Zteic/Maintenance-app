@@ -934,11 +934,26 @@ useEffect(() => {
     console.log("==========================================================");
   };
 
-  // 🔄 PERBAIKAN: handleTaxSuccess diubah agar hanya memperbarui key tanpa memicu loop berantai
-  const handleTaxSuccess = useCallback(() => {
-    console.log("🔄 Triggering taxRefreshKey untuk memperbarui list riwayat pajak...");
+  // 🚀 TIMPA FUNGSI LAMA DENGAN INI
+  const handleTaxSuccess = useCallback((newTaxDate?: string, newStnkDate?: string) => {
+    console.log("🔄 Update instan tanggal pajak ke UI Dashboard...", { newTaxDate, newStnkDate });
+    
+    // 1. Menyuntikkan tanggal baru ke UI secara instan!
+    setVehicles(prev => prev.map(v => {
+      if (v.id === selectedVehicleId) {
+        return {
+          ...v,
+          taxDueDate: newTaxDate || v.taxDueDate,
+          stnkDueDate: newStnkDate || v.stnkDueDate
+        };
+      }
+      return v;
+    }));
+
+    // 2. Trigger pembaruan background
     setTaxRefreshKey(prev => prev + 1);
-  }, []);
+    refreshData();
+  }, [selectedVehicleId, refreshData]);
 
   // 🗑️ KODE HAPUS KENDARAAN: Dikembalikan murni untuk fungsi hapus saja
   const handleVehicleDelete = (id: string) => {

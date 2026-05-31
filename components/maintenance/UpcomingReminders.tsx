@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Modal, TouchableWithoutFeedback } from "react-native";
+import { supabase } from "@/utils/supabaseClient"; // 👈 SUNTIKAN 1: Pastikan Supabase di-import!
 import { Reminder, Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
 import { useRegional } from "@/context/RegionalContext";
@@ -12,8 +13,8 @@ interface UpcomingRemindersProps {
   onAddReminder?: (serviceType: string) => void;
   onEditReminder?: (item: Reminder) => void;
   onDeleteReminder?: (id: string) => void;
-  onEditVehicle?: () => void;
-  onRefreshVehicle?: (newTax?: string, newStnk?: string) => void; // 🚀 SEHAT: Gunakan callback khusus ini, bukan onDeleteReminder!
+  onEditVehicle?: (newTaxDate?: string, newStnkDate?: string) => void;
+  onOpenTaxCenter?: () => void;
 }
 
 // --- FUNGSI HELPER (DI LUAR KOMPONEN) ---
@@ -26,25 +27,21 @@ function getDaysLeft(dateStr?: string): number | null {
   return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-// 🚀 SUNTIKAN 3: Aturan Warna Baru (Merah, Oranye, Kuning, Hijau)
 function getDocStatusColor(days: number | null): string {
   if (days === null) return "rgba(255,255,255,0.2)";
-  if (days < 0) return "#FF5252"; // Merah (Sudah Jatuh Tempo)
-  if (days <= 30) return "#FF8C00"; // Oranye (Kurang dari 30 Hari)
-  if (days <= 90) return "#F5A623"; // Kuning (Kurang dari 90 Hari)
-  return "#4ECDC4"; // Hijau (Aman)
+  if (days < 0) return "#FF5252"; 
+  if (days <= 30) return "#FF8C00"; 
+  if (days <= 90) return "#F5A623"; 
+  return "#4ECDC4"; 
 }
 
 const formatDocDate = (dateStr?: string, isId?: boolean) => {
   if (!dateStr) return "-";
   return new Date(dateStr).toLocaleDateString(isId ? "id-ID" : "en-US", {
-    day: "numeric",
-    month: "long", // Diubah ke long agar formatnya "12 Juli 2026"
-    year: "numeric",
+    day: "numeric", month: "long", year: "numeric",
   });
 };
 
-// 🚀 SUNTIKAN 4: Aturan Teks Status Baru
 const docStatusText = (days: number | null, t: any) => {
   if (days === null) return "-";
   if (days < 0) return `Terlambat ${Math.abs(days)} Hari`;
@@ -65,18 +62,55 @@ export default function UpcomingReminders({
   onOpenTaxCenter,
 }: UpcomingRemindersProps) {
   const { t, lang } = useLanguage();
-  const { currency } = useRegional(); // Ambil data mata uang IDR/Lainnya
+  const { currency } = useRegional(); 
   const isId = lang === "id";
   const [expandedId, setExpandedId] = useState<string | null>(null);
   
-  // Modal fallback lama (dibiarkan dulu untuk jaga-jaga jika onOpenTaxCenter belum dikirim)
   const [showDocModal, setShowDocModal] = useState(false);
   const [selectedTaxType, setSelectedTaxType] = useState<"annual" | "five_year" | null>(null); 
   
+  // 🚀 SUNTIKAN 2: State khusus untuk menyimpan tanggal paling absolut dari Cloud
+  const [cloudTaxDate, setCloudTaxDate] = useState<string | undefined>(vehicle?.taxDueDate);
+  const [cloudStnkDate, setCloudStnkDate] = useState<string | undefined>(vehicle?.stnkDueDate);
+
+  // 🚀 SUNTIKAN 3: Tarik Otomatis Riwayat Paling Terbaru dari Tabel History
+  useEffect(() => {
+    const fetchLatestHistoryDate = async () => {
+      if (!vehicle?.id) return;
+      try {
+        const { data } = await supabase
+          .from("vehicle_tax_payment_history")
+          .select("new_tax_due_date, new_stnk_due_date")
+          .eq("vehicle_id", vehicle.id)
+          .order("created_at", { ascending: false }) // Ambil yang paling terbaru (posisi atas)
+          .limit(1)
+          .single();
+
+        if (data) {
+          // Jika ada di log history, timpa tanggal bawaan dengan tanggal dari history
+          setCloudTaxDate(data.new_tax_due_date || vehicle?.taxDueDate);
+          setCloudStnkDate(data.new_stnk_due_date || vehicle?.stnkDueDate);
+        } else {
+          // Jika belum ada history sama sekali, gunakan data bawaan kendaraan
+          setCloudTaxDate(vehicle?.taxDueDate);
+          setCloudStnkDate(vehicle?.stnkDueDate);
+        }
+      } catch (err) {
+        // Jika gagal koneksi, fallback ke data bawaan lokal
+        setCloudTaxDate(vehicle?.taxDueDate);
+        setCloudStnkDate(vehicle?.stnkDueDate);
+      }
+    };
+
+    fetchLatestHistoryDate();
+  }, [vehicle]); // Berjalan otomatis tiap ada penyegaran kendaraan
+
   // 1. Inisialisasi Data Dasar
   const safeReminders = Array.isArray(reminders) ? reminders : [];
-  const taxDays = getDaysLeft(vehicle?.taxDueDate);
-  const stnkDays = getDaysLeft(vehicle?.stnkDueDate);
+  
+  // 🚀 FIX 4: Hitung mundur sekarang menggunakan Data Cloud, BUKAN data lokal
+  const taxDays = getDaysLeft(cloudTaxDate);
+  const stnkDays = getDaysLeft(cloudStnkDate);
   
   const STATUS_CONFIG: any = {
     safe: { color: "#4ECDC4", bg: "rgba(78,205,196,0.1)", label: isId ? "AMAN" : "SAFE", border: "rgba(78,205,196,0.2)" },
@@ -85,16 +119,16 @@ export default function UpcomingReminders({
     routine: { color: "#4ECDC4", bg: "rgba(78,205,196,0.1)", label: isId ? "JADWAL RUTIN" : "ROUTINE", border: "rgba(78,205,196,0.2)" }
   };
 
-  // 🚀 SUNTIKAN 5: Saring Dokumen HANYA JIKA MATA UANG IDR
+  // 🚀 FIX 5: Render UI juga menggunakan teks dari variabel Data Cloud
   const docReminders = currency === 'IDR' ? [
-    ...(vehicle?.taxDueDate ? [{ 
+    ...(cloudTaxDate ? [{ 
       id: 'tax', type: 'doc', icon: "🚗", label: "Pajak Tahunan", 
-      days: taxDays, date: formatDocDate(vehicle.taxDueDate, isId),
+      days: taxDays, date: formatDocDate(cloudTaxDate, isId),
       statusColor: getDocStatusColor(taxDays), statusText: docStatusText(taxDays, t)
     }] : []),
-    ...(vehicle?.stnkDueDate ? [{ 
+    ...(cloudStnkDate ? [{ 
       id: 'stnk', type: 'doc', icon: "📄", label: "STNK 5 Tahun", 
-      days: stnkDays, date: formatDocDate(vehicle.stnkDueDate, isId),
+      days: stnkDays, date: formatDocDate(cloudStnkDate, isId),
       statusColor: getDocStatusColor(stnkDays), statusText: docStatusText(stnkDays, t)
     }] : [])
   ] : [];
@@ -268,49 +302,59 @@ export default function UpcomingReminders({
         </TouchableOpacity>
       </Modal>
 
-      {/* 🏛️ FIX REAKTIF: MODAL UPDATE STATUS PAJAK & STNK CLOUD */}
-      {selectedTaxType !== null && vehicle && (
-        <UpdateTaxStatusModal
-          visible={selectedTaxType !== null}
-          initialType={selectedTaxType} 
-          vehicle={vehicle}
-          onClose={() => setSelectedTaxType(null)}
-          onSuccess={(newTaxDate?: string, newStnkDate?: string) => {
-            console.log("==========================================================");
-            console.log("⚡ [Upcoming Reminders] Sukses update data pajak di cloud!");
-            console.log("📦 Mengirim data tanggal baru ke dashboard engine...");
-            console.log("==========================================================");
-
-            setSelectedTaxType(null); 
-
-            if (typeof onRefreshVehicle === "function") {
-              onRefreshVehicle(newTaxDate, newStnkDate);
-            }
-          }}
-        />
-      )}
+      {/* 🏛️ MODAL UPDATE STATUS PAJAK & STNK CLOUD */}
+      <UpdateTaxStatusModal
+        visible={selectedTaxType !== null}
+        initialType={selectedTaxType}
+        vehicle={vehicle}
+        onClose={() => setSelectedTaxType(null)}
+        onSuccess={(finalTaxDate, finalStnkDate) => {
+          setSelectedTaxType(null); // Tutup modal setelah sukses
+          if (onEditVehicle) {
+            // Lempar tanggal baru ke index.tsx agar instan ter-update
+            onEditVehicle(finalTaxDate, finalStnkDate);
+          }
+        }}
+      />
     </View>
   );
 }
 
-// Sub-komponen Dokumen (Gaya tetap utuh)
+// Sub-komponen Dokumen (Presentational Component)
 function DocReminderCard({ icon, label, date, days, statusText, statusColor, onPress }: any) {
+  // Logika Urgensi UI: Akan menyala jika sisa hari kurang dari 90
   const isUrgent = days !== null && days <= 90;
+  
   return (
     <TouchableOpacity 
       activeOpacity={0.7}
       onPress={onPress}
-      style={{ borderRadius: 14, padding: 16, borderWidth: 1, borderColor: isUrgent ? `${statusColor}40` : "rgba(255,255,255,0.06)", flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: isUrgent ? `${statusColor}08` : "#1A2B3C" }}
+      style={{ 
+        borderRadius: 14, 
+        padding: 16, 
+        borderWidth: 1, 
+        borderColor: isUrgent ? `${statusColor}40` : "rgba(255,255,255,0.06)", 
+        flexDirection: "row", 
+        alignItems: "center", 
+        gap: 14, 
+        backgroundColor: isUrgent ? `${statusColor}08` : "#1A2B3C" 
+      }}
     >
       <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: `${statusColor}15`, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: `${statusColor}30` }}>
         <Text style={{ fontSize: 18 }}>{icon}</Text>
       </View>
+      
       <View style={{ flex: 1, gap: 4 }}>
         <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>{label}</Text>
+        {/* Teks Tanggal Real-Time dari Parent */}
         <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>{date}</Text>
       </View>
+      
       <View style={{ backgroundColor: `${statusColor}20`, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 10, alignItems: "center" }}>
-        <Text style={{ color: statusColor, fontSize: 12, fontWeight: "700" }}>{statusText}</Text>
+        {/* Teks Countdown (Hari Lagi) Real-Time dari Parent */}
+        <Text style={{ color: statusColor, fontSize: 12, fontWeight: "700" }}>
+          {statusText}
+        </Text>
       </View>
     </TouchableOpacity>
   );

@@ -396,51 +396,9 @@ export default function VehicleEditModal({
                   )}
 
                   {/* Document Dates */}
-                  <View style={{ gap: 8 }}>
-                    <Text
-                      style={{
-                        color: "rgba(255,255,255,0.7)",
-                        fontSize: 12,
-                        fontWeight: "700",
-                        letterSpacing: 1,
-                        marginBottom: 4,
-                      }}
-                    >
-                      📋 {t("Tax Reminder")}
-                    </Text>
-                    <View style={{ flexDirection: "row", gap: 12 }}>
-                      <View style={{ flex: 1, gap: 8 }}>
-                        <Text style={labelStyle}>{t("taxDueDate")}</Text>
-                        <TextInput
-                          value={taxDueDate}
-                          onChangeText={setTaxDueDate}
-                          placeholder="YYYY-MM-DD"
-                          placeholderTextColor="rgba(255,255,255,0.3)"
-                          style={{
-                            ...inputStyle,
-                            fontFamily: "SpaceMono",
-                            color: "#F5A623",
-                          }}
-                        />
-                      </View>
-                      <View style={{ flex: 1, gap: 8 }}>
-                        <Text style={labelStyle}>{t("stnkDueDate")}</Text>
-                        <TextInput
-                          value={stnkDueDate}
-                          onChangeText={setStnkDueDate}
-                          placeholder="YYYY-MM-DD"
-                          placeholderTextColor="rgba(255,255,255,0.3)"
-                          style={{
-                            ...inputStyle,
-                            fontFamily: "SpaceMono",
-                            color: "#4ECDC4",
-                          }}
-                        />
-                      </View>
-                    </View>
-
+                  <View style={{ gap: 8 }}>                    
                     {/* 🚀 TOMBOL AKSES LANGSUNG KE FILE TAXHISTORYLIST */}
-                 {isEdit && vehicle && (
+                   {isEdit && vehicle && (
                    <TouchableOpacity
                      activeOpacity={0.8}
                      onPress={() => setShowTaxHistoryList(true)} // 👈 Memicu state baru
@@ -455,7 +413,7 @@ export default function VehicleEditModal({
                      }}
                    >
                      <Text style={{ color: "#4ECDC4", fontSize: 12, fontWeight: "900", letterSpacing: 0.5 }}>
-                       🗄️ LIHAT RIWAYAT ARSIP & LOG FINANSIAL PAJAK
+                       RIWAYAT PEMBAYARAN PAJAK KENDARAAN
                      </Text>
                    </TouchableOpacity>
                  )}
@@ -588,7 +546,7 @@ export default function VehicleEditModal({
       <Modal 
         visible={showTaxHistoryList} 
         animationType="slide" 
-        transparent={false}
+        transparent={true}
         onRequestClose={() => {
           console.log("➡️ Menutup Layar Riwayat Pajak...");
           setShowTaxHistoryList(false);

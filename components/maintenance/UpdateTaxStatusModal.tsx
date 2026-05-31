@@ -10,7 +10,7 @@ interface UpdateTaxStatusModalProps {
   onClose: () => void;
   vehicle: Vehicle | null | undefined;
   initialType?: "annual" | "five_year" | null;
-  onSuccess: (newTaxDate?: string, newStnkDate?: string) => void; // 🚀 FIX 1: Izinkan menerima parameter tanggal agar bisa dilempar ke parent
+  onSuccess: (newTaxDate?: string, newStnkDate?: string) => void; 
 }
 
 interface LocalFile {
@@ -21,9 +21,7 @@ interface LocalFile {
 
 export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initialType = "annual", onSuccess }: UpdateTaxStatusModalProps) {
   const [loading, setLoading] = useState(false);
-  const [fetchingHistory, setFetchingHistory] = useState(true);
   const [taxType, setTaxType] = useState<"annual" | "five_year">("annual");
-  const [history, setHistory] = useState<any[]>([]);
 
   // --- STATES FORM INPUT ---
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
@@ -45,11 +43,17 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
   const [biayaPengiriman, setBiayaPengiriman] = useState("0");
   const [biayaPemrosesan, setBiayaPemrosesan] = useState("0");
 
-  // Lampiran Files
+  // Lampiran Files & Status UI
   const [uploadedFiles, setUploadedFiles] = useState<LocalFile[]>([]);
+  const [processMsg, setProcessMsg] = useState(""); 
 
-  // --- HITUNGAN MATEMATIS OTOMATIS ---
-  const num = (val: string) => parseFloat(val) || 0;
+  // --- PENGAMAN MATEMATIS OTOMATIS ---
+  // Mencegah error jika user mengetik titik/koma/huruf
+  const num = (val: string) => {
+    if (!val) return 0;
+    const cleanVal = val.toString().replace(/[^0-9]/g, '');
+    return parseFloat(cleanVal) || 0;
+  };
 
   const subtotalPajak =
     num(pkbPokok) + num(pkbDenda) +
@@ -60,7 +64,7 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
   const subtotalBiayaLainnya = num(biayaPengiriman) + num(biayaPemrosesan);
   const totalPembayaran = subtotalPajak + subtotalBiayaLainnya;
 
-  // Sync awal tipe pajak & fetch riwayat dari database
+  // Sync awal tipe pajak
   useEffect(() => {
     if (visible && vehicle) {
       if (initialType) {
@@ -68,13 +72,7 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
       }
       resetForm();
     }
-  }, [visible]);
-
-  useEffect(() => {
-    if (visible && vehicle?.id) {
-      fetchHistoryData();
-    }
-  }, [visible, vehicle?.id]);
+  }, [visible, initialType, vehicle]);
 
   const resetForm = () => {
     setPaymentDate(new Date().toISOString().split('T')[0]);
@@ -87,23 +85,7 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
     setPnbpStnk("0"); setPnbpTnkb("0");
     setBiayaPengiriman("0"); setBiayaPemrosesan("0");
     setUploadedFiles([]);
-  };
-
-  const fetchHistoryData = async () => {
-    if (!vehicle?.id) return;
-    setFetchingHistory(true);
-    try {
-      const { data, error } = await supabase
-        .from("vehicle_tax_payment_history")
-        .select("*")
-        .eq("vehicle_id", vehicle.id)
-        .order("created_at", { ascending: false });
-      if (!error && data) setHistory(data);
-    } catch (err) {
-      console.log("History error:", err);
-    } finally {
-      setFetchingHistory(false);
-    }
+    setProcessMsg("");
   };
 
   const handlePickDocuments = async () => {
@@ -128,190 +110,125 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
         setUploadedFiles(prev => [...prev, ...selected].slice(0, 10));
       }
     } catch (err) {
-      Alert.alert("Gagal memuat berkas.");
+      Alert.alert("Error", "Gagal memuat berkas.");
     }
   };
 
   const handleSave = () => {
-    console.log("=== [KLIK TRIGGERED] Tombol Simpan Riwayat Pajak Ditekan ===");
-    
+    setProcessMsg("");
     const cleanNextTaxDate = nextTaxDate.trim();
     const cleanNextStnkDate = nextStnkDate.trim();
 
-    console.log("Detail Payload Form:", {
-      taxType,
-      paymentDate: paymentDate.trim(),
-      nextTaxDate: cleanNextTaxDate,
-      nextStnkDate: cleanNextStnkDate,
-      totalPembayaran
-    });
-
     if (!cleanNextTaxDate) {
-      console.log("❌ Validasi Gagal: Tanggal Pajak Baru masih kosong!");
-      Alert.alert("Tanggal Kosong", "Silakan isi tanggal pajak berikutnya.");
+      Alert.alert("Validasi Gagal", "Silakan isi tanggal pajak berikutnya.");
       return;
     }
 
     if (taxType === "five_year" && !cleanNextStnkDate) {
-      console.log("❌ Validasi Gagal: Tanggal STNK Baru masih kosong untuk tipe 5 Tahunan!");
-      Alert.alert("Tanggal Kosong", "Silakan isi tanggal masa berlaku STNK baru.");
+      Alert.alert("Validasi Gagal", "Silakan isi tanggal masa berlaku STNK baru untuk pajak 5 Tahunan.");
       return;
     }
 
     if (Platform.OS === 'web') {
-      const konfirmasiWeb = window.confirm(
-        "Simpan Rekam Keuangan?\n\nPastikan rincian biaya yang dimasukkan sudah sesuai dengan lembar fisik Samsat Anda."
-      );
-      if (konfirmasiWeb) {
-        console.log("🔄 Web Browser: Konfirmasi disetujui, mengeksekusi ekspor data...");
-        executeSave();
-      } else {
-        console.log("❌ Web Browser: Pengguna membatalkan transaksi.");
-      }
+      const konfirmasiWeb = window.confirm("Simpan Rekam Keuangan?\n\nPastikan rincian biaya sudah sesuai.");
+      if (konfirmasiWeb) executeSave();
       return;
     }
 
     Alert.alert(
       "Simpan Rekam Keuangan", 
-      "Pastikan rincian biaya yang dimasukkan sudah sesuai dengan lembar fisik Samsat Anda.", 
+      "Pastikan rincian biaya yang dimasukkan sudah sesuai dengan lembar fisik Samsat.", 
       [
-        { text: "Batal", style: "cancel", onPress: () => console.log("❌ Mobile: Pengguna membatalkan.") },
-        { text: "Simpan Sekarang", fontWeight: "bold", onPress: () => {
-            console.log("🔄 Mobile: Konfirmasi disetujui, mengeksekusi executeSave()...");
-            executeSave();
-          } 
-        }
+        { text: "Batal", style: "cancel" },
+        { text: "Simpan Sekarang", fontWeight: "bold", onPress: executeSave }
       ]
     );
   };
 
   const executeSave = async () => {
     if (!vehicle?.id) {
-      console.log("❌ Abort: ID Kendaraan tidak terbaca (null/undefined).");
-      return;
+      setProcessMsg("❌ GAGAL: Data kendaraan tidak terbaca oleh sistem.");
+      return; 
     }
     
     setLoading(true);
-    console.log("==========================================================");
-    console.log("🚀 Memulai Proses Sinkronisasi Transaksi Ke Cloud Supabase...");
+    setProcessMsg("⏳ Mengamankan data ke Cloud...");
     
     try {
       const urls: string[] = [];
       
-      // 1. PROSES MULTI-FILE UPLOAD BUKTI (JIKA ADA) DENGAN ENGINE HYBRID WEB BLOB
+      // 1. Upload Files
       if (uploadedFiles.length > 0) {
-        console.log(`📂 Memproses unggahan ${uploadedFiles.length} file dokumen bukti...`);
-        for (const [index, file] of uploadedFiles.entries()) {
-          const ext = file.name.split('.').pop()?.toLowerCase();
+        setProcessMsg(`⏳ Mengunggah ${uploadedFiles.length} berkas bukti...`);
+        for (const file of uploadedFiles) {
+          const ext = file.name.split('.').pop();
           const path = `${vehicle.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-          
-          const contentType = ext === 'pdf' ? 'application/pdf' : (file.type || 'image/jpeg');
           let fileBody: any;
 
           if (Platform.OS === 'web') {
-            console.log(`💻 Lingkungan Web Browser: Mengonversi berkas ${ext} ke Blob murni...`);
             const response = await fetch(file.uri);
             fileBody = await response.blob();
           } else {
-            console.log("📱 Lingkungan perangkat Mobile...");
             const formData = new FormData();
-            formData.append("file", { 
-              uri: file.uri, 
-              name: file.name, 
-              type: contentType 
-            } as any);
+            formData.append("file", { uri: file.uri, name: file.name, type: file.type || "application/octet-stream" } as any);
             fileBody = formData;
           }
 
-          const { data: upData, error: upErr } = await supabase.storage
-            .from("tax_proofs")
-            .upload(path, fileBody, {
-              contentType: contentType,
-              cacheControl: '3600',
-              upsert: true
-            });
+          const { data: upData, error: upErr } = await supabase.storage.from("tax_proofs").upload(path, fileBody, { cacheControl: '3600', upsert: true });
           
-          if (upErr) {
-            console.error(`❌ Gagal Upload Berkas ke-${index + 1}:`, upErr.message);
-            throw upErr;
-          }
-          
+          if (upErr) throw new Error(`Gagal upload berkas: ${upErr.message}`);
           if (upData) {
             const { data } = supabase.storage.from("tax_proofs").getPublicUrl(path);
             if (data?.publicUrl) urls.push(data.publicUrl);
           }
         }
-        console.log("✅ Seluruh berkas lampiran sukses terunggah.");
       }
 
-      // 2. 🚀 FIX UTAMA: UPDATE DATA KENDARAAN SESUAI KOLOM SQL (tax_due_date & stnk_due_date)
+      // 2. Update status pajak di tabel kendaraan utama
+      setProcessMsg("⏳ Memperbarui status masa aktif kendaraan...");
       const mainUpdate: any = { tax_due_date: nextTaxDate.trim() };
       if (taxType === "five_year") mainUpdate.stnk_due_date = nextStnkDate.trim();
 
-      console.log("[DB Update] Mengirim data ke tabel 'vehicles'...", mainUpdate);
       const { error: vErr } = await supabase.from("vehicles").update(mainUpdate).eq("id", vehicle.id);
-      if (vErr) {
-        console.error("❌ [Supabase Error] Gagal mengupdate tabel vehicles:", vErr.message);
-        throw vErr;
-      }
+      if (vErr) throw new Error(`Gagal perbarui data kendaraan: ${vErr.message}`);
 
-      // 3. INSERT LOG AUDIT BARU (TABLE: vehicle_tax_payment_history)
+      // 3. Simpan rekam jejak akuntansi (History)
+      setProcessMsg("⏳ Menyimpan rekam finansial pajak...");
       const payloadHistori = {
         vehicle_id: vehicle.id,
         payment_type: taxType === "five_year" ? "five_year_stnk" : "annual_tax",
         payment_date: paymentDate.trim(),
         new_tax_due_date: nextTaxDate.trim(),
         new_stnk_due_date: taxType === "five_year" ? nextStnkDate.trim() : null,
-        pkb_pokok: num(pkbPokok), 
-        pkb_denda: num(pkbDenda),
-        opsen_pkb_pokok: num(opsenPkbPokok), 
-        opsen_pkb_denda: num(opsenPkbDenda),
-        swdkllj_pokok: num(swdklljPokok), 
-        swdkllj_denda: num(swdklljDenda),
+        pkb_pokok: num(pkbPokok), pkb_denda: num(pkbDenda),
+        opsen_pkb_pokok: num(opsenPkbPokok), opsen_pkb_denda: num(opsenPkbDenda),
+        swdkllj_pokok: num(swdklljPokok), swdkllj_denda: num(swdklljDenda),
         pnbp_stnk: taxType === "five_year" ? num(pnbpStnk) : 0,
         pnbp_tnkb: taxType === "five_year" ? num(pnbpTnkb) : 0,
-        biaya_pengiriman: num(biayaPengiriman), 
-        biaya_pemrosesan: num(biayaPemrosesan),
-        subtotal_pajak: subtotalPajak, 
-        subtotal_biaya_lainnya: subtotalBiayaLainnya,
-        total_pembayaran: totalPembayaran, 
-        deskripsi: deskripsi.trim() || null, 
+        biaya_pengiriman: num(biayaPengiriman), biaya_pemrosesan: num(biayaPemrosesan),
+        subtotal_pajak: subtotalPajak, subtotal_biaya_lainnya: subtotalBiayaLainnya,
+        total_pembayaran: totalPembayaran, deskripsi: deskripsi.trim() || null, 
         proof_files_urls: urls
       };
 
-      console.log("[DB Insert] Mengirim data log ke 'vehicle_tax_payment_history'...", payloadHistori);
       const { error: hErr } = await supabase.from("vehicle_tax_payment_history").insert(payloadHistori);
-      if (hErr) {
-        console.error("❌ [Supabase Error] Gagal mencatat history pajak:", hErr.message);
-        throw hErr;
-      }
+      if (hErr) throw new Error(`Gagal menyimpan riwayat: ${hErr.message}`);
 
-      console.log("==========================================================");
-      console.log("🎉 SINKRONISASI CLOUD BERHASIL DATA TERSIMPAN!");
-      console.log("==========================================================");
+      // 4. SUKSES
+      setProcessMsg("✅ Berhasil disimpan!");
       
-      if (Platform.OS === 'web') {
-        window.alert("✅ Riwayat pembayaran berhasil diarsipkan ke Cloud!");
-      } else {
-        Alert.alert("Sukses", "✅ Riwayat pembayaran berhasil diarsipkan.");
-      }
-
       const finalTaxDate = nextTaxDate.trim();
-      const finalStnkDate = taxType === "five_year" ? nextStnkDate.trim() : "null";
+      const finalStnkDate = taxType === "five_year" ? nextStnkDate.trim() : undefined;
 
-      resetForm();
-      await fetchHistoryData(); 
-      
-      // 🚀 EKSEKUSI CALLBACK: Kirim data tanggal keluar agar dibaca reaktif oleh form edit & dashboard
-      onSuccess(finalTaxDate, finalStnkDate);
+      setTimeout(() => {
+        resetForm();
+        onSuccess(finalTaxDate, finalStnkDate);
+      }, 500); // Beri jeda 0.5 detik agar user sempat melihat tulisan sukses
       
     } catch (e: any) {
-      console.error("💥 CRASH DETECTED pada Blok DB Supabase:", e);
-      Alert.alert("Gagal Menyimpan", e.message || "Terjadi kendala integrasi database.");
+      setProcessMsg(`❌ ERROR: ${e.message}`);
     } finally {
       setLoading(false);
-      console.log("=== [SELESAI] Proses Eksekusi Selesai ===");
-      console.log("==========================================================");
     }
   };
 
@@ -343,11 +260,9 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 16 }}>
           
-          {/* CARD 1: FORMULIR RINCIAN PEMBAYARAN (COMPACT DESIGN) */}
           <View style={s.card}>
             <Text style={s.cardTitle}>📝 FORM MASUKAN DATA BARU</Text>
             
-            {/* Kolom Tanggal Berjajar Ringkas */}
             <View style={s.rowInputs}>
               <View style={{ flex: 1 }}>
                 <Text style={s.miniLabel}>TANGGAL BAYAR</Text>
@@ -365,133 +280,60 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
               )}
             </View>
 
-            {/* Grid Komponen Finansial (Samsat) */}
             <Text style={s.sectionHeader}>📊 RINCIAN KOMPONEN BIAYA RESMI</Text>
             <View style={s.grid2Col}>
               <View style={s.gridItem}>
                 <Text style={s.miniLabel}>PKB Pokok</Text>
-                <TextInput 
-                  style={s.smallInput} 
-                  keyboardType="number-pad" 
-                  placeholder="0"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={pkbPokok === "0" ? "" : pkbPokok} 
-                  onChangeText={setPkbPokok} 
-                />
+                <TextInput style={s.smallInput} keyboardType="number-pad" placeholder="0" placeholderTextColor="rgba(255,255,255,0.2)" value={pkbPokok === "0" ? "" : pkbPokok} onChangeText={setPkbPokok} />
               </View>
               <View style={s.gridItem}>
                 <Text style={s.miniLabel}>PKB Denda</Text>
-                <TextInput 
-                  style={s.smallInput} 
-                  keyboardType="number-pad" 
-                  placeholder="0"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={pkbDenda === "0" ? "" : pkbDenda} 
-                  onChangeText={setPkbDenda} 
-                />
+                <TextInput style={s.smallInput} keyboardType="number-pad" placeholder="0" placeholderTextColor="rgba(255,255,255,0.2)" value={pkbDenda === "0" ? "" : pkbDenda} onChangeText={setPkbDenda} />
               </View>
               <View style={s.gridItem}>
                 <Text style={s.miniLabel}>Opsen PKB Pokok</Text>
-                <TextInput 
-                  style={s.smallInput} 
-                  keyboardType="number-pad" 
-                  placeholder="0"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={opsenPkbPokok === "0" ? "" : opsenPkbPokok} 
-                  onChangeText={setOpsenPkbPokok} 
-                />
+                <TextInput style={s.smallInput} keyboardType="number-pad" placeholder="0" placeholderTextColor="rgba(255,255,255,0.2)" value={opsenPkbPokok === "0" ? "" : opsenPkbPokok} onChangeText={setOpsenPkbPokok} />
               </View>
               <View style={s.gridItem}>
                 <Text style={s.miniLabel}>Opsen PKB Denda</Text>
-                <TextInput 
-                  style={s.smallInput} 
-                  keyboardType="number-pad" 
-                  placeholder="0"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={opsenPkbDenda === "0" ? "" : opsenPkbDenda} 
-                  onChangeText={setOpsenPkbDenda} 
-                />
+                <TextInput style={s.smallInput} keyboardType="number-pad" placeholder="0" placeholderTextColor="rgba(255,255,255,0.2)" value={opsenPkbDenda === "0" ? "" : opsenPkbDenda} onChangeText={setOpsenPkbDenda} />
               </View>
               <View style={s.gridItem}>
                 <Text style={s.miniLabel}>SWDKLLJ Pokok</Text>
-                <TextInput 
-                  style={s.smallInput} 
-                  keyboardType="number-pad" 
-                  placeholder="0"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={swdklljPokok === "0" ? "" : swdklljPokok} 
-                  onChangeText={setSwdklljPokok} 
-                />
+                <TextInput style={s.smallInput} keyboardType="number-pad" placeholder="0" placeholderTextColor="rgba(255,255,255,0.2)" value={swdklljPokok === "0" ? "" : swdklljPokok} onChangeText={setSwdklljPokok} />
               </View>
               <View style={s.gridItem}>
                 <Text style={s.miniLabel}>SWDKLLJ Denda</Text>
-                <TextInput 
-                  style={s.smallInput} 
-                  keyboardType="number-pad" 
-                  placeholder="0"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={swdklljDenda === "0" ? "" : swdklljDenda} 
-                  onChangeText={setSwdklljDenda} 
-                />
+                <TextInput style={s.smallInput} keyboardType="number-pad" placeholder="0" placeholderTextColor="rgba(255,255,255,0.2)" value={swdklljDenda === "0" ? "" : swdklljDenda} onChangeText={setSwdklljDenda} />
               </View>
               {taxType === "five_year" && (
                 <>
                   <View style={s.gridItem}>
                     <Text style={s.miniLabel}>PNBP STNK</Text>
-                    <TextInput 
-                      style={s.smallInput} 
-                      keyboardType="number-pad" 
-                      placeholder="0"
-                      placeholderTextColor="rgba(255,255,255,0.2)"
-                      value={pnbpStnk === "0" ? "" : pnbpStnk} 
-                      onChangeText={setPnbpStnk} 
-                    />
+                    <TextInput style={s.smallInput} keyboardType="number-pad" placeholder="0" placeholderTextColor="rgba(255,255,255,0.2)" value={pnbpStnk === "0" ? "" : pnbpStnk} onChangeText={setPnbpStnk} />
                   </View>
                   <View style={s.gridItem}>
                     <Text style={s.miniLabel}>PNBP TNKB</Text>
-                    <TextInput 
-                      style={s.smallInput} 
-                      keyboardType="number-pad" 
-                      placeholder="0"
-                      placeholderTextColor="rgba(255,255,255,0.2)"
-                      value={pnbpTnkb === "0" ? "" : pnbpTnkb} 
-                      onChangeText={setPnbpTnkb} 
-                    />
+                    <TextInput style={s.smallInput} keyboardType="number-pad" placeholder="0" placeholderTextColor="rgba(255,255,255,0.2)" value={pnbpTnkb === "0" ? "" : pnbpTnkb} onChangeText={setPnbpTnkb} />
                   </View>
                 </>
               )}
             </View>
 
-            {/* Subtotal Bagian Pajak */}
             <View style={s.rowSubtotal}>
               <Text style={s.subtotalLabel}>Subtotal Pajak:</Text>
               <Text style={s.subtotalVal}>{formatRupiah(subtotalPajak)}</Text>
             </View>
 
-            {/* Biaya Eksternal Opsional */}
             <Text style={s.sectionHeader}>⚙️ BIAYA LAINNYA (OPSIONAL)</Text>
             <View style={s.grid2Col}>
               <View style={s.gridItem}>
                 <Text style={s.miniLabel}>Biaya Pengiriman</Text>
-                <TextInput 
-                  style={s.smallInput} 
-                  keyboardType="number-pad" 
-                  placeholder="0"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={biayaPengiriman === "0" ? "" : biayaPengiriman} 
-                  onChangeText={setBiayaPengiriman} 
-                />
+                <TextInput style={s.smallInput} keyboardType="number-pad" placeholder="0" placeholderTextColor="rgba(255,255,255,0.2)" value={biayaPengiriman === "0" ? "" : biayaPengiriman} onChangeText={setBiayaPengiriman} />
               </View>
               <View style={s.gridItem}>
                 <Text style={s.miniLabel}>Biaya Pemrosesan / Jasa</Text>
-                <TextInput 
-                  style={s.smallInput} 
-                  keyboardType="number-pad" 
-                  placeholder="0"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={biayaPemrosesan === "0" ? "" : biayaPemrosesan} 
-                  onChangeText={setBiayaPemrosesan} 
-                />
+                <TextInput style={s.smallInput} keyboardType="number-pad" placeholder="0" placeholderTextColor="rgba(255,255,255,0.2)" value={biayaPemrosesan === "0" ? "" : biayaPemrosesan} onChangeText={setBiayaPemrosesan} />
               </View>
             </View>
 
@@ -500,17 +342,14 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
               <Text style={s.subtotalVal}>{formatRupiah(subtotalBiayaLainnya)}</Text>
             </View>
 
-            {/* Tambahan Kolom Catatan */}
             <Text style={s.miniLabel}>DESKRIPSI / CATATAN TAMBAHAN</Text>
             <TextInput style={[s.smallInput, { height: 40, textAlignVertical: "top" }]} multiline placeholder="Contoh: Pembayaran via e-Samsat..." placeholderTextColor="rgba(255,255,255,0.2)" value={deskripsi} onChangeText={setDeskripsi} />
 
-            {/* Total Highlight Utama */}
             <View style={s.totalHighlightContainer}>
               <Text style={s.totalLabel}>TOTAL PEMBAYARAN AKHIR</Text>
               <Text style={s.totalAmount}>{formatRupiah(totalPembayaran)}</Text>
             </View>
 
-            {/* Multi Document Picker Uploader Button */}
             <TouchableOpacity onPress={handlePickDocuments} style={s.uploadBtn}>
               <Text style={s.uploadBtnText}>📎 Upload Dokumen Bukti (Gambar / PDF)</Text>
             </TouchableOpacity>
@@ -522,7 +361,14 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
               </View>
             )}
 
-            {/* Tombol Simpan Aksi */}
+            {processMsg !== "" && (
+              <View style={{ backgroundColor: processMsg.includes("❌") ? 'rgba(255,82,82,0.1)' : 'rgba(78,205,196,0.1)', padding: 12, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: processMsg.includes("❌") ? '#FF5252' : '#4ECDC4' }}>
+                <Text style={{ color: processMsg.includes("❌") ? '#FF5252' : '#4ECDC4', fontSize: 11, textAlign: 'center', fontWeight: 'bold' }}>
+                  {processMsg}
+                </Text>
+              </View>
+            )}
+
             <TouchableOpacity onPress={handleSave} disabled={loading} style={s.saveBtn}>
               {loading ? <ActivityIndicator color="#0A1118" /> : <Text style={s.saveBtnText}>Simpan Riwayat Pajak</Text>}
             </TouchableOpacity>
