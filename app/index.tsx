@@ -289,6 +289,9 @@ function AppContent() {
   // 🚀 STATE UNTUK ADVANCED SEARCH & MODE PENGGUNAAN
   const [appMode, setAppMode] = useState<'basic' | 'advance'>('basic');
 
+  // ====================================================================
+  // 🚀 OPTIMASI HP KENTANG (TAHAP 1): Debounce Engine State Pencarian
+  // ====================================================================
   const [hideFuelStats, setHideFuelStats] = useState(false);
   const [statsResetDate, setStatsResetDate] = useState<string | null>(null);
 
@@ -297,11 +300,39 @@ function AppContent() {
     setHideFuelStats(newVal);
     AsyncStorage.setItem('garasi_hide_fuel_stats', newVal ? 'true' : 'false');
   };
-  
-  // State Search History Service
+
   const [searchQuery, setSearchQuery] = useState('');
+  const [fuelSearchQuery, setFuelSearchQuery] = useState('');
+
+  // State internal untuk kalkulasi filter (Mencegah patah-patah saat mengetik)
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [debouncedFuelSearchQuery, setDebouncedFuelSearchQuery] = useState('');
+
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [hideSearch, setHideSearch] = useState(false);
+  const [recentFuelSearches, setRecentFuelSearches] = useState<string[]>([]);
+  const [fuelFilter, setFuelFilter] = useState<string>('all');
+  const [fuelCustomStart, setFuelCustomStart] = useState('');
+  const [fuelCustomEnd, setFuelCustomEnd] = useState('');
+  const [historyFilter, setHistoryFilter] = useState<string>('all');
+  const [historyCustomStart, setHistoryCustomStart] = useState('');
+  const [historyCustomEnd, setHistoryCustomEnd] = useState('');
+
+  // Beri jeda 400ms setelah user berhenti mengetik baru jalankan filter servis
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Beri jeda 400ms setelah user berhenti mengetik baru jalankan filter bensin
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedFuelSearchQuery(fuelSearchQuery);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [fuelSearchQuery]);
 
   // --- LOGIKA HIDE/SHOW SEARCH ---
   useEffect(() => {
@@ -315,17 +346,8 @@ function AppContent() {
     setHideSearch(newVal);
     AsyncStorage.setItem('garasi_hide_search', newVal ? 'true' : 'false');
   };
-  
-  // 🚀 STATE SEARCH FUEL BARU
-  const [fuelSearchQuery, setFuelSearchQuery] = useState('');
-  const [recentFuelSearches, setRecentFuelSearches] = useState<string[]>([]);
-  const [fuelFilter, setFuelFilter] = useState<string>('all');
-  const [fuelCustomStart, setFuelCustomStart] = useState('');
-  const [fuelCustomEnd, setFuelCustomEnd] = useState('');
-  // 🚀 STATE FILTER HISTORY BARU
-  const [historyFilter, setHistoryFilter] = useState<string>('all');
-  const [historyCustomStart, setHistoryCustomStart] = useState('');
-  const [historyCustomEnd, setHistoryCustomEnd] = useState('');
+  // ====================================================================
+
   // --- STATE UNTUK NAMA GARASI CUSTOM ---
   const [appName, setAppName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
@@ -410,11 +432,12 @@ function AppContent() {
     }
   }, [activeTab]);
 
-  // 🚀 FUNGSI EXECUTE PENCARIAN & HAPUS
+// 🚀 VERSI OPTIMASI: Pemicu Instan Melewati Batas Waktu Jeda Ketikan
   const executeSearch = (query: string, type: 'service' | 'fuel') => {
     const q = query.trim();
     if (type === 'service') {
       setSearchQuery(q);
+      setDebouncedSearchQuery(q); // Override instan data
       if (q !== '' && !recentSearches.includes(q)) {
         const newRecents = [q, ...recentSearches].slice(0, 5);
         setRecentSearches(newRecents);
@@ -422,6 +445,7 @@ function AppContent() {
       }
     } else {
       setFuelSearchQuery(q);
+      setDebouncedFuelSearchQuery(q); // Override instan data
       if (q !== '' && !recentFuelSearches.includes(q)) {
         const newRecents = [q, ...recentFuelSearches].slice(0, 5);
         setRecentFuelSearches(newRecents);
@@ -1288,18 +1312,19 @@ const handleBackupExport = async () => {
     }
   };
 
-  // 🚀 ENGINE SMART SEARCH & FILTER UNTUK HISTORY
+  // ====================================================================
+  // 🚀 OPTIMASI HP KENTANG (TAHAP 2): Engine Pencarian Debounced Anti-Lag
+  // ====================================================================
   const filteredHistory = stats.vehicleRepairs.filter(r => {
-    // 1. Filter dari Search Bar
-    if (searchQuery.trim() !== '') {
-      const q = searchQuery.toLowerCase();
+    // Membaca debouncedSearchQuery (bukan searchQuery mentah), menyaring data tanpa memicu patah-patah
+    if (debouncedSearchQuery.trim() !== '') {
+      const q = debouncedSearchQuery.toLowerCase();
       const matchTitle = (r.serviceType || '').toLowerCase().includes(q);
       const matchNotes = (r.notes || '').toLowerCase().includes(q);
       const matchWorkshop = (r.workshop || '').toLowerCase().includes(q);
       if (!matchTitle && !matchNotes && !matchWorkshop) return false;
     }
 
-    // 2. Filter dari Tanggal
     const d = new Date(r.date);
     const now = new Date();
 
@@ -1317,18 +1342,16 @@ const handleBackupExport = async () => {
     return true;
   });
 
-  // 🚀 ENGINE SMART SEARCH & FILTER UNTUK BBM
   const filteredFuel = stats.vehicleFuelEntries.filter(f => {
-    // 1. Filter dari Search Bar
-    if (fuelSearchQuery.trim() !== '') {
-      const q = fuelSearchQuery.toLowerCase();
+    // Membaca debouncedFuelSearchQuery, mengamankan pembacaan lintas nama kolom SQL (fuelType & fuel_type)
+    if (debouncedFuelSearchQuery.trim() !== '') {
+      const q = debouncedFuelSearchQuery.toLowerCase();
       const matchNotes = (f.notes || '').toLowerCase().includes(q);
-      const matchType = (f.fuelType || '').toLowerCase().includes(q);
-      const matchSpbu = (f.station || '').toLowerCase().includes(q); 
+      const matchType = (f.fuelType || f.fuel_type || '').toLowerCase().includes(q);
+      const matchSpbu = (f.station || f.station || '').toLowerCase().includes(q); 
       if (!matchNotes && !matchType && !matchSpbu) return false;
     }
 
-    // 2. Filter dari Tanggal
     const d = new Date(f.date);
     const now = new Date();
 
@@ -1347,6 +1370,7 @@ const handleBackupExport = async () => {
   });
 
   const finalFuelData = filteredFuel;
+  // ====================================================================
 
   const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
 
@@ -2260,257 +2284,257 @@ const handleBackupExport = async () => {
         )}
 
       </View>
-      {/* MODALS SECTION */}
-      <AddRepairSheet
-        visible={showAddSheet}
-        vehicleId={selectedVehicleId}
-        currentOdometer={stats.autoLatestOdometer > 0 ? stats.autoLatestOdometer : (stats.selectedVehicle?.currentOdometer || 0)}
-        vehicleType={stats.selectedVehicle?.vehicleType}
-        prefillServiceType={prefillServiceType}
-        editEntry={editingRepair}
-        isHistoryMode={saveToHistoryOnly}
-        isServiceTypeLocked={!saveToHistoryOnly}
-        onClose={() => {
-          setShowAddSheet(false);
-          setEditingRepair(null);
-          setPrefillServiceType(undefined);
-        }}
-        onSave={async (formData) => {
-          const vId = selectedVehicleId;
-          const isEdit = editingRepair && editingRepair.id && !editingRepair.id.includes("temp");
-          const targetRepairId = isEdit ? editingRepair.id : `rep${Date.now()}`;
+      {/* ==================================================================== */}
+      {/* 🚀 OPTIMASI HP KENTANG (TAHAP 3): Dinamis Render untuk Menghemat RAM */}
+      {/* ==================================================================== */}
+      {showAddSheet && (
+        <AddRepairSheet
+          visible={showAddSheet}
+          vehicleId={selectedVehicleId}
+          currentOdometer={stats.autoLatestOdometer > 0 ? stats.autoLatestOdometer : (stats.selectedVehicle?.currentOdometer || 0)}
+          vehicleType={stats.selectedVehicle?.vehicleType}
+          prefillServiceType={prefillServiceType}
+          editEntry={editingRepair}
+          isHistoryMode={saveToHistoryOnly}
+          isServiceTypeLocked={!saveToHistoryOnly}
+          onClose={() => {
+            setShowAddSheet(false);
+            setEditingRepair(null);
+            setPrefillServiceType(undefined);
+          }}
+          onSave={async (formData) => {
+            const vId = selectedVehicleId;
+            const isEdit = editingRepair && editingRepair.id && !editingRepair.id.includes("temp");
+            const targetRepairId = isEdit ? editingRepair.id : `rep${Date.now()}`;
 
-          const newRepair: RepairEntry = {
-            ...formData,
-            id: targetRepairId,
-            vehicleId: vId,
-            date: formData.date || new Date().toISOString().split("T")[0],
-          };
+            const newRepair: RepairEntry = {
+              ...formData,
+              id: targetRepairId,
+              vehicleId: vId,
+              date: formData.date || new Date().toISOString().split("T")[0],
+            };
 
-          // 1. Eksekusi Mutasi State RAM Utama
-          if (isEdit) {
-            setRepairs((prev) => prev.map((r) => (r.id === editingRepair.id ? newRepair : r)));
-          } else {
-            setRepairs((prev) => [newRepair, ...prev]);
-          }
-
-          if (!saveToHistoryOnly) {
-            setReminders((prev) =>
-              prev.map((rem) => {
-                const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
-                if (isMatch && rem.vehicleId === vId) {
-                  const odo = Number(formData.odometer);
-                  const interval = Number(formData.nextIntervalKm) || 10000;
-                  return {
-                    ...rem,
-                    lastServiceOdometer: odo,
-                    dueOdometer: odo + interval,
-                    intervalKm: interval,
-                    status: "safe",
-                    lastServiceDate: new Date().toISOString(),
-                  };
-                }
-                return rem;
-              })
-            );
-          }
-
-          // 2. JALUR HYBRID CLOUD SYNC & FALLBACK OFFLINE STORAGE
-          try {
-            const currentMode = await AsyncStorage.getItem('garasiku_app_mode');
-            if (currentMode === 'online') {
-              console.log("☁️ Mode Online: Mengirim data transaksi servis ke server cloud Supabase...");
-              const { data: authData } = await supabase.auth.getUser();
-              if (authData?.user) {
-                const cloudPayload = {
-                  id: newRepair.id,
-                  vehicle_id: newRepair.vehicleId,
-                  user_id: authData.user.id,
-                  service_type: formData.serviceType,
-                  date: newRepair.date,
-                  odometer: Number(formData.odometer),
-                  cost: Number(formData.cost),
-                  workshop: formData.workshop || "",
-                  notes: formData.notes || "",
-                  next_interval_km: Number(formData.nextIntervalKm) || 10000
-                };
-
-                const { error: cloudErr } = isEdit
-                  ? await supabase.from('repairs').update(cloudPayload).eq('id', editingRepair.id)
-                  : await supabase.from('repairs').insert(cloudPayload);
-
-                if (cloudErr) throw cloudErr;
-              }
-            }
-          } catch (err: any) {
-            console.error("⚠️ Gagal sinkronisasi cloud servis, mencadangkan ke lokal:", err.message);
-          }
-
-          // 🗄️ FALLBACK ASYNCSTORAGE
-          try {
-            const currentLocalRepairs = await AsyncStorage.getItem('garasi_repairs');
-            let localRepairsList = currentLocalRepairs ? JSON.parse(currentLocalRepairs) : [];
+            // 1. Eksekusi Mutasi State RAM Utama
             if (isEdit) {
-              localRepairsList = localRepairsList.map((r: any) => r.id === editingRepair.id ? newRepair : r);
+              setRepairs((prev) => prev.map((r) => (r.id === editingRepair.id ? newRepair : r)));
             } else {
-              localRepairsList.unshift(newRepair);
+              setRepairs((prev) => [newRepair, ...prev]);
             }
-            await AsyncStorage.setItem('garasi_repairs', JSON.stringify(localRepairsList));
-          } catch (localErr) {
-            console.error("Gagal menulis ke AsyncStorage:", localErr);
-          }
 
-          addNotification(
-            isEdit ? 'UPDATE' : 'ADD',
-            lang === "id" ? (isEdit ? "Servis Diperbarui" : "Servis Ditambahkan") : (isEdit ? "Service Updated" : "Service Added"),
-            `Mencatat [${formData.serviceType}] pada Odo: ${Number(formData.odometer).toLocaleString("id-ID")} km.`,
-            "vehicle",
-            vId
-          );
+            if (!saveToHistoryOnly) {
+              setReminders((prev) =>
+                prev.map((rem) => {
+                  const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
+                  if (isMatch && rem.vehicleId === vId) {
+                    const odo = Number(formData.odometer);
+                    const interval = Number(formData.nextIntervalKm) || 10000;
+                    return {
+                      ...rem,
+                      lastServiceOdometer: odo,
+                      dueOdometer: odo + interval,
+                      intervalKm: interval,
+                      status: "safe",
+                      lastServiceDate: new Date().toISOString(),
+                    };
+                  }
+                  return rem;
+                })
+              );
+            }
 
-          if (Platform.OS === 'web') {
-            window.alert(lang === "id" ? "✅ Data servis berhasil disimpan!" : "✅ Service data successfully saved!");
-          } else {
-            Alert.alert("Sukses", lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
-          }
+            // 2. JALUR HYBRID CLOUD SYNC & FALLBACK OFFLINE STORAGE
+            try {
+              const currentMode = await AsyncStorage.getItem('garasiku_app_mode');
+              if (currentMode === 'online') {
+                console.log("☁️ Mode Online: Mengirim data transaksi servis ke server cloud Supabase...");
+                const { data: authData } = await supabase.auth.getUser();
+                if (authData?.user) {
+                  const cloudPayload = {
+                    id: newRepair.id,
+                    vehicle_id: newRepair.vehicleId,
+                    user_id: authData.user.id,
+                    service_type: formData.serviceType,
+                    date: newRepair.date,
+                    odometer: Number(formData.odometer),
+                    cost: Number(formData.cost),
+                    workshop: formData.workshop || "",
+                    notes: formData.notes || "",
+                    next_interval_km: Number(formData.nextIntervalKm) || 10000
+                  };
 
-          setShowAddSheet(false);
-          setEditingRepair(null);
-          setPrefillServiceType(undefined);
-          if (typeof refreshData === "function") refreshData();
-        }}
-      />
+                  const { error: cloudErr } = isEdit
+                    ? await supabase.from('repairs').update(cloudPayload).eq('id', editingRepair.id)
+                    : await supabase.from('repairs').insert(cloudPayload);
 
-      <FuelSheet
-        visible={showFuelSheet}
-        vehicleId={selectedVehicleId}
-        currentOdometer={stats.autoLatestOdometer > 0 ? stats.autoLatestOdometer : (stats.selectedVehicle?.currentOdometer || 0)}
-        tankCapacity={stats.selectedVehicle?.tankCapacity}
-        editEntry={editingFuel}
-        onClose={() => {
-          setShowFuelSheet(false);
-          setEditingFuel(null);
-        }}
-        onDelete={(id) => {
-          const deletedFuel = stats.vehicleFuelEntries.find((f) => f.id === id);
-          setFuelEntries((prev) => prev.filter((f) => f.id !== id));
+                  if (cloudErr) throw cloudErr;
+                }
+              }
+            } catch (err: any) {
+              console.error("⚠️ Gagal sinkronisasi cloud servis, mencadangkan ke lokal:", err.message);
+            }
 
-          if (deletedFuel) {
+            // 🗄️ FALLBACK ASYNCSTORAGE
+            try {
+              const currentLocalRepairs = await AsyncStorage.getItem('garasi_repairs');
+              let localRepairsList = currentLocalRepairs ? JSON.parse(currentLocalRepairs) : [];
+              if (isEdit) {
+                localRepairsList = localRepairsList.map((r: any) => r.id === editingRepair.id ? newRepair : r);
+              } else {
+                localRepairsList.unshift(newRepair);
+              }
+              await AsyncStorage.setItem('garasi_repairs', JSON.stringify(localRepairsList));
+            } catch (localErr) {
+              console.error("Gagal menulis ke AsyncStorage:", localErr);
+            }
+
             addNotification(
-              lang === "id" ? "Catatan Bensin Dihapus" : "Fuel Record Deleted",
-              `Menghapus data bensin ${deletedFuel.liters}L pada Odo: ${deletedFuel.odometer.toLocaleString(
-                "id-ID"
-              )} km.`,
+              isEdit ? 'UPDATE' : 'ADD',
+              lang === "id" ? (isEdit ? "Servis Diperbarui" : "Servis Ditambahkan") : (isEdit ? "Service Updated" : "Service Added"),
+              `Mencatat [${formData.serviceType}] pada Odo: ${Number(formData.odometer).toLocaleString("id-ID")} km.`,
+              "vehicle",
+              vId
+            );
+
+            if (Platform.OS === 'web') {
+              window.alert(lang === "id" ? "✅ Data servis berhasil disimpan!" : "✅ Service data successfully saved!");
+            } else {
+              Alert.alert("Sukses", lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
+            }
+
+            setShowAddSheet(false);
+            setEditingRepair(null);
+            setPrefillServiceType(undefined);
+            if (typeof refreshData === "function") refreshData();
+          }}
+        />
+      )}
+
+      {showFuelSheet && (
+        <FuelSheet
+          visible={showFuelSheet}
+          vehicleId={selectedVehicleId}
+          currentOdometer={stats.autoLatestOdometer > 0 ? stats.autoLatestOdometer : (stats.selectedVehicle?.currentOdometer || 0)}
+          tankCapacity={stats.selectedVehicle?.tankCapacity}
+          editEntry={editingFuel}
+          onClose={() => {
+            setShowFuelSheet(false);
+            setEditingFuel(null);
+          }}
+          onDelete={(id) => {
+            const deletedFuel = stats.vehicleFuelEntries.find((f) => f.id === id);
+            setFuelEntries((prev) => prev.filter((f) => f.id !== id));
+
+            if (deletedFuel) {
+              addNotification(
+                lang === "id" ? "Catatan Bensin Dihapus" : "Fuel Record Deleted",
+                `Menghapus data bensin ${deletedFuel.liters}L pada Odo: ${deletedFuel.odometer.toLocaleString(
+                  "id-ID"
+                )} km.`,
+                "vehicle",
+                selectedVehicleId
+              );
+            }
+
+            setShowFuelSheet(false);
+            setEditingFuel(null);
+          }}
+          onSave={async (entry) => {
+            const isEdit = editingFuel && editingFuel.id;
+            const targetFuelId = isEdit ? editingFuel.id : `fe${Date.now()}`;
+            
+            const fullFuelEntry: FuelEntry = {
+              ...entry,
+              id: targetFuelId,
+              vehicleId: selectedVehicleId
+            };
+
+            // 1. Eksekusi Mutasi State RAM Utama
+            if (isEdit) {
+              setFuelEntries((prev) => prev.map((f) => (f.id === editingFuel.id ? fullFuelEntry : f)));
+            } else {
+              setFuelEntries((prev) => [...prev, fullFuelEntry]);
+            }
+
+            // 2. JALUR HYBRID CLOUD SYNC & FALLBACK OFFLINE STORAGE
+            try {
+              const currentMode = await AsyncStorage.getItem('garasiku_app_mode');
+              
+              if (currentMode === 'online') {
+                console.log("☁️ Mode Online: Mengirim data log BBM ke server cloud Supabase...");
+                const { data: authData } = await supabase.auth.getUser();
+                
+                if (authData?.user) {
+                  // Jalur kondisional uploader foto fisik sejati
+                  let cloudPhotoUrl = fullFuelEntry.receiptPhoto;
+                  if (cloudPhotoUrl && (cloudPhotoUrl.startsWith('file://') || cloudPhotoUrl.startsWith('blob:'))) {
+                    console.log("📸 Mendeteksi foto lokal, memulai unggah ke cloud storage...");
+                    const uploadedUrl = await uploadFileToSupabase(cloudPhotoUrl, 'tax_proofs', authData.user.id);
+                    if (uploadedUrl) {
+                      cloudPhotoUrl = uploadedUrl;
+                      fullFuelEntry.receiptPhoto = uploadedUrl;
+                    }
+                  }
+
+                  const fuelPayload = {
+                    id: fullFuelEntry.id,
+                    vehicleId: fullFuelEntry.vehicleId, 
+                    date: fullFuelEntry.date,
+                    liters: parseFloat(fullFuelEntry.liters as any),
+                    pricePerLiter: parseInt(fullFuelEntry.pricePerLiter as any, 10), 
+                    totalCost: parseInt(fullFuelEntry.totalCost as any, 10), 
+                    odometer: parseInt(fullFuelEntry.odometer as any, 10),
+                    fuelType: fullFuelEntry.fuelType || "", 
+                    notes: fullFuelEntry.notes || "",
+                    receiptPhoto: cloudPhotoUrl 
+                  };
+
+                  const { error: fuelCloudErr } = isEdit
+                    ? await supabase.from('fuels').update(fuelPayload).eq('id', editingFuel.id)
+                    : await supabase.from('fuels').insert(fuelPayload);
+
+                  if (fuelCloudErr) throw fuelCloudErr;
+                  console.log("✅ Berhasil mengamankan log pengisian BBM beserta foto ke cloud.");
+                }
+              }
+            } catch (fuelErr: any) {
+              console.error("⚠️ Gagal sinkronisasi cloud bensin, beralih cadangan:", fuelErr.message);
+            }
+
+            // 🗄️ FALLBACK ASYNCSTORAGE
+            try {
+              const currentLocalFuels = await AsyncStorage.getItem('garasi_fuel_entries');
+              let localFuelsList = currentLocalFuels ? JSON.parse(currentLocalFuels) : [];
+              
+              if (isEdit) {
+                localFuelsList = localFuelsList.map((f: any) => f.id === editingFuel.id ? fullFuelEntry : f);
+              } else {
+                localFuelsList.unshift(fullFuelEntry);
+              }
+              await AsyncStorage.setItem('garasi_fuel_entries', JSON.stringify(localFuelsList));
+            } catch (localFuelErr) {
+              console.error("Gagal menulis log bensin ke AsyncStorage:", localFuelErr);
+            }
+
+            addNotification(
+              isEdit ? 'UPDATE' : 'ADD',
+              lang === "id" ? (isEdit ? "Catatan Bensin Diperbarui" : "Bensin Ditambahkan") : (isEdit ? "Fuel Record Updated" : "Fuel Added"),
+              `Mengisi ${entry.liters}L pada Odo: ${Number(entry.odometer).toLocaleString("id-ID")} km.`,
               "vehicle",
               selectedVehicleId
             );
-          }
 
-          setShowFuelSheet(false);
-          setEditingFuel(null);
-        }}
-        onSave={async (entry) => {
-          const isEdit = editingFuel && editingFuel.id;
-          const targetFuelId = isEdit ? editingFuel.id : `fe${Date.now()}`;
-          
-          const fullFuelEntry: FuelEntry = {
-            ...entry,
-            id: targetFuelId,
-            vehicleId: selectedVehicleId
-          };
-
-          // 1. Eksekusi Mutasi State RAM Utama
-          if (isEdit) {
-            setFuelEntries((prev) => prev.map((f) => (f.id === editingFuel.id ? fullFuelEntry : f)));
-          } else {
-            setFuelEntries((prev) => [...prev, fullFuelEntry]);
-          }
-
-          // 2. 🚀 JALUR HYBRID CLOUD SYNC & FALLBACK OFFLINE STORAGE
-          try {
-            const currentMode = await AsyncStorage.getItem('garasiku_app_mode');
-            
-            if (currentMode === 'online') {
-              console.log("☁️ Mode Online: Mengirim data log BBM ke server cloud Supabase...");
-              const { data: authData } = await supabase.auth.getUser();
-              
-              if (authData?.user) {
-                
-                // 📸 ── UBAH MULAI DARI SINI ──
-                // Jalur kondisional: Jika berkas berupa file lokal internal hp, konversi menjadi URL Supabase Storage
-                let cloudPhotoUrl = fullFuelEntry.receiptPhoto;
-                if (cloudPhotoUrl && (cloudPhotoUrl.startsWith('file://') || cloudPhotoUrl.startsWith('blob:'))) {
-                  console.log("📸 Mendeteksi foto lokal, memulai unggah ke cloud storage...");
-                  const uploadedUrl = await uploadFileToSupabase(cloudPhotoUrl, 'tax_proofs', authData.user.id);
-                  if (uploadedUrl) {
-                    cloudPhotoUrl = uploadedUrl;
-                    // SINKRONISASI KEMBALI KE STATE LOKAL: Perbarui jalur gambar lokal di memori utama dengan URL Cloud sejati
-                    fullFuelEntry.receiptPhoto = uploadedUrl;
-                  }
-                }
-
-                // Susun ulang payload dengan menyertakan tautan gambar sejati hasil konversi
-                const fuelPayload = {
-                  id: fullFuelEntry.id,
-                  vehicleId: fullFuelEntry.vehicleId, 
-                  date: fullFuelEntry.date,
-                  liters: parseFloat(fullFuelEntry.liters as any),
-                  pricePerLiter: parseInt(fullFuelEntry.pricePerLiter as any, 10), 
-                  totalCost: parseInt(fullFuelEntry.totalCost as any, 10), 
-                  odometer: parseInt(fullFuelEntry.odometer as any, 10),
-                  fuelType: fullFuelEntry.fuelType || "", 
-                  notes: fullFuelEntry.notes || "",
-                  receiptPhoto: cloudPhotoUrl // 🔥 Link internet sejati resmi mendarat aman di SQL Database Anda!
-                };
-                // ── SELESAI UBAH DI SINI ──
-
-                const { error: fuelCloudErr } = isEdit
-                  ? await supabase.from('fuels').update(fuelPayload).eq('id', editingFuel.id)
-                  : await supabase.from('fuels').insert(fuelPayload);
-
-                if (fuelCloudErr) throw fuelCloudErr;
-                console.log("✅ Berhasil mengamankan log pengisian BBM beserta foto ke cloud.");
-              }
-            }
-          } catch (fuelErr: any) {
-            console.error("⚠️ Gagal sinkronisasi cloud bensin, beralih cadangan:", fuelErr.message);
-          }
-
-          // 🗄️ FALLBACK ASYNCSTORAGE
-          try {
-            const currentLocalFuels = await AsyncStorage.getItem('garasi_fuel_entries');
-            let localFuelsList = currentLocalFuels ? JSON.parse(currentLocalFuels) : [];
-            
-            if (isEdit) {
-              localFuelsList = localFuelsList.map((f: any) => f.id === editingFuel.id ? fullFuelEntry : f);
+            if (Platform.OS === 'web') {
+              window.alert(lang === "id" ? "✅ Catatan bensin berhasil disimpan!" : "✅ Fuel log saved successfully!");
             } else {
-              localFuelsList.unshift(fullFuelEntry);
+              Alert.alert("Sukses", lang === "id" ? "Catatan bensin berhasil disimpan!" : "Fuel log saved successfully!");
             }
-            await AsyncStorage.setItem('garasi_fuel_entries', JSON.stringify(localFuelsList));
-          } catch (localFuelErr) {
-            console.error("Gagal menulis log bensin ke AsyncStorage:", localFuelErr);
-          }
 
-          // Notifikasi dan penutupan modal...
-          addNotification(
-            isEdit ? 'UPDATE' : 'ADD',
-            lang === "id" ? (isEdit ? "Catatan Bensin Diperbarui" : "Bensin Ditambahkan") : (isEdit ? "Fuel Record Updated" : "Fuel Added"),
-            `Mengisi ${entry.liters}L pada Odo: ${Number(entry.odometer).toLocaleString("id-ID")} km.`,
-            "vehicle",
-            selectedVehicleId
-          );
-
-          if (Platform.OS === 'web') {
-            window.alert(lang === "id" ? "✅ Catatan bensin berhasil disimpan!" : "✅ Fuel log saved successfully!");
-          } else {
-            Alert.alert("Sukses", lang === "id" ? "Catatan bensin berhasil disimpan!" : "Fuel log saved successfully!");
-          }
-
-          setShowFuelSheet(false);
-          setEditingFuel(null);
-          if (typeof refreshData === "function") refreshData();
-        }}
-      />
+            setShowFuelSheet(false);
+            setEditingFuel(null);
+            if (typeof refreshData === "function") refreshData();
+          }}
+        />
+      )}
       <VehicleEditModal
         visible={showVehicleModal}
         vehicle={editingVehicle}
@@ -3056,15 +3080,6 @@ const handleBackupExport = async () => {
         onSelectVolume={setVolumeUnit}
       />
 
-      <NotifCenter
-        visible={showNotifModal}
-        onClose={() => setShowNotifModal(false)}
-        notifications={notifications}
-        onMarkAsRead={(id) =>
-          setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
-        }
-        onMarkAllAsRead={() => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
-        onDelete={(id) => setNotifications((prev) => prev.filter((n) => n.id !== id))} />
       <PremiumPurchaseModal
         visible={premiumModalVisible}
         prefillFeature={activePrefillFeature}
@@ -3080,6 +3095,18 @@ const handleBackupExport = async () => {
           vehicle={stats.selectedVehicle} 
         />
       )}
+
+      {showNotifModal && (
+        <NotifCenter
+          visible={showNotifModal}
+          onClose={() => setShowNotifModal(false)}
+          notifications={notifications}
+          onMarkAsRead={(id) => setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))}
+          onMarkAllAsRead={() => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
+          onDelete={(id) => setNotifications((prev) => prev.filter((n) => n.id !== id))} 
+        />
+      )}
+      
     </View>
   );
 }
