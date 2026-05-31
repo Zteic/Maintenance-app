@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePremium } from '@/context/PremiumContext';
 import { useRouter } from 'expo-router';
+import { supabase } from '@/utils/supabaseClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface PremiumModalProps {
@@ -28,52 +29,85 @@ export default function PremiumPurchaseModal({ visible, onClose, prefillFeature 
   ];
 
   const handleUpgrade = async () => {
-    // 🔒 1. CEGAH TRANSAKSI JIKA BELUM LOGIN CLOUD
-    const currentMode = await AsyncStorage.getItem('garasiku_app_mode');
-    
-    if (currentMode === 'local') {
-      Alert.alert(
-        "Akses Ditolak", 
-        "Untuk mengamankan pembelian Premium Lifetime Anda seumur hidup, silakan Login atau Daftar akun Cloud terlebih dahulu.",
-        [
-          { text: "Nanti Saja", style: "cancel" },
-          { 
-            text: "Login / Daftar", 
-            onPress: () => {
-              onClose(); // Tutup modal premiumnya dulu
-              // Jeda sejenak agar modal tertutup mulus sebelum pindah halaman
-              setTimeout(() => {
-                router.push('/auth/login');
-              }, 150);
-            }
-          }
-        ]
-      );
-      return; // Hentikan eksekusi, jangan lanjut ke proses pembayaran
-    }
+    try {
+      // 🚀 1. Tarik session & user secara eksplisit untuk bypass cache browser web
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { user } } = await supabase.auth.getUser();
 
-    // 🔓 2. JIKA SUDAH LOGIN, LANJUTKAN PROSES PEMBAYARAN
-    setLoading(true);
-    const success = await upgradeToPremium();
-    setLoading(false);
-    if (success) {
-      alert('Selamat! Akun Anda kini aktif sebagai PREMIUM LIFETIME.');
-      onClose();
-    } else {
-      alert('Proses transaksi dibatalkan atau gagal.');
+      // 🔒 AMAN UNTUK WEB TEMPO: Cek apakah user benar-benar bernilai null atau undefined
+      if (!session || !user || !user.id) {
+        
+        // Gunakan window.alert jika diakses via Web Browser agar tidak memblokir UI thread
+        if (Platform.OS === 'web') {
+          window.alert("Akses Ditolak: Untuk mengamankan pembelian Premium Lifetime Anda seumur hidup pada server cloud, silakan Login atau Daftar akun terlebih dahulu.");
+          onClose(); // Tutup modal premium
+          
+          // Redirect instan menggunakan router expo
+          router.push('/auth/login');
+          return; // Hentikan eksekusi total
+        }
+
+        // 📱 Fallback Alert UI untuk platform Mobile (Android/iOS)
+        Alert.alert(
+          "Akses Ditolak", 
+          "Untuk mengamankan pembelian Premium Lifetime Anda seumur hidup pada server cloud, silakan Login atau Daftar akun terlebih dahulu.",
+          [
+            { text: "Nanti Saja", style: "cancel" },
+            { 
+              text: "Login / Daftar", 
+              onPress: () => {
+                onClose();
+                setTimeout(() => {
+                  router.push('/auth/login');
+                }, 150);
+              }
+            }
+          ]
+        );
+        return; // Hentikan eksekusi
+      }
+
+      // 🔓 2. JIKA USER CLOUD VALID & AKTIF, LANJUTKAN TRANSAKSI
+      setLoading(true);
+      const success = await upgradeToPremium();
+      setLoading(false);
+      
+      if (success) {
+        if (Platform.OS === 'web') {
+          window.alert('Sukses! Selamat! Akun cloud Anda kini aktif sebagai PREMIUM LIFETIME.');
+        } else {
+          Alert.alert('Sukses!', 'Selamat! Akun cloud Anda kini aktif sebagai PREMIUM LIFETIME.');
+        }
+        onClose();
+      } else {
+        if (Platform.OS === 'web') {
+          window.alert('Gagal: Proses transaksi dibatalkan atau terjadi kesalahan pada server.');
+        } else {
+          Alert.alert('Gagal', 'Proses transaksi dibatalkan atau terjadi kesalahan pada server.');
+        }
+      }
+
+    } catch (err) {
+      setLoading(false);
+      console.error("Error checking auth status before payment:", err);
+      if (Platform.OS === 'web') {
+        window.alert("Error: Terjadi kesalahan koneksi sistem saat memproses gerbang pembayaran.");
+      } else {
+        Alert.alert("Error", "Terjadi kesalahan koneksi sistem saat memproses gerbang pembayaran.");
+      }
     }
   };
 
   const handleRestore = async () => {
     setRestoreLoading(true);
-    const success = await restorePurchase();
-    setRestoreLoading(false);
-    if (success) {
-      alert('Pembelian berhasil dipulihkan! Status PREMIUM LIFETIME aktif kembali.');
-      onClose();
-    } else {
-      alert('Tidak ditemukan riwayat pembelian untuk akun ini.');
+    // Jalankan mesin validasi data ulang ke tabel profiles Supabase kamu
+    const { refreshMembership } = usePremium() as any; 
+    if (typeof refreshMembership === 'function') {
+      await refreshMembership();
     }
+    setRestoreLoading(false);
+    Alert.alert('Sinkronisasi Berhasil', 'Status keanggotaan terbaru Anda telah disegarkan langsung dari database Cloud.');
+    onClose();
   };
 
   return (
@@ -138,10 +172,10 @@ export default function PremiumPurchaseModal({ visible, onClose, prefillFeature 
           </View>
 
           <TouchableOpacity activeOpacity={0.9} style={{ width: '100%' }} onPress={handleUpgrade} disabled={loading}>
-            <LinearGradient colors={['#F5A623', '#D48806']} style={styles.buyButton}>
-              {loading ? <ActivityIndicator color="#0D1B2A" /> : <Text style={styles.buyButtonText}>Aktifkan Akses Permanen</Text>}
-            </LinearGradient>
-          </TouchableOpacity>
+  <LinearGradient colors={['#F5A623', '#D48806']} style={styles.buyButton}>
+    {loading ? <ActivityIndicator color="#0D1B2A" /> : <Text style={styles.buyButtonText}>Aktifkan Akses Permanen</Text>}
+  </LinearGradient>
+</TouchableOpacity>
 
           {/* Restore Purchase Button */}
           <TouchableOpacity onPress={handleRestore} style={styles.restoreBtn} activeOpacity={0.7} disabled={restoreLoading}>

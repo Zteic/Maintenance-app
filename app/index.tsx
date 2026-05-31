@@ -184,6 +184,7 @@ function AppContent() {
   });
   const [editingProfile, setEditingProfile] = useState(false);
   const { currency, distanceUnit, volumeUnit, setCurrency, setDistanceUnit, setVolumeUnit } = useRegional();
+  const [editRegionalLocal, setEditRegionalLocal] = useState(false); 
   const [activeDropdown, setActiveDropdown] = useState<'currency' | 'distance' | 'volume' | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -1820,8 +1821,20 @@ const handleBackupExport = async () => {
               </TouchableOpacity>
             ) : (
               
-              /* 👑 PERCABANGAN UX 2: JIKA USER SUDAH LOGIN / ONLINE */
               <>
+  {/* 🚀 TAMBAHKAN TOMBOL KONTROL EDIT REGIONAL KHUSUS USER OFFLINE/TAMU */}
+  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingHorizontal: 5 }}>
+    <Text style={{ color: '#4ECDC4', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 }}>⚙️ CONFIG REGIONAL LOKAL</Text>
+    <TouchableOpacity 
+      onPress={() => setEditRegionalLocal(!editRegionalLocal)}
+      style={{ backgroundColor: editRegionalLocal ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 8 }}
+    >
+      <Text style={{ color: editRegionalLocal ? '#0D1B2A' : '#FFF', fontSize: 10, fontWeight: '800' }}>
+        {editRegionalLocal ? '🔐 KUNCI' : '🛠️ UBAH UNIT'}
+      </Text>
+    </TouchableOpacity>
+  </View>
+
   {/* 📦 KOTAK PROFIL UTAMA (DI-REMASTER MENJADI 2 KOLOM) */}
   <View style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
     
@@ -1881,14 +1894,14 @@ const handleBackupExport = async () => {
         <View>
           <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600", letterSpacing: 0.5 }}>MATA UANG</Text>
           <TouchableOpacity 
-            disabled={!editingProfile}
+            disabled={!(editingProfile || editRegionalLocal)} // 🚀 AKTIF JIKA SALAH SATU SAKLAR NYALA
             onPress={() => setActiveDropdown('currency')}
             style={{ 
-              backgroundColor: editingProfile ? 'rgba(255,255,255,0.05)' : 'transparent', 
-              paddingVertical: editingProfile ? 6 : 0, 
-              paddingHorizontal: editingProfile ? 10 : 0, 
+              backgroundColor: (editingProfile || editRegionalLocal) ? 'rgba(255,255,255,0.05)' : 'transparent', 
+              paddingVertical: (editingProfile || editRegionalLocal) ? 6 : 0, 
+              paddingHorizontal: (editingProfile || editRegionalLocal) ? 10 : 0, 
               borderRadius: 8, 
-              borderWidth: editingProfile ? 1 : 0, 
+              borderWidth: (editingProfile || editRegionalLocal) ? 1 : 0, 
               borderColor: 'rgba(255,255,255,0.1)', 
               flexDirection: 'row', 
               alignItems: 'center', 
@@ -1896,7 +1909,7 @@ const handleBackupExport = async () => {
               marginTop: 4
             }}>
             <Text style={{ color: '#F5A623', fontWeight: '800', fontSize: 14 }}>💵  {currency}</Text>
-            {editingProfile && <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>}
+            {(editingProfile || editRegionalLocal) && <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>}
           </TouchableOpacity>
         </View>
 
@@ -1904,14 +1917,14 @@ const handleBackupExport = async () => {
         <View>
           <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600", letterSpacing: 0.5 }}>SATUAN JARAK</Text>
           <TouchableOpacity 
-            disabled={!editingProfile}
+            disabled={!(editingProfile || editRegionalLocal)} // 🚀 AKTIF JIKA SALAH SATU SAKLAR NYALA
             onPress={() => setActiveDropdown('distance')}
             style={{ 
-              backgroundColor: editingProfile ? 'rgba(255,255,255,0.05)' : 'transparent', 
-              paddingVertical: editingProfile ? 6 : 0, 
-              paddingHorizontal: editingProfile ? 10 : 0, 
+              backgroundColor: (editingProfile || editRegionalLocal) ? 'rgba(255,255,255,0.05)' : 'transparent', 
+              paddingVertical: (editingProfile || editRegionalLocal) ? 6 : 0, 
+              paddingHorizontal: (editingProfile || editRegionalLocal) ? 10 : 0, 
               borderRadius: 8, 
-              borderWidth: editingProfile ? 1 : 0, 
+              borderWidth: (editingProfile || editRegionalLocal) ? 1 : 0, 
               borderColor: 'rgba(255,255,255,0.1)', 
               flexDirection: 'row', 
               alignItems: 'center', 
@@ -1919,7 +1932,7 @@ const handleBackupExport = async () => {
               marginTop: 4
             }}>
             <Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 14 }}>🛣️  {distanceUnit === 'km' ? 'KM' : 'MI'}</Text>
-            {editingProfile && <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>}
+            {(editingProfile || editRegionalLocal) && <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>}
           </TouchableOpacity>
         </View>
 
@@ -1927,14 +1940,14 @@ const handleBackupExport = async () => {
         <View>
           <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "600", letterSpacing: 0.5 }}>SATUAN VOLUME</Text>
           <TouchableOpacity 
-            disabled={!editingProfile}
+            disabled={!(editingProfile || editRegionalLocal)} // 🚀 AKTIF JIKA SALAH SATU SAKLAR NYALA
             onPress={() => setActiveDropdown('volume')}
             style={{ 
-              backgroundColor: editingProfile ? 'rgba(255,255,255,0.05)' : 'transparent', 
-              paddingVertical: editingProfile ? 6 : 0, 
-              paddingHorizontal: editingProfile ? 10 : 0, 
+              backgroundColor: (editingProfile || editRegionalLocal) ? 'rgba(255,255,255,0.05)' : 'transparent', 
+              paddingVertical: (editingProfile || editRegionalLocal) ? 6 : 0, 
+              paddingHorizontal: (editingProfile || editRegionalLocal) ? 10 : 0, 
               borderRadius: 8, 
-              borderWidth: editingProfile ? 1 : 0, 
+              borderWidth: (editingProfile || editRegionalLocal) ? 1 : 0, 
               borderColor: 'rgba(255,255,255,0.1)', 
               flexDirection: 'row', 
               alignItems: 'center', 
@@ -1942,7 +1955,7 @@ const handleBackupExport = async () => {
               marginTop: 4
             }}>
             <Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 14 }}>⛽  {volumeUnit === 'L' ? 'Liter (L)' : 'Gallon (Gal)'}</Text>
-            {editingProfile && <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>}
+            {(editingProfile || editRegionalLocal) && <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>▼</Text>}
           </TouchableOpacity>
         </View>
 
@@ -1962,6 +1975,36 @@ const handleBackupExport = async () => {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={async () => {
+            // 🌐 LOGIKA KHUSUS JIKA DIAKSES LEWAT WEB TEMPO (BROWSER)
+            if (Platform.OS === 'web') {
+              const confirmWeb = window.confirm("Apakah Anda yakin ingin keluar dari sinkronisasi Cloud?");
+              if (!confirmWeb) return;
+
+              try {
+                // Set app mode ke local agar sistem memutus jalur sinkronisasi data lokal
+                await AsyncStorage.setItem('garasiku_app_mode', 'local');
+                setAppModeState('local');
+
+                console.log("Mengeksekusi Brutal Logout khusus Web...");
+                const keys = Object.keys(localStorage);
+                keys.forEach(key => {
+                  if (key.includes('supabase.auth.token') || key.includes('sb-')) {
+                    localStorage.removeItem(key);
+                  }
+                });
+
+                // Cukup jalankan signOut, PremiumContext otomatis menangkap sinyal dan mengubah UI ke Basic
+                await supabase.auth.signOut();
+                window.alert("Berhasil keluar dari Cloud!");
+                router.replace('/auth/login');
+              } catch (err) {
+                console.error("Gagal keluar akun di web:", err);
+                router.replace('/auth/login');
+              }
+              return;
+            }
+
+            // 📱 JALUR MOBILE APP (ANDROID / IOS)
             Alert.alert("Keluar Akun", "Apakah Anda yakin ingin keluar dari sinkronisasi Cloud?", [
               { text: "Batal", style: "cancel" },
               {
@@ -1969,12 +2012,15 @@ const handleBackupExport = async () => {
                 style: "destructive",
                 onPress: async () => {
                   try {
-                    await supabase.auth.signOut();
                     await AsyncStorage.setItem('garasiku_app_mode', 'local');
                     setAppModeState('local');
+                    
+                    // Supabase signOut dijalankan -> UI otomatis kembali Basic dengan aman
+                    await supabase.auth.signOut();
                     router.replace('/auth/login');
                   } catch (err) {
-                    console.error("Gagal keluar akun:", err);
+                    console.error("Gagal keluar akun di mobile:", err);
+                    router.replace('/auth/login');
                   }
                 }
               }
