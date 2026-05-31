@@ -2065,6 +2065,45 @@ const handleBackupExport = async () => {
 
             {/* Action Buttons */}
             <View style={{ marginTop: 16, gap: 12 }}>
+              {/* 🏛️ TOMBOL RE-MASTER TAX CENTER (100% PRESTINE & PRESISI) */}
+              <TouchableOpacity 
+                onPress={() => setShowTaxCenter(true)} 
+                activeOpacity={0.85} 
+                style={{ 
+                  backgroundColor: "#1A2B3C", 
+                  borderRadius: 16, 
+                  padding: 20, 
+                  flexDirection: "row", 
+                  alignItems: "center", 
+                  gap: 16, 
+                  borderWidth: 1, 
+                  borderColor: "rgba(245,166,35,0.25)" 
+                }}
+              >
+                <View 
+                  style={{ 
+                    width: 48, 
+                    height: 48, 
+                    borderRadius: 14, 
+                    backgroundColor: "rgba(245,166,35,0.08)", 
+                    borderWidth: 1, 
+                    borderColor: "rgba(245,166,35,0.25)", 
+                    alignItems: "center", 
+                    justifyContent: "center" 
+                  }}
+                >
+                  <Text style={{ fontSize: 22 }}>🏛️</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>
+                    Estimasi Pajak Kendaraan
+                  </Text>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>
+                    Cek simulasi denda & rincian NJKB daerah
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
               <TouchableOpacity onPress={() => setShowPriceUpdate(true)} activeOpacity={0.85} style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: "rgba(245,166,35,0.2)" }}>
                 <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", borderWidth: 1, borderColor: "rgba(245,166,35,0.3)", alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 22 }}>⛽</Text></View>
                 <View style={{ flex: 1 }}><Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>Update Harga Bensin</Text><Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>Atur harga BBM per liter saat ini</Text></View>

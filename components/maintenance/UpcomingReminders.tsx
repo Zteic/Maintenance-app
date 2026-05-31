@@ -152,9 +152,8 @@ export default function UpcomingReminders({
                 days={item.days} 
                 statusText={item.statusText} 
                 statusColor={item.statusColor} 
-                // 🚀 Buka halaman detail Tax Center!
-                onPress={() => onOpenTaxCenter ? onOpenTaxCenter() : setShowDocModal(true)} 
-              />
+                onPress={() => onEditVehicle ? onEditVehicle() : setShowDocModal(true)}
+                />
             );
           }
 
