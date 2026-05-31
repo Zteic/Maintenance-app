@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Image, Modal, Dimensions, Platform, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Modal, Dimensions, Platform, FlatList, StyleSheet } from 'react-native';
 import { RepairEntry } from '@/types/maintenance';
 import { useLanguage } from '@/context/LanguageContext';
 import { useRegional } from '@/context/RegionalContext'; 
@@ -120,9 +120,8 @@ function RepairHistoryComponent({
             alignItems: 'center', 
             marginTop: 10,
             marginBottom: 15,
-            width: '100%' // 👈 FIX 1: Memaksa lebar penuh 100%
+            width: '100%'
           }}>
-            {/* 👈 FIX 2: Menambahkan flex: 1 agar judul mengambil sisa ruang dan mendorong tombol ke kanan */}
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ fontSize: 20 }}>🛠️</Text>
               <Text style={{ 
@@ -291,33 +290,45 @@ function RepairHistoryComponent({
         }}
       />
 
+      {/* 🖼️ MODAL PREVIEW STRUK DENGAN DESAIN BARU YANG ELEGAN DAN SEKOTAK SINKRON */}
       <Modal 
         visible={!!fullPhoto} 
         transparent={true} 
         animationType="fade"
         onRequestClose={() => setFullPhoto(null)}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }}>
-          <TouchableOpacity 
-            style={{ position: 'absolute', top: 50, right: 20, zIndex: 1 }}
-            onPress={() => setFullPhoto(null)}
-          >
-            <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>✕ Tutup</Text>
-          </TouchableOpacity>
+        <TouchableOpacity 
+          activeOpacity={1} 
+          onPress={() => setFullPhoto(null)} 
+          style={styles.previewOverlay}
+        >
+          <View style={styles.previewContainer} onStartShouldSetResponder={() => true}>
+            <View style={styles.previewHeader}>
+              <Text style={styles.previewHeaderTitle}>
+                {isId ? "Bukti Nota / Struk Perbaikan" : "Repair Proof Receipt"}
+              </Text>
+              <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => setFullPhoto(null)} 
+                style={styles.previewCloseBtn}
+              >
+                <Text style={styles.previewCloseText}>✕ {isId ? "Tutup" : "Close"}</Text>
+              </TouchableOpacity>
+            </View>
 
-          {fullPhoto && (
-            <Image 
-              source={{ uri: fullPhoto }} 
-              style={{ width: SCREEN_WIDTH * 0.95, height: SCREEN_HEIGHT * 0.8 }} 
-              resizeMode="contain" 
-            />
-          )}
-          
-          <TouchableOpacity 
-            style={{ position: 'absolute', width: '100%', height: '100%', zIndex: -1 }} 
-            onPress={() => setFullPhoto(null)} 
-          />
-        </View>
+            {fullPhoto && (
+              <View style={styles.imageWrapper}>
+                <View style={styles.imageBackgroundFrame}>
+                  <Image 
+                    source={{ uri: fullPhoto }} 
+                    style={styles.fullImage} 
+                    resizeMode="contain" 
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       <Modal visible={!!deleteRepairId} transparent animationType="fade">
@@ -387,5 +398,73 @@ function RepairHistoryComponent({
     </View>
   );
 }
+
+// 🚀 POSISI DEKLARASI STYLESHEET SEBELUM EKSPOR MEMO (SANGAT TEPAT)
+const styles = StyleSheet.create({
+  previewOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(7, 12, 17, 0.85)', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 16 
+  },
+  previewContainer: { 
+    backgroundColor: '#10171E', 
+    borderRadius: 20, 
+    width: '95%', 
+    maxWidth: 420, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)', 
+    overflow: 'hidden', 
+    paddingBottom: 16 
+  },
+  previewHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    padding: 16, 
+    borderBottomWidth: 1, 
+    borderBottomColor: 'rgba(255,255,255,0.05)' 
+  },
+  previewHeaderTitle: { 
+    color: '#FFF', 
+    fontSize: 14, 
+    fontWeight: '800' 
+  },
+  previewCloseBtn: { 
+    backgroundColor: 'rgba(255,82,82,0.15)', 
+    paddingVertical: 6, 
+    paddingHorizontal: 12, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,82,82,0.3)' 
+  },
+  previewCloseText: { 
+    color: '#FF5252', 
+    fontSize: 11, 
+    fontWeight: '900' 
+  },
+  imageWrapper: { 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginTop: 16, 
+    paddingHorizontal: 16 
+  },
+  imageBackgroundFrame: { 
+    backgroundColor: '#070C11', 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.04)', 
+    overflow: 'hidden', 
+    width: '100%', 
+    height: 400, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  fullImage: { 
+    width: '100%', 
+    height: '100%' 
+  }
+});
 
 export default React.memo(RepairHistoryComponent);

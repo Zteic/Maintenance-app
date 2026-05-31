@@ -206,11 +206,45 @@ function FuelLogComponent({
         }
       />
 
-      <Modal visible={!!selectedImage} transparent animationType="fade">
-        <TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedImage(null)} style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {selectedImage && <Image source={{ uri: selectedImage }} style={styles.fullImage} resizeMode="contain" />}
-            <TouchableOpacity onPress={() => setSelectedImage(null)} style={styles.closeButton}><Text style={{ color: "#FFF", fontWeight: "bold" }}>{isId ? "TUTUP" : "CLOSE"}</Text></TouchableOpacity>
+      {/* 🖼️ MODAL PREVIEW STRUK DENGAN DESAIN BARU YANG ELEGAN */}
+      <Modal 
+        visible={!!selectedImage} 
+        transparent 
+        animationType="fade"
+        onRequestClose={() => setSelectedImage(null)}
+      >
+        <TouchableOpacity 
+          activeOpacity={1} 
+          onPress={() => setSelectedImage(null)} 
+          style={styles.previewOverlay}
+        >
+          <View style={styles.previewContainer} onStartShouldSetResponder={() => true}>
+            {/* Header Box di dalam Frame */}
+            <View style={styles.previewHeader}>
+              <Text style={styles.previewHeaderTitle}>
+                {isId ? "Bukti Nota / Struk Perbaikan" : "Repair Proof Receipt"}
+              </Text>
+              <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => setSelectedImage(null)} 
+                style={styles.previewCloseBtn}
+              >
+                <Text style={styles.previewCloseText}>✕ {isId ? "Tutup" : "Close"}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Konten Gambar Terisolasi */}
+            {selectedImage && (
+              <View style={styles.imageWrapper}>
+                <View style={styles.imageBackgroundFrame}>
+                  <Image 
+                    source={{ uri: selectedImage }} 
+                    style={styles.fullImage} 
+                    resizeMode="contain" 
+                  />
+                </View>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -246,6 +280,71 @@ const styles = StyleSheet.create({
   modalContent: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.8 },
   fullImage: { width: "100%", height: "100%" },
   closeButton: { position: "absolute", bottom: 40, alignSelf: "center", backgroundColor: "rgba(255,255,255,0.2)", paddingVertical: 10, paddingHorizontal: 30, borderRadius: 20 },
+  // Salin dan masukkan kode style ini ke dalam StyleSheet.create Anda:
+  previewOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(7, 12, 17, 0.85)', // Efek backdrop gelap transparan menutupi layar belakang
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 16 
+  },
+  previewContainer: { 
+    backgroundColor: '#10171E', // Frame abu-abu gelap kontras
+    borderRadius: 20, 
+    width: '95%', 
+    maxWidth: 420, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)', 
+    overflow: 'hidden', 
+    paddingBottom: 16 
+  },
+  previewHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    padding: 16, 
+    borderBottomWidth: 1, 
+    borderBottomColor: 'rgba(255,255,255,0.05)' 
+  },
+  previewHeaderTitle: { 
+    color: '#FFF', 
+    fontSize: 14, 
+    fontWeight: '800' 
+  },
+  previewCloseBtn: { 
+    backgroundColor: 'rgba(255,82,82,0.15)', 
+    paddingVertical: 6, 
+    paddingHorizontal: 12, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,82,82,0.3)' 
+  },
+  previewCloseText: { 
+    color: '#FF5252', 
+    fontSize: 11, 
+    fontWeight: '900' 
+  },
+  imageWrapper: { 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginTop: 16, 
+    paddingHorizontal: 16 
+  },
+  imageBackgroundFrame: { 
+    backgroundColor: '#070C11', 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.04)', 
+    overflow: 'hidden', 
+    width: '100%', 
+    height: 400, // Ukuran tinggi frame foto yang ideal dan proporsional
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  fullImage: { 
+    width: '100%', 
+    height: '100%' 
+  }
 });
 
 export default React.memo(FuelLogComponent);

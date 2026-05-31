@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from "react-native";
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  StyleSheet, 
+  FlatList, 
+  Alert,  
+  Platform, 
+  Image,
+  Modal as RNModal,
+  Dimensions
+} from "react-native";
 import { supabase } from "@/utils/supabaseClient";
 import { Vehicle } from "@/types/maintenance";
-import { LinearGradient } from "expo-linear-gradient";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface TaxHistoryListProps {
   visible: boolean;
@@ -13,17 +26,15 @@ interface TaxHistoryListProps {
 export default function TaxHistoryList({ visible, onClose, vehicle }: TaxHistoryListProps) {
   const [history, setHistory] = useState<any[]>([]);
   const [fetching, setFetching] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [fullPhoto, setFullPhoto] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
 
-  // Otomatis memicu tarikan database saat layar riwayat ini terbuka
   useEffect(() => {
-    console.log("==========================================================");
-    console.log("🗄️ [Layar Riwayat Terbuka] Memulai inisialisasi komponen...");
-    console.log("Kondisi Awal:", { visible, vehicleId: vehicle?.id, vehicleName: vehicle?.name });
-
     if (visible && vehicle?.id) {
       fetchTaxHistory();
     } else {
-      console.log("⚠️ Abort Fetch: ID Kendaraan tidak valid atau kosong.");
       setFetching(false);
     }
   }, [visible, vehicle]);
@@ -32,8 +43,6 @@ export default function TaxHistoryList({ visible, onClose, vehicle }: TaxHistory
     if (!vehicle?.id) return;
     setFetching(true);
     
-    console.log(`🚀 [Supabase Request] Menembak query ke tabel 'vehicle_tax_payment_history' untuk ID: ${vehicle.id}`);
-    
     try {
       const { data, error } = await supabase
         .from("vehicle_tax_payment_history")
@@ -41,114 +50,343 @@ export default function TaxHistoryList({ visible, onClose, vehicle }: TaxHistory
         .eq("vehicle_id", vehicle.id)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("❌ [Supabase DB Error] Gagal menarik log arsip:", error.message);
-        throw error;
-      }
-
-      if (data) {
-        console.log(`✅ [Supabase DB Sukses] Berhasil mengunduh ${data.length} baris riwayat akuntansi.`);
-        console.log("Pratinjau Data Pertama:", data[0] || "Tidak ada data");
+      if (!error && data) {
         setHistory(data);
       }
-    } catch (err: any) {
-      console.error("💥 [SYSTEM CRASH] Gagal memproses data riwayat pajak:", err.message || err);
+    } catch (err) {
+      console.error("Gagal menarik riwayat:", err);
     } finally {
       setFetching(false);
-      console.log("==========================================================");
+    }
+  };
+
+  const toggleExpand = (id: string) => {
+    setExpandedId(prev => (prev === id ? null : id));
+  };
+
+  const handleDelete = (id: string) => {
+    const confirmText = "Tindakan ini tidak dapat dibatalkan. Jika ini adalah data pembayaran terbaru, sistem akan otomatis menggunakan data pembayaran sebelumnya.";
+
+    if (Platform.OS === 'web') {
+      const confirmWeb = window.confirm(`Hapus Riwayat Pajak?\n\n${confirmText}`);
+      if (confirmWeb) {
+        executeDelete(id);
+      }
+      return;
+    }
+
+    Alert.alert(
+      "Hapus Riwayat Pajak?",
+      confirmText,
+      [
+        { text: "Batal", style: "cancel" },
+        { text: "Ya, Hapus", style: "destructive", onPress: () => executeDelete(id) }
+      ]
+    );
+  };
+
+  const executeDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const { error } = await supabase
+        .from("vehicle_tax_payment_history")
+        .delete()
+        .eq("id", id);
+      
+      if (error) throw error;
+
+      setHistory(prev => prev.filter(item => item.id !== id));
+      
+      if (Platform.OS === 'web') {
+        window.alert("Data riwayat berhasil dihapus.");
+      } else {
+        Alert.alert("Sukses", "Data riwayat berhasil dihapus.");
+      }
+      
+    } catch (err: any) {
+      if (Platform.OS === 'web') {
+        window.alert(`Gagal menghapus riwayat: ${err.message}`);
+      } else {
+        Alert.alert("Gagal", `Tidak dapat menghapus riwayat: ${err.message}`);
+      }
+    } finally {
+      setDeletingId(null);
     }
   };
 
   const formatRupiah = (v: any) => "Rp " + (parseFloat(v) || 0).toLocaleString("id-ID");
 
-  return (
-    <LinearGradient colors={["#0A1118", "#121E2A"]} style={{ flex: 1 }}>
-      
-      {/* HEADER SCREEN ARSIP */}
-      <View style={s.headerContainer}>
-        <View style={{ flex: 1, marginRight: 10 }}>
-          <Text style={s.headerTitle}>🗄️ LOG ARSIP FINANSIAL PAJAK</Text>
-          <Text style={s.headerSub} numberOfLines={1}>
-            {vehicle?.name || "Kendaraan"} • Rekam Akuntansi Resmi Cloud
-          </Text>
-        </View>
-        <TouchableOpacity onPress={onClose} style={s.closeBtn} activeOpacity={0.7}>
-          <Text style={s.closeText}>KEMBALI</Text>
-        </TouchableOpacity>
+  const renderDetailRow = (label: string, value: any) => {
+    const numVal = parseFloat(value) || 0;
+    if (numVal <= 0) return null; 
+    
+    return (
+      <View style={s.detailRow}>
+        <Text style={s.detailLabel}>{label}</Text>
+        <Text style={s.detailValue}>{formatRupiah(numVal)}</Text>
       </View>
+    );
+  };
 
-      {/* AREA KONTEN LIST GULIR */}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
-        <View style={s.card}>
-          <Text style={s.cardTitle}>📜 HISTORI PEMBAYARAN RESMI STNK</Text>
-          
-          {fetching ? (
-            <View style={{ paddingVertical: 40, alignItems: "center" }}>
-              <ActivityIndicator color="#4ECDC4" size="large" />
-              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 10 }}>Menghubungkan ke Cloud Database...</Text>
+  const renderItem = ({ item }: { item: any }) => {
+    const isExpanded = expandedId === item.id;
+    const isFiveYear = item.payment_type === "five_year_stnk";
+    const hasBiayaLainnya = (parseFloat(item.biaya_pengiriman) || 0) > 0 || (parseFloat(item.biaya_pemrosesan) || 0) > 0;
+
+    return (
+      <View style={s.card}>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => toggleExpand(item.id)} style={s.cardMain}>
+          <View style={s.cardHeader}>
+            <Text style={[s.cardTitle, { color: isFiveYear ? '#F5A623' : '#4ECDC4' }]}>
+              {isFiveYear ? "📄 STNK 5 TAHUNAN" : "🚗 PAJAK TAHUNAN"}
+            </Text>
+            <Text style={s.cardDate}>Pembayaran: {item.payment_date}</Text>
+          </View>
+
+          <View style={{ gap: 4, marginBottom: 12 }}>
+            <Text style={s.targetLabel}>• Jatuh Tempo Pajak: <Text style={s.targetValue}>{item.new_tax_due_date}</Text></Text>
+            {item.new_stnk_due_date && (
+              <Text style={s.targetLabel}>• Jatuh Tempo STNK: <Text style={s.targetValue}>{item.new_stnk_due_date}</Text></Text>
+            )}
+          </View>
+
+          <View style={{ gap: 8 }}>
+            <View style={s.totalRow}>
+              <Text style={s.totalLabel}>Total Pembayaran Akhir:</Text>
+              <Text style={s.totalValue}>{formatRupiah(item.total_pembayaran)}</Text>
             </View>
-          ) : history.length === 0 ? (
-            <Text style={s.emptyHistory}>Belum ada rekam pembayaran resmi yang tercatat di cloud database.</Text>
-          ) : (
-            <View style={{ gap: 12 }}>
-              {history.map((log) => (
-                <View key={log.id} style={s.historyRowItem}>
-                  
-                  {/* Header Bar per Transaksi */}
-                  <View style={s.historyRowHeader}>
-                    <Text style={[s.historyBadge, { color: log.payment_type === "five_year_stnk" ? "#F5A623" : "#4ECDC4" }]}>
-                      {log.payment_type === "five_year_stnk" ? "📄 STNK 5 TAHUNAN" : "🚗 PAJAK TAHUNAN"}
-                    </Text>
-                    <Text style={s.historyDateText}>Bayar: {log.payment_date}</Text>
-                  </View>
-                  
-                  {/* Target Validitas Masa Berlaku Baru */}
-                  <View style={{ gap: 4, paddingVertical: 6 }}>
-                    <Text style={s.historyTargetText}>• Jatuh Tempo Pajak: <Text style={{ fontWeight: "700", color: "#FFF" }}>{log.new_tax_due_date}</Text></Text>
-                    {log.new_stnk_due_date && <Text style={s.historyTargetText}>• Jatuh Tempo STNK: <Text style={{ fontWeight: "700", color: "#FFF" }}>{log.new_stnk_due_date}</Text></Text>}
-                  </View>
-                  
-                  {/* Rincian Akuntansi Ringkas */}
-                  <View style={s.historyPriceBlock}>
-                    <Text style={s.historyPriceLabel}>Total Pembayaran Akhir:</Text>
-                    <Text style={s.historyPriceVal}>{formatRupiah(log.total_pembayaran)}</Text>
-                  </View>
-                  
-                  {/* Memo Catatan Tambahan User */}
-                  {log.deskripsi && <Text style={s.historyMemo}>Catatan: "{log.deskripsi}"</Text>}
-                  
-                  {/* Proteksi Deteksi Berkas Multi Upload */}
-                  {log.proof_files_urls && log.proof_files_urls.length > 0 && (
-                    <Text style={s.historyFileBadge}>📎 Terlampir {log.proof_files_urls.length} Berkas Bukti Aman di Cloud Storage</Text>
-                  )}
+            {item.deskripsi && (
+              <Text style={s.notesText}>Catatan: "{item.deskripsi}"</Text>
+            )}
+          </View>
+
+          <View style={s.expandIndicatorBox}>
+            <Text style={s.expandIndicatorText}>{isExpanded ? "Tutup Rincian ▲" : "Lihat Rincian ▼"}</Text>
+          </View>
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <View style={s.cardExpanded}>
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>Rincian Pembayaran</Text>
+              {renderDetailRow("PKB Pokok", item.pkb_pokok)}
+              {renderDetailRow("PKB Denda", item.pkb_denda)}
+              {renderDetailRow("Opsen PKB", item.opsen_pkb_pokok)}
+              {renderDetailRow("Opsen PKB Denda", item.opsen_pkb_denda)}
+              {renderDetailRow("SWDKLLJ", item.swdkllj_pokok)}
+              {renderDetailRow("SWDKLLJ Denda", item.swdkllj_denda)}
+              {renderDetailRow("PNBP STNK", item.pnbp_stnk)}
+              {renderDetailRow("PNBP TNKB", item.pnbp_tnkb)}
+              
+              <View style={s.subtotalRow}>
+                <Text style={s.subtotalLabel}>Subtotal Pajak</Text>
+                <Text style={s.subtotalValue}>{formatRupiah(item.subtotal_pajak)}</Text>
+              </View>
+            </View>
+
+            {hasBiayaLainnya && (
+              <View style={s.section}>
+                {renderDetailRow("Biaya Pengiriman", item.biaya_pengiriman)}
+                {renderDetailRow("Biaya Pemrosesan", item.biaya_pemrosesan)}
+                <View style={s.subtotalRow}>
+                  <Text style={s.subtotalLabel}>Subtotal Biaya Lainnya</Text>
+                  <Text style={s.subtotalValue}>{formatRupiah(item.subtotal_biaya_lainnya)}</Text>
                 </View>
-                ))}
               </View>
             )}
-          
+
+            {item.proof_files_urls && item.proof_files_urls.length > 0 && (
+              <View style={s.docsContainer}>
+                <Text style={s.sectionTitle}>Dokumen Lampiran ({item.proof_files_urls.length})</Text>
+                {item.proof_files_urls.map((url: string, index: number) => {
+                  const fileName = url.split('/').pop()?.split('?')[0] || `Dokumen_${index + 1}`;
+                  const cleanFileName = decodeURIComponent(fileName);
+
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setImageLoading(true);
+                        setFullPhoto(url);
+                      }}
+                      style={s.docRowButton}
+                    >
+                      <Text style={s.docRowText} numberOfLines={1}>
+                        📎 {cleanFileName}
+                      </Text>
+                      <Text style={s.docOpenText}>Lihat Struk 👁️</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            <TouchableOpacity 
+              activeOpacity={0.8} 
+              onPress={() => handleDelete(item.id)}
+              disabled={deletingId === item.id}
+              style={s.deleteBtn}
+            >
+              {deletingId === item.id ? (
+                <ActivityIndicator color="#FF5252" size="small" />
+              ) : (
+                <Text style={s.deleteBtnText}>🗑️ Hapus Riwayat Ini</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderHeader = () => (
+    <View style={s.listHeader}>
+      <Text style={s.headerMainText}>Riwayat Pembayaran</Text>
+      <Text style={s.headerSubText}>{history.length} transaksi tercatat</Text>
+    </View>
+  );
+
+  return (
+    <View style={s.container}>
+      <View style={s.topBar}>
+        <TouchableOpacity onPress={onClose} style={s.backBtn} activeOpacity={0.7}>
+          <Text style={s.backBtnIcon}>←</Text>
+          <Text style={s.backBtnText}>Kembali</Text>
+        </TouchableOpacity>
+        <Text style={s.topBarTitle} numberOfLines={1}>Arsip Pajak</Text>
+        <View style={{ width: 80 }} /> 
+      </View>
+
+      {fetching ? (
+        <View style={s.centerScreen}>
+          <ActivityIndicator color="#4ECDC4" size="large" />
+          <Text style={s.loadingText}>Memuat Arsip...</Text>
         </View>
-      </ScrollView>
-    </LinearGradient>
+      ) : (
+        <FlatList
+          data={history}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={s.listContent}
+          renderItem={renderItem}
+          ListHeaderComponent={renderHeader}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={s.emptyBox}>
+              <Text style={s.emptyIcon}>🗄️</Text>
+              <Text style={s.emptyText}>Belum ada riwayat pembayaran untuk kendaraan ini.</Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* 🖼️ MODAL LIGHTBOX PREVIEW SEJATI (GAMBAR TAMPIL TANPA BUFFER OVERLAY TEXT) */}
+      <RNModal
+        visible={fullPhoto !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setFullPhoto(null)}
+      >
+        <TouchableOpacity 
+          activeOpacity={1} 
+          onPress={() => setFullPhoto(null)} 
+          style={s.previewOverlay}
+        >
+          <View style={s.previewContainer}>
+            <View style={s.previewHeader}>
+              <Text style={s.previewHeaderTitle}>Bukti Nota / Struk Pajak</Text>
+              <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => setFullPhoto(null)} 
+                style={s.previewCloseBtn}
+              >
+                <Text style={s.previewCloseText}>✕ Tutup</Text>
+              </TouchableOpacity>
+            </View>
+
+            {fullPhoto && (
+              <View style={s.imageWrapper}>
+                <View style={s.imageBackgroundFrame}>
+                  <Image
+                    source={{ uri: fullPhoto }}
+                    style={s.fullImageStyle}
+                    resizeMode="contain"
+                    onLoadEnd={() => setImageLoading(false)}
+                  />
+                  {imageLoading && (
+                    <ActivityIndicator 
+                      style={StyleSheet.absoluteFill} 
+                      color="#4ECDC4" 
+                      size="large" 
+                    />
+                  )}
+                </View>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </RNModal>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  headerContainer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 50, paddingBottom: 16, backgroundColor: "#132230", borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
-  headerTitle: { color: "#FFF", fontSize: 13, fontWeight: "900", letterSpacing: 0.5 },
-  headerSub: { color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 2 },
-  closeBtn: { backgroundColor: "rgba(255,255,255,0.05)", paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" },
-  closeText: { color: "#FFF", fontSize: 11, fontWeight: "900" },
-  card: { backgroundColor: "#132230", borderRadius: 18, padding: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.04)" },
-  cardTitle: { color: "#FFF", fontSize: 12, fontWeight: "800", marginBottom: 12, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)", paddingBottom: 4 },
-  emptyHistory: { color: "rgba(255,255,255,0.3)", fontSize: 11, textAlign: "center", paddingVertical: 25 },
-  historyRowItem: { backgroundColor: "#0A1118", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.03)" },
-  historyRowHeader: { flexDirection: "row", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)", paddingBottom: 6, marginBottom: 4 },
-  historyBadge: { fontSize: 10, fontWeight: "900" },
-  historyDateText: { color: "rgba(255,255,255,0.4)", fontSize: 10 },
-  historyTargetText: { color: "rgba(255,255,255,0.5)", fontSize: 12 },
-  historyPriceBlock: { flexDirection: "row", justifyContent: "space-between", marginTop: 4, paddingTop: 6, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.03)" },
-  historyPriceLabel: { color: "rgba(255,255,255,0.4)", fontSize: 11 },
-  historyPriceVal: { color: "#4ECDC4", fontSize: 12, fontWeight: "900" },
-  historyMemo: { color: "rgba(245,166,35,0.6)", fontSize: 10, fontStyle: "italic", marginTop: 4 },
-  historyFileBadge: { color: "#F5A623", fontSize: 9, fontWeight: "700", marginTop: 6 }
+  container: { flex: 1, backgroundColor: '#070C11' },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 50, paddingBottom: 16, backgroundColor: '#0A1118', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, width: 80 },
+  backBtnIcon: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  backBtnText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  topBarTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', flex: 1, textAlign: 'center' },
+  listContent: { padding: 16, paddingBottom: 50 },
+  listHeader: { marginBottom: 20 },
+  headerMainText: { color: '#FFF', fontSize: 22, fontWeight: '800' },
+  headerSubText: { color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 4 },
+  centerScreen: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 12 },
+  emptyBox: { alignItems: 'center', marginTop: 60 },
+  emptyIcon: { fontSize: 40, marginBottom: 12, opacity: 0.8 },
+  emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: 13, textAlign: 'center' },
+  
+  card: { backgroundColor: '#10171E', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 16, overflow: 'hidden' },
+  cardMain: { padding: 16 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  cardTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+  cardDate: { color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '600' },
+  targetLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 12 },
+  targetValue: { color: '#FFF', fontWeight: '800' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 8 },
+  totalLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 11 },
+  totalValue: { color: '#4ECDC4', fontSize: 15, fontWeight: '900' },
+  notesText: { color: '#F5A623', fontSize: 11, fontStyle: 'italic', marginTop: 4 },
+  expandIndicatorBox: { alignItems: 'center', marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.03)' },
+  expandIndicatorText: { color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700' },
+
+  cardExpanded: { padding: 16, paddingTop: 0, backgroundColor: 'rgba(0,0,0,0.2)' },
+  section: { marginTop: 12 },
+  sectionTitle: { color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  detailLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 11 },
+  detailValue: { color: '#FFF', fontSize: 11, fontWeight: '600' },
+  subtotalRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
+  subtotalLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '600' },
+  subtotalValue: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+  docsText: { color: '#F5A623', fontSize: 11, fontWeight: '700', marginTop: 16, textAlign: 'center' },
+  
+  deleteBtn: { marginTop: 20, backgroundColor: 'rgba(255,82,82,0.1)', paddingVertical: 12, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,82,82,0.3)' },
+  deleteBtnText: { color: '#FF5252', fontSize: 12, fontWeight: '800' },
+  
+  docsContainer: { marginTop: 16, gap: 6 },
+  docRowButton: { flexDirection: 'row', justifySpace: 'between', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(245,166,35,0.06)', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(245,166,35,0.15)' },
+  docRowText: { color: '#F5A623', fontSize: 11, fontWeight: '600', flex: 1, marginRight: 10 },
+  docOpenText: { color: '#4ECDC4', fontSize: 10, fontWeight: '800' },
+
+  previewOverlay: { flex: 1, backgroundColor: 'rgba(7, 12, 17, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  previewContainer: { backgroundColor: '#10171E', borderRadius: 20, width: '95%', maxWidth: 420, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', paddingBottom: 16 },
+  previewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  previewHeaderTitle: { color: '#FFF', fontSize: 14, fontWeight: '800' },
+  previewCloseBtn: { backgroundColor: 'rgba(255,82,82,0.15)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,82,82,0.3)' },
+  previewCloseText: { color: '#FF5252', fontSize: 11, fontWeight: '900' },
+  imageWrapper: { alignItems: 'center', justifyContent: 'center', marginTop: 16, paddingHorizontal: 16 },
+  imageBackgroundFrame: { backgroundColor: '#070C11', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)', overflow: 'hidden', width: '100%', height: SCREEN_HEIGHT * 0.55, justifyContent: 'center', alignItems: 'center' },
+  fullImageStyle: { width: '100%', height: '100%' }
 });

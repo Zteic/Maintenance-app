@@ -2230,91 +2230,106 @@ const handleBackupExport = async () => {
           const vId = selectedVehicleId;
           const isEdit = editingRepair && editingRepair.id && !editingRepair.id.includes("temp");
 
-          if (isEdit) {
-            const updatedEntry = {
-              ...editingRepair,
-              ...formData,
-              vehicleId: vId,
-            };
+          try {
+            if (isEdit) {
+              const updatedEntry = {
+                ...editingRepair,
+                ...formData,
+                vehicleId: vId,
+              };
 
-            setRepairs((prev) => prev.map((r) => (r.id === editingRepair.id ? updatedEntry : r)));
+              setRepairs((prev) => prev.map((r) => (r.id === editingRepair.id ? updatedEntry : r)));
 
-            setReminders((prev) =>
-              prev.map((rem) => {
-                const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
-                if (isMatch && rem.vehicleId === vId) {
-                  const odo = Number(formData.odometer);
-                  const interval = Number(formData.nextIntervalKm) || 10000;
-                  return {
-                    ...rem,
-                    lastServiceOdometer: odo,
-                    dueOdometer: odo + interval,
-                    intervalKm: interval,
-                    status: "safe",
-                    lastServiceDate: new Date().toISOString(),
-                  };
-                }
-                return rem;
-              })
-            );
-
-            const oldOdo = editingRepair.odometer?.toLocaleString("id-ID") || 0;
-            const newOdo = Number(formData.odometer).toLocaleString("id-ID");
-            const oldCost = editingRepair.cost?.toLocaleString("id-ID") || 0;
-            const newCost = Number(formData.cost).toLocaleString("id-ID");
-
-            addNotification(
-              'UPDATE',
-              lang === "id" ? "Servis Diperbarui" : "Service Updated",
-              `Update [${formData.serviceType}]: Odo ${oldOdo}km ➔ ${newOdo}km | Biaya Rp${oldCost} ➔ Rp${newCost}.`,
-              "vehicle",
-              vId
-            );
-
-            alert(lang === "id" ? "Data berhasil diperbarui!" : "Data updated successfully!");
-          } else {
-            const newRepair: RepairEntry = {
-              vehicleId: vId,
-              ...formData,
-              id: `rep${Date.now()}`,
-              date: formData.date || new Date().toISOString().split("T")[0],
-            };
-
-            setRepairs((prev) => [newRepair, ...prev]);
-
-            if (!saveToHistoryOnly) {
               setReminders((prev) =>
                 prev.map((rem) => {
                   const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
                   if (isMatch && rem.vehicleId === vId) {
+                    const odo = Number(formData.odometer);
+                    const interval = Number(formData.nextIntervalKm) || 10000;
                     return {
                       ...rem,
-                      lastServiceOdometer: Number(formData.odometer),
-                      dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
+                      lastServiceOdometer: odo,
+                      dueOdometer: odo + interval,
+                      intervalKm: interval,
                       status: "safe",
+                      lastServiceDate: new Date().toISOString(),
                     };
                   }
                   return rem;
                 })
               );
-            }
 
-            addNotification(
-              'ADD',
-              lang === "id" ? "Servis Ditambahkan" : "Service Added",
-              `Mencatat [${formData.serviceType}] pada Odo: ${Number(formData.odometer).toLocaleString(
-                "id-ID"
-              )} km (Biaya: Rp${Number(formData.cost).toLocaleString("id-ID")}).`,
-              "vehicle",
-              vId
-            );
-            alert(lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
+              const oldOdo = editingRepair.odometer?.toLocaleString("id-ID") || 0;
+              const newOdo = Number(formData.odometer).toLocaleString("id-ID");
+              const oldCost = editingRepair.cost?.toLocaleString("id-ID") || 0;
+              const newCost = Number(formData.cost).toLocaleString("id-ID");
+
+              addNotification(
+                'UPDATE',
+                lang === "id" ? "Servis Diperbarui" : "Service Updated",
+                `Update [${formData.serviceType}]: Odo ${oldOdo}km ➔ ${newOdo}km | Biaya Rp${oldCost} ➔ Rp${newCost}.`,
+                "vehicle",
+                vId
+              );
+
+              // 🌐 FIX ALERT UNTUK WEB BROWSER
+              if (Platform.OS === 'web') {
+                window.alert(lang === "id" ? "✅ Data berhasil diperbarui!" : "✅ Data updated successfully!");
+              } else {
+                Alert.alert("Sukses", lang === "id" ? "Data berhasil diperbarui!" : "Data updated successfully!");
+              }
+            } else {
+              const newRepair: RepairEntry = {
+                vehicleId: vId,
+                ...formData,
+                id: `rep${Date.now()}`,
+                date: formData.date || new Date().toISOString().split("T")[0],
+              };
+
+              setRepairs((prev) => [newRepair, ...prev]);
+
+              if (!saveToHistoryOnly) {
+                setReminders((prev) =>
+                  prev.map((rem) => {
+                    const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
+                    if (isMatch && rem.vehicleId === vId) {
+                      return {
+                        ...rem,
+                        lastServiceOdometer: Number(formData.odometer),
+                        dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
+                        status: "safe",
+                      };
+                    }
+                    return rem;
+                  })
+                );
+              }
+
+              addNotification(
+                'ADD',
+                lang === "id" ? "Servis Ditambahkan" : "Service Added",
+                `Mencatat [${formData.serviceType}] pada Odo: ${Number(formData.odometer).toLocaleString("id-ID")} km.`,
+                "vehicle",
+                vId
+              );
+
+              // 🌐 FIX ALERT UNTUK WEB BROWSER
+              if (Platform.OS === 'web') {
+                window.alert(lang === "id" ? "✅ Berhasil disimpan!" : "✅ Successfully saved!");
+              } else {
+                Alert.alert("Sukses", lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
+              }
+            }
+          } catch (error) {
+            console.error("Gagal memproses penyimpanan servis:", error);
           }
 
+          // 🚀 UTAMA: Pastikan state penutup modal dijalankan di luar block try-catch agar selalu tereksekusi
           setShowAddSheet(false);
           setEditingRepair(null);
           setPrefillServiceType(undefined);
-        }} />
+        }}
+         />
       <FuelSheet
         visible={showFuelSheet}
         vehicleId={selectedVehicleId}
@@ -2344,35 +2359,47 @@ const handleBackupExport = async () => {
           setEditingFuel(null);
         }}
         onSave={(entry) => {
-          if (editingFuel) {
-            setFuelEntries((prev) => prev.map((f) => (f.id === editingFuel.id ? { ...f, ...entry } : f)));
+          try {
+            if (editingFuel) {
+              setFuelEntries((prev) => prev.map((f) => (f.id === editingFuel.id ? { ...f, ...entry } : f)));
 
-            const oldOdoF = editingFuel.odometer?.toLocaleString("id-ID") || 0;
-            const newOdoF = Number(entry.odometer).toLocaleString("id-ID");
-            
-            addNotification(
-              'UPDATE', 
-              lang === "id" ? "Catatan Bensin Diperbarui" : "Fuel Record Updated",
-              `Update Bensin: Odo ${oldOdoF}km ➔ ${newOdoF}km | Liter: ${editingFuel.liters}L ➔ ${entry.liters}L.`,
-              "vehicle",
-              selectedVehicleId
-            );
-          } else {
-            handleAddFuel(entry);
+              const oldOdoF = editingFuel.odometer?.toLocaleString("id-ID") || 0;
+              const newOdoF = Number(entry.odometer).toLocaleString("id-ID");
+              
+              addNotification(
+                'UPDATE', 
+                lang === "id" ? "Catatan Bensin Diperbarui" : "Fuel Record Updated",
+                `Update Bensin: Odo ${oldOdoF}km ➔ ${newOdoF}km | Liter: ${editingFuel.liters}L ➔ ${entry.liters}L.`,
+                "vehicle",
+                selectedVehicleId
+              );
+            } else {
+              handleAddFuel(entry);
 
-            addNotification(
-              'ADD',
-              lang === "id" ? "Bensin Ditambahkan" : "Fuel Added",
-              `Mengisi ${entry.liters}L pada Odo: ${Number(entry.odometer).toLocaleString(
-                "id-ID"
-              )} km (Rp${Number(entry.totalCost).toLocaleString("id-ID")}).`,
-              "vehicle",
-              selectedVehicleId
-            );
+              addNotification(
+                'ADD',
+                lang === "id" ? "Bensin Ditambahkan" : "Fuel Added",
+                `Mengisi ${entry.liters}L pada Odo: ${Number(entry.odometer).toLocaleString("id-ID")} km.`,
+                "vehicle",
+                selectedVehicleId
+              );
+            }
+
+            // 🌐 FIX ALERT UNTUK WEB BROWSER
+            if (Platform.OS === 'web') {
+              window.alert(lang === "id" ? "✅ Catatan bensin berhasil disimpan!" : "✅ Fuel log saved successfully!");
+            } else {
+              Alert.alert("Sukses", lang === "id" ? "Catatan bensin berhasil disimpan!" : "Fuel log saved successfully!");
+            }
+          } catch (error) {
+            console.error("Gagal memproses penyimpanan bensin:", error);
           }
+
+          // 🚀 UTAMA: Tutup sheet secara paksa setelah alur selesai
           setShowFuelSheet(false);
           setEditingFuel(null);
-        }} />
+        }}
+         />
       <VehicleEditModal
         visible={showVehicleModal}
         vehicle={editingVehicle}
