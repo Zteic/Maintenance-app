@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Modal, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from "react-native";
 import { supabase } from "@/utils/supabaseClient";
 import { Vehicle } from "@/types/maintenance";
 import { LinearGradient } from "expo-linear-gradient";
@@ -14,17 +14,25 @@ export default function TaxHistoryList({ visible, onClose, vehicle }: TaxHistory
   const [history, setHistory] = useState<any[]>([]);
   const [fetching, setFetching] = useState(true);
 
-  // Otomatis menembak Supabase setiap kali jendela riwayat ini dibuka
+  // Otomatis memicu tarikan database saat layar riwayat ini terbuka
   useEffect(() => {
+    console.log("==========================================================");
+    console.log("🗄️ [Layar Riwayat Terbuka] Memulai inisialisasi komponen...");
+    console.log("Kondisi Awal:", { visible, vehicleId: vehicle?.id, vehicleName: vehicle?.name });
+
     if (visible && vehicle?.id) {
       fetchTaxHistory();
+    } else {
+      console.log("⚠️ Abort Fetch: ID Kendaraan tidak valid atau kosong.");
+      setFetching(false);
     }
   }, [visible, vehicle]);
 
   const fetchTaxHistory = async () => {
     if (!vehicle?.id) return;
     setFetching(true);
-    console.log(`[Cloud Sync] Menarik log finansial dari Supabase untuk ID: ${vehicle.id}`);
+    
+    console.log(`🚀 [Supabase Request] Menembak query ke tabel 'vehicle_tax_payment_history' untuk ID: ${vehicle.id}`);
     
     try {
       const { data, error } = await supabase
@@ -34,90 +42,93 @@ export default function TaxHistoryList({ visible, onClose, vehicle }: TaxHistory
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("❌ Gagal mengambil arsip histori:", error.message);
+        console.error("❌ [Supabase DB Error] Gagal menarik log arsip:", error.message);
+        throw error;
       }
 
-      if (!error && data) {
-        console.log(`✅ Berhasil mengunduh ${data.length} data riwayat pajak.`);
+      if (data) {
+        console.log(`✅ [Supabase DB Sukses] Berhasil mengunduh ${data.length} baris riwayat akuntansi.`);
+        console.log("Pratinjau Data Pertama:", data[0] || "Tidak ada data");
         setHistory(data);
       }
-    } catch (err) {
-      console.log("Crash fetchTaxHistory:", err);
+    } catch (err: any) {
+      console.error("💥 [SYSTEM CRASH] Gagal memproses data riwayat pajak:", err.message || err);
     } finally {
       setFetching(false);
+      console.log("==========================================================");
     }
   };
 
   const formatRupiah = (v: any) => "Rp " + (parseFloat(v) || 0).toLocaleString("id-ID");
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-      <LinearGradient colors={["#0A1118", "#121E2A"]} style={{ flex: 1 }}>
-        
-        {/* HEADER MODAL LAYAR PENUH */}
-        <View style={s.headerContainer}>
-          <View style={{ flex: 1, marginRight: 10 }}>
-            <Text style={s.headerTitle}>🗄️ LOG ARSIP FINANSIAL PAJAK</Text>
-            <Text style={s.headerSub} numberOfLines={1}>
-              {vehicle?.name || "Kendaraan"} • Rekam Akuntansi Resmi Cloud
-            </Text>
-          </View>
-          <TouchableOpacity onPress={onClose} style={s.closeBtn}>
-            <Text style={s.closeText}>KEMBALI</Text>
-          </TouchableOpacity>
+    <LinearGradient colors={["#0A1118", "#121E2A"]} style={{ flex: 1 }}>
+      
+      {/* HEADER SCREEN ARSIP */}
+      <View style={s.headerContainer}>
+        <View style={{ flex: 1, marginRight: 10 }}>
+          <Text style={s.headerTitle}>🗄️ LOG ARSIP FINANSIAL PAJAK</Text>
+          <Text style={s.headerSub} numberOfLines={1}>
+            {vehicle?.name || "Kendaraan"} • Rekam Akuntansi Resmi Cloud
+          </Text>
         </View>
+        <TouchableOpacity onPress={onClose} style={s.closeBtn} activeOpacity={0.7}>
+          <Text style={s.closeText}>KEMBALI</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* DAFTAR RIWAYAT DILAKUKAN MAP LOOPING DI SINI */}
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
-          <View style={s.card}>
-            <Text style={s.cardTitle}>📜 HISTORI PEMBAYARAN RESMI STNK</Text>
-            
-            {fetching ? (
-              <ActivityIndicator color="#4ECDC4" style={{ marginVertical: 30 }} />
-            ) : history.length === 0 ? (
-              <Text style={s.emptyHistory}>Belum ada rekam pembayaran resmi yang tercatat di cloud database.</Text>
-            ) : (
-              <View style={{ gap: 12 }}>
-                {history.map((log) => (
-                  <View key={log.id} style={s.historyRowItem}>
-                    
-                    {/* Header Bar per Transaksi */}
-                    <View style={s.historyRowHeader}>
-                      <Text style={[s.historyBadge, { color: log.payment_type === "five_year_stnk" ? "#F5A623" : "#4ECDC4" }]}>
-                        {log.payment_type === "five_year_stnk" ? "📄 STNK 5 TAHUNAN" : "🚗 PAJAK TAHUNAN"}
-                      </Text>
-                      <Text style={s.historyDateText}>Bayar: {log.payment_date}</Text>
-                    </View>
-                    
-                    {/* Target Validitas Masa Berlaku Baru */}
-                    <View style={{ gap: 4, paddingVertical: 6 }}>
-                      <Text style={s.historyTargetText}>• Jatuh Tempo Pajak: <Text style={{ fontWeight: "700", color: "#FFF" }}>{log.new_tax_due_date}</Text></Text>
-                      {log.new_stnk_due_date && <Text style={s.historyTargetText}>• Jatuh Tempo STNK: <Text style={{ fontWeight: "700", color: "#FFF" }}>{log.new_stnk_due_date}</Text></Text>}
-                    </View>
-                    
-                    {/* Rincian Akuntansi Ringkas */}
-                    <View style={s.historyPriceBlock}>
-                      <Text style={s.historyPriceLabel}>Total Pembayaran Akhir:</Text>
-                      <Text style={s.historyPriceVal}>{formatRupiah(log.total_pembayaran)}</Text>
-                    </View>
-                    
-                    {/* Memo Catatan Tambahan User */}
-                    {log.deskripsi && <Text style={s.historyMemo}>Catatan: "{log.deskripsi}"</Text>}
-                    
-                    {/* Proteksi Deteksi Berkas Multi Upload */}
-                    {log.proof_files_urls && log.proof_files_urls.length > 0 && (
-                      <Text style={s.historyFileBadge}>📎 Terlampir {log.proof_files_urls.length} Berkas Bukti Aman di Cloud Storage</Text>
-                    )}
+      {/* AREA KONTEN LIST GULIR */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
+        <View style={s.card}>
+          <Text style={s.cardTitle}>📜 HISTORI PEMBAYARAN RESMI STNK</Text>
+          
+          {fetching ? (
+            <View style={{ paddingVertical: 40, alignItems: "center" }}>
+              <ActivityIndicator color="#4ECDC4" size="large" />
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 10 }}>Menghubungkan ke Cloud Database...</Text>
+            </View>
+          ) : history.length === 0 ? (
+            <Text style={s.emptyHistory}>Belum ada rekam pembayaran resmi yang tercatat di cloud database.</Text>
+          ) : (
+            <View style={{ gap: 12 }}>
+              {history.map((log) => (
+                <View key={log.id} style={s.historyRowItem}>
+                  
+                  {/* Header Bar per Transaksi */}
+                  <View style={s.historyRowHeader}>
+                    <Text style={[s.historyBadge, { color: log.payment_type === "five_year_stnk" ? "#F5A623" : "#4ECDC4" }]}>
+                      {log.payment_type === "five_year_stnk" ? "📄 STNK 5 TAHUNAN" : "🚗 PAJAK TAHUNAN"}
+                    </Text>
+                    <Text style={s.historyDateText}>Bayar: {log.payment_date}</Text>
                   </View>
+                  
+                  {/* Target Validitas Masa Berlaku Baru */}
+                  <View style={{ gap: 4, paddingVertical: 6 }}>
+                    <Text style={s.historyTargetText}>• Jatuh Tempo Pajak: <Text style={{ fontWeight: "700", color: "#FFF" }}>{log.new_tax_due_date}</Text></Text>
+                    {log.new_stnk_due_date && <Text style={s.historyTargetText}>• Jatuh Tempo STNK: <Text style={{ fontWeight: "700", color: "#FFF" }}>{log.new_stnk_due_date}</Text></Text>}
+                  </View>
+                  
+                  {/* Rincian Akuntansi Ringkas */}
+                  <View style={s.historyPriceBlock}>
+                    <Text style={s.historyPriceLabel}>Total Pembayaran Akhir:</Text>
+                    <Text style={s.historyPriceVal}>{formatRupiah(log.total_pembayaran)}</Text>
+                  </View>
+                  
+                  {/* Memo Catatan Tambahan User */}
+                  {log.deskripsi && <Text style={s.historyMemo}>Catatan: "{log.deskripsi}"</Text>}
+                  
+                  {/* Proteksi Deteksi Berkas Multi Upload */}
+                  {log.proof_files_urls && log.proof_files_urls.length > 0 && (
+                    <Text style={s.historyFileBadge}>📎 Terlampir {log.proof_files_urls.length} Berkas Bukti Aman di Cloud Storage</Text>
+                  )}
+                </View>
                 ))}
               </View>
             )}
-            
-          </View>
-        </ScrollView>
-
-      </LinearGradient>
-    </Modal>
+          
+        </View>
+      </ScrollView>
+    </LinearGradient>
   );
 }
 

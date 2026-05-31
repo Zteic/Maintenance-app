@@ -198,47 +198,75 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
     }
     
     setLoading(true);
-    console.log("🚀 Menghubungkan ke Cloud Supabase...");
+    console.log("==========================================================");
+    console.log("🚀 Memulai Proses Sinkronisasi Transaksi Ke Cloud Supabase...");
     
     try {
       const urls: string[] = [];
       
-      // 1. PROSES MULTI-FILE UPLOAD BUKTI (JIKA ADA)
+      // 1. PROSES MULTI-FILE UPLOAD BUKTI (DENGAN PENYELAMATAN JALUR WEB TEMPO)
       if (uploadedFiles.length > 0) {
-        console.log(`📂 Memproses unggahan ${uploadedFiles.length} file dokumen bukti...`);
+        console.log(`📂 Mendeteksi ${uploadedFiles.length} berkas lampiran siap di-upload.`);
+        
         for (const [index, file] of uploadedFiles.entries()) {
+          console.log(`[Upload] Memproses file ke-${index + 1}: ${file.name}`);
+          
           const ext = file.name.split('.').pop();
           const path = `${vehicle.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
           
-          const formData = new FormData();
-          formData.append("file", { 
-            uri: file.uri, 
-            name: file.name, 
-            type: file.type || "application/octet-stream" 
-          } as any);
+          let fileBody: any;
 
-          const { data: upData, error: upErr } = await supabase.storage.from("tax_proofs").upload(path, formData);
+          // 🌐 PENYELAMATAN JALUR WEB (TEMPO LAPTOP)
+          if (Platform.OS === 'web') {
+            console.log("💻 Mendeteksi lingkungan Web Laptop, mengonversi URI ke Blob...");
+            const response = await fetch(file.uri);
+            fileBody = await response.blob();
+          } else {
+            // 📱 JALUR NATIVE MOBILE APP (ANDROID / IOS)
+            console.log("📱 Mendeteksi lingkungan perangkat Mobile...");
+            const formData = new FormData();
+            formData.append("file", { 
+              uri: file.uri, 
+              name: file.name, 
+              type: file.type || "application/octet-stream" 
+            } as any);
+            fileBody = formData;
+          }
+
+          console.log(`[Supabase Storage] Mengirim berkas ke bucket 'tax_proofs' -> Path: ${path}`);
+          const { data: upData, error: upErr } = await supabase.storage
+            .from("tax_proofs")
+            .upload(path, fileBody, {
+              cacheControl: '3600',
+              upsert: true
+            });
           
           if (upErr) {
-            console.error(`❌ Gaman Upload Berkas ke-${index + 1}:`, upErr);
+            console.error(`❌ [Supabase Storage Error] File ke-${index + 1} Gagal:`, upErr.message);
             throw upErr;
           }
           
           if (upData) {
+            console.log(`✅ [Supabase Storage Sukses] File ke-${index + 1} terunggah.`);
             const { data } = supabase.storage.from("tax_proofs").getPublicUrl(path);
-            if (data?.publicUrl) urls.push(data.publicUrl);
+            if (data?.publicUrl) {
+              console.log(`🔗 Public URL Berhasil Didapat: ${data.publicUrl}`);
+              urls.push(data.publicUrl);
+            }
           }
         }
-        console.log("✅ Seluruh berkas lampiran sukses terunggah.");
       }
 
       // 2. UPDATE CORE DATA KENDARAAN (TABLE: vehicles)
-      const mainUpdate: any = { taxDueDate: nextTaxDate.trim() };
-      if (taxType === "five_year") mainUpdate.stnkDueDate = nextStnkDate.trim();
+      const mainUpdate: any = { tax_due_date: nextTaxDate.trim() }; // Sesuai kolom database SQL Editor Anda
+      if (taxType === "five_year") mainUpdate.stnk_due_date = nextStnkDate.trim();
 
-      console.log("[DB Update] Mengirim data ke tabel 'vehicles'...", mainUpdate);
+      console.log("[DB Update] Memperbarui tabel 'vehicles'...", mainUpdate);
       const { error: vErr } = await supabase.from("vehicles").update(mainUpdate).eq("id", vehicle.id);
-      if (vErr) throw vErr;
+      if (vErr) {
+        console.error("❌ [Supabase DB Error] Gagal update tabel 'vehicles':", vErr.message);
+        throw vErr;
+      }
 
       // 3. INSERT LOG AUDIT BARU (TABLE: vehicle_tax_payment_history)
       const payloadHistori = {
@@ -264,12 +292,17 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
         proof_files_urls: urls
       };
 
-      console.log("[DB Insert] Mengirim data log ke 'vehicle_tax_payment_history'...", payloadHistori);
+      console.log("[DB Insert] Mengirim log ke 'vehicle_tax_payment_history'...", payloadHistori);
       const { error: hErr } = await supabase.from("vehicle_tax_payment_history").insert(payloadHistori);
-      if (hErr) throw hErr;
+      if (hErr) {
+        console.error("❌ [Supabase DB Error] Gagal insert ke 'vehicle_tax_payment_history':", hErr.message);
+        throw hErr;
+      }
 
-      // 4. BERHASIL! REFRESH DAN KUNCI LIST BARU
-      console.log("🎉 SINKRONISASI CLOUD BERHASIL DATA TERSIMPAN!");
+      // 4. SINKRONISASI SELESAI
+      console.log("==========================================================");
+      console.log("🎉 SINKRONISASI CLOUD BERHASIL! DATA AMAN TERSIMPAN");
+      console.log("==========================================================");
       
       if (Platform.OS === 'web') {
         window.alert("✅ Riwayat pembayaran berhasil diarsipkan ke Cloud!");
@@ -277,16 +310,26 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
         Alert.alert("Sukses", "✅ Riwayat pembayaran berhasil diarsipkan.");
       }
 
+      const finalTaxDate = nextTaxDate.trim();
+      const finalStnkDate = taxType === "five_year" ? nextStnkDate.trim() : null;
+
       resetForm();
-      await fetchHistoryData(); // Memaksa list riwayat di bawah langsung memuat data terbaru dari cloud
-      onSuccess();
+      await fetchHistoryData(); 
+      
+      // Kirim lembaran tanggal baru agar direspon langsung oleh VehicleEditModal
+      onSuccess(finalTaxDate, finalStnkDate);
       
     } catch (e: any) {
-      console.error("💥 CRASH DETECTED pada Blok DB Supabase:", e);
-      Alert.alert("Gagal Menyimpan", e.message || "Terjadi kendala integrasi database.");
+      console.error("💥 [CATCH BLOCK CRASH]:", e);
+      if (Platform.OS === 'web') {
+        window.alert("Gagal Menyimpan: " + (e.message || "Terjadi kendala integrasi database."));
+      } else {
+        Alert.alert("Gagal Menyimpan", e.message || "Terjadi kendala integrasi database.");
+      }
     } finally {
       setLoading(false);
-      console.log("=== [SELESAI] Proses Eksekusi Selesai ===");
+      console.log("=== [SELESAI] Sesi Penyimpanan Berakhir ===");
+      console.log("==========================================================");
     }
   };
 
@@ -501,41 +544,6 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
             <TouchableOpacity onPress={handleSave} disabled={loading} style={s.saveBtn}>
               {loading ? <ActivityIndicator color="#0A1118" /> : <Text style={s.saveBtnText}>Simpan Riwayat Pajak</Text>}
             </TouchableOpacity>
-          </View>
-
-          {/* CARD 2: RIWAYAT / ARSIP PEMBAYARAN PAJAK (TANGGUH CLOUD) */}
-          <View style={s.card}>
-            <Text style={s.cardTitle}>🗄️ ARSIP LOG HISTORI FINANSIAL KENDARAAN</Text>
-            {fetchingHistory ? (
-              <ActivityIndicator color="#4ECDC4" style={{ marginVertical: 15 }} />
-            ) : history.length === 0 ? (
-              <Text style={s.emptyHistory}>Belum ada data pembayaran resmi yang tersimpan di cloud.</Text>
-            ) : (
-              <View style={{ gap: 10 }}>
-                {history.map((log) => (
-                  <View key={log.id} style={s.historyRowItem}>
-                    <View style={s.historyRowHeader}>
-                      <Text style={[s.historyBadge, { color: log.payment_type === "five_year_stnk" ? "#F5A623" : "#4ECDC4" }]}>
-                        {log.payment_type === "five_year_stnk" ? "📄 5 TAHUNAN" : "🚗 TAHUNAN"}
-                      </Text>
-                      <Text style={s.historyDateText}>Bayar: {log.payment_date}</Text>
-                    </View>
-                    <View style={{ gap: 2, paddingVertical: 4 }}>
-                      <Text style={s.historyTargetText}>• Jatuh Tempo Pajak: <Text style={{ fontWeight: "700", color: "#FFF" }}>{log.new_tax_due_date}</Text></Text>
-                      {log.new_stnk_due_date && <Text style={s.historyTargetText}>• Jatuh Tempo STNK: <Text style={{ fontWeight: "700", color: "#FFF" }}>{log.new_stnk_due_date}</Text></Text>}
-                    </View>
-                    <View style={s.historyPriceBlock}>
-                      <Text style={s.historyPriceLabel}>Total Pembayaran:</Text>
-                      <Text style={s.historyPriceVal}>Rp {parseFloat(log.total_pembayaran).toLocaleString("id-ID")}</Text>
-                    </View>
-                    {log.deskripsi && <Text style={s.historyMemo}>Note: "{log.deskripsi}"</Text>}
-                    {log.proof_files_urls && log.proof_files_urls.length > 0 && (
-                      <Text style={s.historyFileBadge}>📎 Terlampir {log.proof_files_urls.length} Berkas Bukti Aman di Cloud Storage</Text>
-                    )}
-                  </View>
-                ))}
-              </View>
-            )}
           </View>
 
         </ScrollView>

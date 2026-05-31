@@ -906,14 +906,25 @@ useEffect(() => {
   };
 
   const handleVehicleDelete = (id: string) => {
-    // 1. Pengecekan jumlah minimal kendaraan
+    // 🚀 SUNTIKAN DETEKTOR REFRESH OTOMATIS ARSIP PAJAK (MASUKKAN DI SINI)
+    if (id === "REFRESH_TAX_HISTORY_TRIGGER") {
+      console.log("==========================================================");
+      console.log("⚙️ [Index Engine] Menangkap sinyal sukses dari Modal Pajak!");
+      console.log("⚡ Menjalankan refreshData() untuk menarik ulang data Cloud...");
+      console.log("==========================================================");
+      
+      refreshData(); // Menyegarkan seluruh status data kendaraan dari Supabase ke Dashboard Home
+      return; // Stop di sini agar fungsi tidak lanjut mengeksekusi kode hapus kendaraan!
+    }
+
+    // ─── KODE ASLI ANDA TETAP AMAN DI BAWAH SINI ───
     if (vehicles.length <= 1) {
-      const msg = lang === "id" ? "Minimal harus ada satu kendaraan." : "At least one vehicle is required.";
-      if (Platform.OS === "web") {
-        window.alert(msg);
-      } else {
-        Alert.alert(lang === "id" ? "Peringatan" : "Warning", msg);
-      }
+      Alert.alert(
+        lang === "id" ? "Gagal" : "Failed",
+        lang === "id"
+          ? "Minimal harus ada 1 kendaraan di aplikasi."
+          : "You must have at least 1 vehicle in the app."
+      );
       return;
     }
 

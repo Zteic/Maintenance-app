@@ -584,14 +584,55 @@ export default function VehicleEditModal({
         </View>
       </TouchableWithoutFeedback>
 
-      {/* 🏛️ INTEGRASI LAYAR PENUH LOG RIWAYAT DARI FILE SINGLE */}
-   {showTaxHistoryList && vehicle && (
-     <TaxHistoryList
-       visible={showTaxHistoryList}
-       onClose={() => setShowTaxHistoryList(false)}
-       vehicle={vehicle}
-     />
-   )}
- </Modal>
+      {/* 🏛️ FIX INTEGRASI: Membungkus TaxHistoryList dengan Modal Layar Penuh */}
+      <Modal 
+        visible={showTaxHistoryList} 
+        animationType="slide" 
+        transparent={false}
+        onRequestClose={() => {
+          console.log("➡️ Menutup Layar Riwayat Pajak...");
+          setShowTaxHistoryList(false);
+        }}
+      >
+        {showTaxHistoryList && vehicle && (
+          <TaxHistoryList 
+            visible={showTaxHistoryList}
+            onClose={() => {
+              console.log("➡️ Pengguna menekan tombol KEMBALI");
+              setShowTaxHistoryList(false);
+            }}
+            vehicle={vehicle}
+          />
+        )}
+      </Modal>
+
+      {/* 🏛️ SUNTIKAN INTEGRASI FORM INPUT UTAMA (TAMBAHKAN INI) */}
+      {showTaxUpdateModal && vehicle && (
+        <UpdateTaxStatusModal
+          visible={showTaxUpdateModal}
+          onClose={() => setShowTaxUpdateModal(false)}
+          vehicle={vehicle}
+          initialType="annual"
+          onSuccess={(newTaxDate?: string, newStnkDate?: string) => {
+            console.log("=== [CALLBACK] UpdateTaxStatusModal Sukses Memberi Sinyal Balik ===");
+            if (newTaxDate) {
+              console.log("🎯 Menyinkronkan [Masa Pajak] Baru ke Form Input Kuning:", newTaxDate);
+              setTaxDueDate(newTaxDate);
+            }
+            if (newStnkDate) {
+              console.log("🎯 Menyinkronkan [Masa STNK] Baru ke Form Input Toska:", newStnkDate);
+              setStnkDueDate(newStnkDate);
+            }
+            setShowTaxUpdateModal(false);
+
+            if (typeof onDelete === "function") {
+              console.log("⚡ Memicu event parent index.tsx via onRefresh callback...");
+              onDelete("REFRESH_TAX_HISTORY_TRIGGER"); 
+            }
+          }}
+        />
+      )}
+
+    </Modal>
   );
 }
