@@ -120,6 +120,40 @@ function buildExportText(
   return text;
 }
 
+async function uploadFileToSupabase(localUri: string, bucketName: string, folderName: string): Promise<string | null> {
+  if (!localUri || localUri.startsWith('http')) return localUri; // Jika sudah berupa link internet, lewati
+
+  try {
+    // 1. Ambil berkas lokal dan ubah menjadi format Blob biner
+    const response = await fetch(localUri);
+    const blob = await response.blob();
+    
+    // 2. Ekstrak ekstensi berkas (.png / .jpg) dan buat susunan path nama yang unik
+    const fileExt = localUri.split('.').pop();
+    const fileName = `${folderName}/${Date.now()}.${fileExt}`;
+
+    // 3. Eksekusi pengunggahan langsung ke bucket Supabase Storage
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .upload(fileName, blob, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (error) throw error;
+
+    // 4. Ambil tautan URL publik yang sah dari server cloud
+    const { data: publicUrlData } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(fileName);
+
+    return publicUrlData.publicUrl;
+  } catch (err) {
+    console.error("Gagal mengunggah berkas ke Supabase Storage:", err);
+    return null;
+  }
+}
+
 type TabType = "home" | "service" | "fuel";
 
 // --- GLOBAL TRIGGER UNTUK LAYOUT ---
@@ -569,35 +603,49 @@ function AppContent() {
     }, [refreshData])
   );
 
+  // ====================================================================
+  // 🚀 AMANKAN AUTO-SAVE: Blok Kode Baru Penjinak Infinite Loop & Lemot
+  // ====================================================================
   useEffect(() => {
-    if (!isFetchingFromServer && vehicles.length > 0) {
-      saveVehicles(vehicles);
-    }
+    if (isFetchingFromServer) return; // JANGAN simpan apa pun saat data sedang ditarik dari server!
+    
+    const delayDebounce = setTimeout(() => {
+      if (vehicles.length > 0) saveVehicles(vehicles);
+    }, 1000); // Beri jeda 1 detik agar tidak menulis ke storage terus-menerus
+    return () => clearTimeout(delayDebounce);
   }, [vehicles, isFetchingFromServer]);
 
   useEffect(() => {
-    if (!isFetchingFromServer && repairs.length > 0) {
-      saveRepairs(repairs);
-    }
+    if (isFetchingFromServer) return;
+    const delayDebounce = setTimeout(() => {
+      if (repairs.length >= 0) saveRepairs(repairs);
+    }, 1000);
+    return () => clearTimeout(delayDebounce);
   }, [repairs, isFetchingFromServer]);
 
   useEffect(() => {
-    if (!isFetchingFromServer && fuelEntries.length > 0) {
-      saveFuelEntries(fuelEntries);
-    }
+    if (isFetchingFromServer) return;
+    const delayDebounce = setTimeout(() => {
+      if (fuelEntries.length >= 0) saveFuelEntries(fuelEntries);
+    }, 1000);
+    return () => clearTimeout(delayDebounce);
   }, [fuelEntries, isFetchingFromServer]);
 
   useEffect(() => {
-    if (!isFetchingFromServer && notifications.length > 0) {
-      saveNotifications(notifications);
-    }
-  }, [notifications, isFetchingFromServer]);
+    if (isFetchingFromServer) return;
+    const delayDebounce = setTimeout(() => {
+      if (reminders.length > 0) saveReminders(reminders);
+    }, 1000);
+    return () => clearTimeout(delayDebounce);
+  }, [reminders, isFetchingFromServer]);
 
   useEffect(() => {
-    if (!isFetchingFromServer && reminders.length > 0) {
-      saveReminders(reminders);
-    }
-  }, [reminders, isFetchingFromServer]);
+    if (isFetchingFromServer) return;
+    const delayDebounce = setTimeout(() => {
+      if (notifications.length >= 0) saveNotifications(notifications);
+    }, 1000);
+    return () => clearTimeout(delayDebounce);
+  }, [notifications, isFetchingFromServer]);
 
   const handleOdometerUpdate = (newValue: number) => {
     setVehicles((prev) =>
@@ -2225,111 +2273,114 @@ const handleBackupExport = async () => {
         onClose={() => {
           setShowAddSheet(false);
           setEditingRepair(null);
+          setPrefillServiceType(undefined);
         }}
-        onSave={(formData) => {
+        onSave={async (formData) => {
           const vId = selectedVehicleId;
           const isEdit = editingRepair && editingRepair.id && !editingRepair.id.includes("temp");
+          const targetRepairId = isEdit ? editingRepair.id : `rep${Date.now()}`;
 
-          try {
-            if (isEdit) {
-              const updatedEntry = {
-                ...editingRepair,
-                ...formData,
-                vehicleId: vId,
-              };
+          const newRepair: RepairEntry = {
+            ...formData,
+            id: targetRepairId,
+            vehicleId: vId,
+            date: formData.date || new Date().toISOString().split("T")[0],
+          };
 
-              setRepairs((prev) => prev.map((r) => (r.id === editingRepair.id ? updatedEntry : r)));
-
-              setReminders((prev) =>
-                prev.map((rem) => {
-                  const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
-                  if (isMatch && rem.vehicleId === vId) {
-                    const odo = Number(formData.odometer);
-                    const interval = Number(formData.nextIntervalKm) || 10000;
-                    return {
-                      ...rem,
-                      lastServiceOdometer: odo,
-                      dueOdometer: odo + interval,
-                      intervalKm: interval,
-                      status: "safe",
-                      lastServiceDate: new Date().toISOString(),
-                    };
-                  }
-                  return rem;
-                })
-              );
-
-              const oldOdo = editingRepair.odometer?.toLocaleString("id-ID") || 0;
-              const newOdo = Number(formData.odometer).toLocaleString("id-ID");
-              const oldCost = editingRepair.cost?.toLocaleString("id-ID") || 0;
-              const newCost = Number(formData.cost).toLocaleString("id-ID");
-
-              addNotification(
-                'UPDATE',
-                lang === "id" ? "Servis Diperbarui" : "Service Updated",
-                `Update [${formData.serviceType}]: Odo ${oldOdo}km ➔ ${newOdo}km | Biaya Rp${oldCost} ➔ Rp${newCost}.`,
-                "vehicle",
-                vId
-              );
-
-              // 🌐 FIX ALERT UNTUK WEB BROWSER
-              if (Platform.OS === 'web') {
-                window.alert(lang === "id" ? "✅ Data berhasil diperbarui!" : "✅ Data updated successfully!");
-              } else {
-                Alert.alert("Sukses", lang === "id" ? "Data berhasil diperbarui!" : "Data updated successfully!");
-              }
-            } else {
-              const newRepair: RepairEntry = {
-                vehicleId: vId,
-                ...formData,
-                id: `rep${Date.now()}`,
-                date: formData.date || new Date().toISOString().split("T")[0],
-              };
-
-              setRepairs((prev) => [newRepair, ...prev]);
-
-              if (!saveToHistoryOnly) {
-                setReminders((prev) =>
-                  prev.map((rem) => {
-                    const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
-                    if (isMatch && rem.vehicleId === vId) {
-                      return {
-                        ...rem,
-                        lastServiceOdometer: Number(formData.odometer),
-                        dueOdometer: Number(formData.odometer) + (Number(formData.nextIntervalKm) || 10000),
-                        status: "safe",
-                      };
-                    }
-                    return rem;
-                  })
-                );
-              }
-
-              addNotification(
-                'ADD',
-                lang === "id" ? "Servis Ditambahkan" : "Service Added",
-                `Mencatat [${formData.serviceType}] pada Odo: ${Number(formData.odometer).toLocaleString("id-ID")} km.`,
-                "vehicle",
-                vId
-              );
-
-              // 🌐 FIX ALERT UNTUK WEB BROWSER
-              if (Platform.OS === 'web') {
-                window.alert(lang === "id" ? "✅ Berhasil disimpan!" : "✅ Successfully saved!");
-              } else {
-                Alert.alert("Sukses", lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
-              }
-            }
-          } catch (error) {
-            console.error("Gagal memproses penyimpanan servis:", error);
+          // 1. Eksekusi Mutasi State RAM Utama
+          if (isEdit) {
+            setRepairs((prev) => prev.map((r) => (r.id === editingRepair.id ? newRepair : r)));
+          } else {
+            setRepairs((prev) => [newRepair, ...prev]);
           }
 
-          // 🚀 UTAMA: Pastikan state penutup modal dijalankan di luar block try-catch agar selalu tereksekusi
+          if (!saveToHistoryOnly) {
+            setReminders((prev) =>
+              prev.map((rem) => {
+                const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
+                if (isMatch && rem.vehicleId === vId) {
+                  const odo = Number(formData.odometer);
+                  const interval = Number(formData.nextIntervalKm) || 10000;
+                  return {
+                    ...rem,
+                    lastServiceOdometer: odo,
+                    dueOdometer: odo + interval,
+                    intervalKm: interval,
+                    status: "safe",
+                    lastServiceDate: new Date().toISOString(),
+                  };
+                }
+                return rem;
+              })
+            );
+          }
+
+          // 2. JALUR HYBRID CLOUD SYNC & FALLBACK OFFLINE STORAGE
+          try {
+            const currentMode = await AsyncStorage.getItem('garasiku_app_mode');
+            if (currentMode === 'online') {
+              console.log("☁️ Mode Online: Mengirim data transaksi servis ke server cloud Supabase...");
+              const { data: authData } = await supabase.auth.getUser();
+              if (authData?.user) {
+                const cloudPayload = {
+                  id: newRepair.id,
+                  vehicle_id: newRepair.vehicleId,
+                  user_id: authData.user.id,
+                  service_type: formData.serviceType,
+                  date: newRepair.date,
+                  odometer: Number(formData.odometer),
+                  cost: Number(formData.cost),
+                  workshop: formData.workshop || "",
+                  notes: formData.notes || "",
+                  next_interval_km: Number(formData.nextIntervalKm) || 10000
+                };
+
+                const { error: cloudErr } = isEdit
+                  ? await supabase.from('repairs').update(cloudPayload).eq('id', editingRepair.id)
+                  : await supabase.from('repairs').insert(cloudPayload);
+
+                if (cloudErr) throw cloudErr;
+              }
+            }
+          } catch (err: any) {
+            console.error("⚠️ Gagal sinkronisasi cloud servis, mencadangkan ke lokal:", err.message);
+          }
+
+          // 🗄️ FALLBACK ASYNCSTORAGE
+          try {
+            const currentLocalRepairs = await AsyncStorage.getItem('garasi_repairs');
+            let localRepairsList = currentLocalRepairs ? JSON.parse(currentLocalRepairs) : [];
+            if (isEdit) {
+              localRepairsList = localRepairsList.map((r: any) => r.id === editingRepair.id ? newRepair : r);
+            } else {
+              localRepairsList.unshift(newRepair);
+            }
+            await AsyncStorage.setItem('garasi_repairs', JSON.stringify(localRepairsList));
+          } catch (localErr) {
+            console.error("Gagal menulis ke AsyncStorage:", localErr);
+          }
+
+          addNotification(
+            isEdit ? 'UPDATE' : 'ADD',
+            lang === "id" ? (isEdit ? "Servis Diperbarui" : "Servis Ditambahkan") : (isEdit ? "Service Updated" : "Service Added"),
+            `Mencatat [${formData.serviceType}] pada Odo: ${Number(formData.odometer).toLocaleString("id-ID")} km.`,
+            "vehicle",
+            vId
+          );
+
+          if (Platform.OS === 'web') {
+            window.alert(lang === "id" ? "✅ Data servis berhasil disimpan!" : "✅ Service data successfully saved!");
+          } else {
+            Alert.alert("Sukses", lang === "id" ? "Berhasil disimpan!" : "Successfully saved!");
+          }
+
           setShowAddSheet(false);
           setEditingRepair(null);
           setPrefillServiceType(undefined);
+          if (typeof refreshData === "function") refreshData();
         }}
-         />
+      />
+
       <FuelSheet
         visible={showFuelSheet}
         vehicleId={selectedVehicleId}
@@ -2358,48 +2409,108 @@ const handleBackupExport = async () => {
           setShowFuelSheet(false);
           setEditingFuel(null);
         }}
-        onSave={(entry) => {
-          try {
-            if (editingFuel) {
-              setFuelEntries((prev) => prev.map((f) => (f.id === editingFuel.id ? { ...f, ...entry } : f)));
+        onSave={async (entry) => {
+          const isEdit = editingFuel && editingFuel.id;
+          const targetFuelId = isEdit ? editingFuel.id : `fe${Date.now()}`;
+          
+          const fullFuelEntry: FuelEntry = {
+            ...entry,
+            id: targetFuelId,
+            vehicleId: selectedVehicleId
+          };
 
-              const oldOdoF = editingFuel.odometer?.toLocaleString("id-ID") || 0;
-              const newOdoF = Number(entry.odometer).toLocaleString("id-ID");
-              
-              addNotification(
-                'UPDATE', 
-                lang === "id" ? "Catatan Bensin Diperbarui" : "Fuel Record Updated",
-                `Update Bensin: Odo ${oldOdoF}km ➔ ${newOdoF}km | Liter: ${editingFuel.liters}L ➔ ${entry.liters}L.`,
-                "vehicle",
-                selectedVehicleId
-              );
-            } else {
-              handleAddFuel(entry);
-
-              addNotification(
-                'ADD',
-                lang === "id" ? "Bensin Ditambahkan" : "Fuel Added",
-                `Mengisi ${entry.liters}L pada Odo: ${Number(entry.odometer).toLocaleString("id-ID")} km.`,
-                "vehicle",
-                selectedVehicleId
-              );
-            }
-
-            // 🌐 FIX ALERT UNTUK WEB BROWSER
-            if (Platform.OS === 'web') {
-              window.alert(lang === "id" ? "✅ Catatan bensin berhasil disimpan!" : "✅ Fuel log saved successfully!");
-            } else {
-              Alert.alert("Sukses", lang === "id" ? "Catatan bensin berhasil disimpan!" : "Fuel log saved successfully!");
-            }
-          } catch (error) {
-            console.error("Gagal memproses penyimpanan bensin:", error);
+          // 1. Eksekusi Mutasi State RAM Utama
+          if (isEdit) {
+            setFuelEntries((prev) => prev.map((f) => (f.id === editingFuel.id ? fullFuelEntry : f)));
+          } else {
+            setFuelEntries((prev) => [...prev, fullFuelEntry]);
           }
 
-          // 🚀 UTAMA: Tutup sheet secara paksa setelah alur selesai
+          // 2. 🚀 JALUR HYBRID CLOUD SYNC & FALLBACK OFFLINE STORAGE
+          try {
+            const currentMode = await AsyncStorage.getItem('garasiku_app_mode');
+            
+            if (currentMode === 'online') {
+              console.log("☁️ Mode Online: Mengirim data log BBM ke server cloud Supabase...");
+              const { data: authData } = await supabase.auth.getUser();
+              
+              if (authData?.user) {
+                
+                // 📸 ── UBAH MULAI DARI SINI ──
+                // Jalur kondisional: Jika berkas berupa file lokal internal hp, konversi menjadi URL Supabase Storage
+                let cloudPhotoUrl = fullFuelEntry.receiptPhoto;
+                if (cloudPhotoUrl && (cloudPhotoUrl.startsWith('file://') || cloudPhotoUrl.startsWith('blob:'))) {
+                  console.log("📸 Mendeteksi foto lokal, memulai unggah ke cloud storage...");
+                  const uploadedUrl = await uploadFileToSupabase(cloudPhotoUrl, 'tax_proofs', authData.user.id);
+                  if (uploadedUrl) {
+                    cloudPhotoUrl = uploadedUrl;
+                    // SINKRONISASI KEMBALI KE STATE LOKAL: Perbarui jalur gambar lokal di memori utama dengan URL Cloud sejati
+                    fullFuelEntry.receiptPhoto = uploadedUrl;
+                  }
+                }
+
+                // Susun ulang payload dengan menyertakan tautan gambar sejati hasil konversi
+                const fuelPayload = {
+                  id: fullFuelEntry.id,
+                  vehicleId: fullFuelEntry.vehicleId, 
+                  date: fullFuelEntry.date,
+                  liters: parseFloat(fullFuelEntry.liters as any),
+                  pricePerLiter: parseInt(fullFuelEntry.pricePerLiter as any, 10), 
+                  totalCost: parseInt(fullFuelEntry.totalCost as any, 10), 
+                  odometer: parseInt(fullFuelEntry.odometer as any, 10),
+                  fuelType: fullFuelEntry.fuelType || "", 
+                  notes: fullFuelEntry.notes || "",
+                  receiptPhoto: cloudPhotoUrl // 🔥 Link internet sejati resmi mendarat aman di SQL Database Anda!
+                };
+                // ── SELESAI UBAH DI SINI ──
+
+                const { error: fuelCloudErr } = isEdit
+                  ? await supabase.from('fuels').update(fuelPayload).eq('id', editingFuel.id)
+                  : await supabase.from('fuels').insert(fuelPayload);
+
+                if (fuelCloudErr) throw fuelCloudErr;
+                console.log("✅ Berhasil mengamankan log pengisian BBM beserta foto ke cloud.");
+              }
+            }
+          } catch (fuelErr: any) {
+            console.error("⚠️ Gagal sinkronisasi cloud bensin, beralih cadangan:", fuelErr.message);
+          }
+
+          // 🗄️ FALLBACK ASYNCSTORAGE
+          try {
+            const currentLocalFuels = await AsyncStorage.getItem('garasi_fuel_entries');
+            let localFuelsList = currentLocalFuels ? JSON.parse(currentLocalFuels) : [];
+            
+            if (isEdit) {
+              localFuelsList = localFuelsList.map((f: any) => f.id === editingFuel.id ? fullFuelEntry : f);
+            } else {
+              localFuelsList.unshift(fullFuelEntry);
+            }
+            await AsyncStorage.setItem('garasi_fuel_entries', JSON.stringify(localFuelsList));
+          } catch (localFuelErr) {
+            console.error("Gagal menulis log bensin ke AsyncStorage:", localFuelErr);
+          }
+
+          // Notifikasi dan penutupan modal...
+          addNotification(
+            isEdit ? 'UPDATE' : 'ADD',
+            lang === "id" ? (isEdit ? "Catatan Bensin Diperbarui" : "Bensin Ditambahkan") : (isEdit ? "Fuel Record Updated" : "Fuel Added"),
+            `Mengisi ${entry.liters}L pada Odo: ${Number(entry.odometer).toLocaleString("id-ID")} km.`,
+            "vehicle",
+            selectedVehicleId
+          );
+
+          if (Platform.OS === 'web') {
+            window.alert(lang === "id" ? "✅ Catatan bensin berhasil disimpan!" : "✅ Fuel log saved successfully!");
+          } else {
+            Alert.alert("Sukses", lang === "id" ? "Catatan bensin berhasil disimpan!" : "Fuel log saved successfully!");
+          }
+
           setShowFuelSheet(false);
           setEditingFuel(null);
+          if (typeof refreshData === "function") refreshData();
         }}
-         />
+      />
       <VehicleEditModal
         visible={showVehicleModal}
         vehicle={editingVehicle}
