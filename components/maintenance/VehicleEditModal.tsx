@@ -15,6 +15,8 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
+import UpdateTaxStatusModal from "./UpdateTaxStatusModal";
+import TaxHistoryList from "./TaxHistoryList";
 
 const ACCENT_COLORS = [
   "#F5A623",
@@ -61,7 +63,9 @@ export default function VehicleEditModal({
   );
   const [taxDueDate, setTaxDueDate] = useState("");
   const [stnkDueDate, setStnkDueDate] = useState("");
+  const [showTaxUpdateModal, setShowTaxUpdateModal] = useState(false);
   const [tankCapacity, setTankCapacity] = useState("");
+  const [showTaxHistoryList, setShowTaxHistoryList] = useState(false);
 
   useEffect(() => {
     if (vehicle) {
@@ -434,6 +438,27 @@ export default function VehicleEditModal({
                         />
                       </View>
                     </View>
+
+                    {/* 🚀 TOMBOL AKSES LANGSUNG KE FILE TAXHISTORYLIST */}
+                 {isEdit && vehicle && (
+                   <TouchableOpacity
+                     activeOpacity={0.8}
+                     onPress={() => setShowTaxHistoryList(true)} // 👈 Memicu state baru
+                     style={{
+                       backgroundColor: "rgba(78, 205, 196, 0.12)",
+                       borderWidth: 1.5,
+                       borderColor: "rgba(78, 205, 196, 0.35)",
+                       borderRadius: 12,
+                       padding: 14,
+                       alignItems: "center",
+                       marginTop: 8,
+                     }}
+                   >
+                     <Text style={{ color: "#4ECDC4", fontSize: 12, fontWeight: "900", letterSpacing: 0.5 }}>
+                       🗄️ LIHAT RIWAYAT ARSIP & LOG FINANSIAL PAJAK
+                     </Text>
+                   </TouchableOpacity>
+                 )}
                   </View>
 
                   {/* Tank Capacity */}
@@ -558,6 +583,15 @@ export default function VehicleEditModal({
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
-    </Modal>
+
+      {/* 🏛️ INTEGRASI LAYAR PENUH LOG RIWAYAT DARI FILE SINGLE */}
+   {showTaxHistoryList && vehicle && (
+     <TaxHistoryList
+       visible={showTaxHistoryList}
+       onClose={() => setShowTaxHistoryList(false)}
+       vehicle={vehicle}
+     />
+   )}
+ </Modal>
   );
 }

@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Modal, TouchableWithoutFeedback } from "react-native";
 import { Reminder, Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
-import { useRegional } from "@/context/RegionalContext"; // 🚀 SUNTIKAN 1: Import Regional Context
+import { useRegional } from "@/context/RegionalContext";
+import UpdateTaxStatusModal from "./UpdateTaxStatusModal";
 
 interface UpcomingRemindersProps {
   reminders?: Reminder[];
@@ -70,12 +71,13 @@ export default function UpcomingReminders({
   
   // Modal fallback lama (dibiarkan dulu untuk jaga-jaga jika onOpenTaxCenter belum dikirim)
   const [showDocModal, setShowDocModal] = useState(false);
-
+  const [selectedTaxType, setSelectedTaxType] = useState<"annual" | "five_year" | null>(null); 
+  
   // 1. Inisialisasi Data Dasar
   const safeReminders = Array.isArray(reminders) ? reminders : [];
   const taxDays = getDaysLeft(vehicle?.taxDueDate);
   const stnkDays = getDaysLeft(vehicle?.stnkDueDate);
-
+  
   const STATUS_CONFIG: any = {
     safe: { color: "#4ECDC4", bg: "rgba(78,205,196,0.1)", label: isId ? "AMAN" : "SAFE", border: "rgba(78,205,196,0.2)" },
     approaching: { color: "#F5A623", bg: "rgba(245,166,35,0.1)", label: isId ? "BUTUH PERHATIAN" : "NEEDS ATTENTION", border: "rgba(245,166,35,0.2)" },
@@ -140,7 +142,6 @@ export default function UpcomingReminders({
       {/* Main List */}
       <View style={{ gap: 10, paddingHorizontal: 20 }}>
         {sortedAll.map((item: any) => {
-          // RENDER KARTU DOKUMEN PAJAK
           if (item.type === 'doc') {
             const isWarning = item.days !== null && item.days <= 90;
             return (
@@ -152,7 +153,7 @@ export default function UpcomingReminders({
                 days={item.days} 
                 statusText={item.statusText} 
                 statusColor={item.statusColor} 
-                onPress={() => onEditVehicle ? onEditVehicle() : setShowDocModal(true)}
+                onPress={() => setSelectedTaxType(item.id === "stnk" ? "five_year" : "annual")} // 🏛️ UBAH JADI BARIS INI
                 />
             );
           }
@@ -266,6 +267,17 @@ export default function UpcomingReminders({
           </TouchableWithoutFeedback>
         </TouchableOpacity>
       </Modal>
+
+      {/* 🏛️ MODAL UPDATE STATUS PAJAK & STNK CLOUD */}
+      <UpdateTaxStatusModal
+        visible={selectedTaxType !== null}
+        type={selectedTaxType}
+        vehicle={vehicle}
+        onClose={() => setSelectedTaxType(null)}
+        onSuccess={() => {
+          if (onEditVehicle) onEditVehicle(); // Memicu refresh instan data dashboard utama
+        }}
+      />
     </View>
   );
 }

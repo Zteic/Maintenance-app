@@ -176,6 +176,13 @@ function AppContent() {
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [activePrefillFeature, setActivePrefillFeature] = useState<{name: string, desc: string} | null>(null);
   const [showTaxCenter, setShowTaxCenter] = useState(false);
+  const [taxRefreshKey, setTaxRefreshKey] = useState(0);
+
+  const handleTaxSuccess = useCallback(() => {
+    console.log("🔄 Triggering taxRefreshKey untuk memperbarui list riwayat pajak...");
+    setTaxRefreshKey(prev => prev + 1);
+  }, []);
+
   const [timeRules, setTimeRules] = useState<Record<string, { repeatNum: number, repeatUnit: string }>>({});
 
   // 🚀 STATE TAMBAHAN UNTUK INTEGRASI PROFILE SYSTEM
@@ -1448,7 +1455,8 @@ const handleBackupExport = async () => {
                       <Text style={{ color: "#4ECDC4", fontSize: 10, fontWeight: "700" }}>+{stats.monthlyDistance.toLocaleString("id-ID")} {distanceUnit}</Text>
                     </View>
                   </View>
-                  <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10 }}>
+                  <Text
+                    style={{ color: "rgba(255,255,255,0.2)", fontSize: 14, marginTop: 10, fontStyle: "italic" }}>
                     {now.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { month: "long", year: "numeric" })}
                   </Text>
                 </TouchableOpacity>
@@ -1467,7 +1475,7 @@ const handleBackupExport = async () => {
              onAddReminder={() => setShowPlanModal(true)}
              onEditReminder={handleEdit}
              onDeleteReminder={handleDelete}
-             onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }} 
+             onEditVehicle={handleTaxSuccess} 
              onOpenTaxCenter={() => setShowTaxCenter(true)}
            />
             </View>
