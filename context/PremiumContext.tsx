@@ -28,40 +28,65 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     expiredAt: null as string | null,
   });
 
-  // ── FUNGSI INTI: AMBIL DATA LANGSUNG DARI SUPABASE (SINGLE SOURCE OF TRUTH) ──
+  // ── 🔄 UTAMA: AMBIL DATA LANGSUNG DARI SUPABASE (SINGLE SOURCE OF TRUTH) ──
   const fetchMembershipFromServer = async (userId: string) => {
     try {
+      // Mengambil seluruh data field transaksi dari tabel profiles milik user
       const { data: profile, error } = await supabase
-  .from('profiles')
-  .select('membership_status')
-  .eq('id', userId)
-  .single();
+        .from('profiles')
+        .select('is_premium, membership_status, premium_type, purchase_date, premium_expired_at')
+        .eq('id', userId)
+        .single();
 
       if (!error && profile) {
-        const hasPremium = profile.membership_status === 'Premium' || profile.membership_status === 'Premium Lifetime';
-        setIsPremiumState(hasPremium);
+        // 🛡️ ATURAN KONSISTENSI DATA: Cegah is_premium = true tapi status masih 'Basic'
+        let finalStatus = profile.membership_status || 'Basic';
+        let finalIsPremium = !!profile.is_premium;
+
+        if (finalIsPremium && finalStatus === 'Basic') {
+          finalStatus = 'Premium'; // Paksa sinkron ke Premium jika is_premium di server bernilai TRUE
+        } else if (!finalIsPremium) {
+          finalStatus = 'Basic'; // Balikkan ke Basic jika is_premium bernilai FALSE
+        }
+
+        // Set State UI Aplikasi
+        setIsPremiumState(finalIsPremium);
         setMembershipDetails({
-          status: profile.membership_status || 'Basic',
-          type: profile.premium_type,
-          purchaseDate: profile.purchase_date,
-          expiredAt: profile.premium_expired_at,
+          status: finalStatus,
+          type: finalIsPremium ? (profile.premium_type || 'Lifetime') : null,
+          purchaseDate: finalIsPremium ? profile.purchase_date : null,
+          expiredAt: finalIsPremium ? profile.premium_expired_at : null,
         });
-        await AsyncStorage.setItem('garasi_cache_membership_status', profile.membership_status || 'Basic');
-      } else {
-        // Jika profile belum terbuat di database, buat fallback instan ke Basic
-        await resetToBasicState();
+
+        // Simpan cache lokal HANYA untuk bounding awal offline sewaktu aplikasi dibuka kembali
+        await AsyncStorage.setItem('garasi_cache_membership_status', finalStatus);
+        await AsyncStorage.setItem('garasi_cache_is_premium', finalIsPremium ? 'true' : 'false');
+        await AsyncStorage.setItem('garasi_cache_purchase_date', finalIsPremium ? (profile.purchase_date || '') : '');
+        return;
       }
+      
+      // Jika profile belum terbuat/error, lempar fallback ke Basic
+      await resetToBasicState();
     } catch (err) {
       console.error("❌ Gagal sinkronisasi data dari server:", err);
-      const cachedStatus = await AsyncStorage.getItem('garasi_cache_membership_status');
-      setIsPremiumState(cachedStatus === 'Premium' || cachedStatus === 'Premium Lifetime');
+      
+      // Fallback Aman Offline: Ambil dari cache internal perangkat
+      const cachedStatus = await AsyncStorage.getItem('garasi_cache_membership_status') || 'Basic';
+      const cachedPremium = await AsyncStorage.getItem('garasi_cache_is_premium') === 'true';
+      const cachedDate = await AsyncStorage.getItem('garasi_cache_purchase_date') || null;
+
+      setIsPremiumState(cachedPremium);
+      setMembershipDetails(prev => ({
+        ...prev,
+        status: cachedStatus,
+        purchaseDate: cachedDate,
+      }));
     } finally {
-      // 🚀 MATIKAN LOADING DI SINI: Apapun yang terjadi (sukses/gagal), matikan roda berputar!
       setIsLoadingMembership(false);
     }
   };
 
-  // Fungsi manual untuk trigger refresh dari komponen lain
+  // Fungsi trigger manual penyegaran data keanggotaan
   const refreshMembership = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -75,16 +100,19 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     setIsPremiumState(false);
     setMembershipDetails({ status: 'Basic', type: null, purchaseDate: null, expiredAt: null });
     await AsyncStorage.removeItem('garasi_cache_membership_status');
+    await AsyncStorage.removeItem('garasi_cache_is_premium');
+    await AsyncStorage.removeItem('garasi_cache_purchase_date');
+    setIsLoadingMembership(false);
   };
 
-  // ── VALIDASI SAAT STARTUP & PERUBAHAN AUTH (REAL-TIME GUARD) ──
+  // ── 🔒 SINKRONISASI REALTIME STARTUP & EVENT AUTH (POINT 4, 5, 6, 8) ──
   useEffect(() => {
     let isMounted = true;
 
     const initializeAndListenAuth = async () => {
       setIsLoadingMembership(true);
       
-      // Check session aktif saat aplikasi dibuka (Startup Validation)
+      // 1. Validasi saat Startup Aplikasi Dibuka Pertama Kali
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user && isMounted) {
         await fetchMembershipFromServer(session.user.id);
@@ -93,7 +121,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
       }
       if (isMounted) setIsLoadingMembership(false);
 
-      // Dengarkan perubahan auth secara realtime (Login, Logout, Token Refreshed)
+      // 2. Pendengar Status Login / Logout Akun Cloud secara otomatis
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
         if (!isMounted) return;
         
@@ -105,6 +133,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
             setIsLoadingMembership(false);
           }
         } else if (event === 'SIGNED_OUT') {
+          // Ketika logout cloud, data di database Supabase tetap aman, aplikasi lokal kembali ke basic
           await resetToBasicState();
         }
       });
@@ -121,7 +150,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // ── FUNGSI SET PREMIUM (DIPANGGIL SAAT TRANSAKSI SUKSES) ──
+  // ── 💳 PROSES SINKRONISASI UPDATE DATA KE SUPABASE SAAT TRANSAKSI SUKSES ──
   const setIsPremium = async (status: boolean, premiumType: string = 'Lifetime') => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -134,22 +163,23 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
       const statusString = status ? 'Premium' : 'Basic';
       const nowString = status ? new Date().toISOString() : null;
 
-      // 🚀 UPDATE DATABASE SUPABASE SEBAGAI UTAMA
+      // 🚀 UPDATE DATABASE SUPABASE SEBAGAI SINGLE SOURCE OF TRUTH
       const { error } = await supabase
         .from('profiles')
         .update({
+          is_premium: status,
           membership_status: statusString,
           premium_type: status ? premiumType : null,
-          purchase_date: nowString
+          purchase_date: status ? nowString : null
         })
         .eq('id', user.id);
 
       if (error) {
-        console.error("❌ Gagal mengunci status premium ke server:", error.message);
+        console.error("❌ Gagal mengunci status premium ke server Supabase:", error.message);
         return false;
       }
 
-      // Jalankan fetch ulang agar data state lokal dan database 100% sinkron dan akurat
+      // Jalankan ambil data segar ulang agar state UI langsung aktif seketika
       await fetchMembershipFromServer(user.id);
       return true;
     } catch (e) {
@@ -158,11 +188,9 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Simulasi Flow upgrade aman (bisa dihubungkan ke Midtrans / In-App Purchase Store)
   const upgradeToPremium = async () => {
     try {
-      // Simulasi delay gateway pembayaran selama 1 detik
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Jeda simulasi transaksi aman
       const success = await setIsPremium(true, 'Lifetime');
       return success;
     } catch (error) {
