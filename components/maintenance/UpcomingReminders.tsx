@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Modal, TouchableWithoutFeedback } from "react-native";
 import { Reminder, Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
+import { useRegional } from "@/context/RegionalContext"; // 🚀 SUNTIKAN 1: Import Regional Context
 
 interface UpcomingRemindersProps {
   reminders?: Reminder[];
@@ -11,6 +12,7 @@ interface UpcomingRemindersProps {
   onEditReminder?: (item: Reminder) => void;
   onDeleteReminder?: (id: string) => void;
   onEditVehicle?: () => void;
+  onOpenTaxCenter?: () => void; // 🚀 SUNTIKAN 2: Prop baru untuk membuka halaman Tax Center
 }
 
 // --- FUNGSI HELPER (DI LUAR KOMPONEN) ---
@@ -23,27 +25,31 @@ function getDaysLeft(dateStr?: string): number | null {
   return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+// 🚀 SUNTIKAN 3: Aturan Warna Baru (Merah, Oranye, Kuning, Hijau)
 function getDocStatusColor(days: number | null): string {
   if (days === null) return "rgba(255,255,255,0.2)";
-  if (days < 0) return "#FF6B6B";
-  if (days <= 30) return "#FF6B6B";
-  if (days <= 90) return "#F5A623";
-  return "#4ECDC4";
+  if (days < 0) return "#FF5252"; // Merah (Sudah Jatuh Tempo)
+  if (days <= 30) return "#FF8C00"; // Oranye (Kurang dari 30 Hari)
+  if (days <= 90) return "#F5A623"; // Kuning (Kurang dari 90 Hari)
+  return "#4ECDC4"; // Hijau (Aman)
 }
 
 const formatDocDate = (dateStr?: string, isId?: boolean) => {
   if (!dateStr) return "-";
   return new Date(dateStr).toLocaleDateString(isId ? "id-ID" : "en-US", {
     day: "numeric",
-    month: "short",
+    month: "long", // Diubah ke long agar formatnya "12 Juli 2026"
     year: "numeric",
   });
 };
 
+// 🚀 SUNTIKAN 4: Aturan Teks Status Baru
 const docStatusText = (days: number | null, t: any) => {
   if (days === null) return "-";
-  if (days < 0) return t("expired") || "Expired";
-  return `${days} ${t("daysLeft") || "hari lagi"}`;
+  if (days < 0) return `Terlambat ${Math.abs(days)} Hari`;
+  if (days === 0) return "Jatuh Tempo Hari Ini";
+  if (days <= 30) return `Segera Perpanjang (${days} Hari)`;
+  return `${days} Hari Lagi`;
 };
 
 // --- KOMPONEN UTAMA ---
@@ -55,12 +61,14 @@ export default function UpcomingReminders({
   onEditReminder,
   onDeleteReminder,
   onEditVehicle,
+  onOpenTaxCenter,
 }: UpcomingRemindersProps) {
   const { t, lang } = useLanguage();
+  const { currency } = useRegional(); // Ambil data mata uang IDR/Lainnya
   const isId = lang === "id";
   const [expandedId, setExpandedId] = useState<string | null>(null);
   
-  // State untuk memunculkan Modal Info Dokumen
+  // Modal fallback lama (dibiarkan dulu untuk jaga-jaga jika onOpenTaxCenter belum dikirim)
   const [showDocModal, setShowDocModal] = useState(false);
 
   // 1. Inisialisasi Data Dasar
@@ -69,49 +77,33 @@ export default function UpcomingReminders({
   const stnkDays = getDaysLeft(vehicle?.stnkDueDate);
 
   const STATUS_CONFIG: any = {
-    safe: { 
-      color: "#4ECDC4", 
-      bg: "rgba(78,205,196,0.1)", 
-      label: isId ? "AMAN" : "SAFE", 
-      border: "rgba(78,205,196,0.2)" 
-    },
-    approaching: { 
-      color: "#F5A623", 
-      bg: "rgba(245,166,35,0.1)", 
-      label: isId ? "BUTUH PERHATIAN" : "NEEDS ATTENTION", 
-      border: "rgba(245,166,35,0.2)" 
-    },
-    overdue: { 
-      color: "#FF5252", 
-      bg: "rgba(255,82,82,0.1)", 
-      label: isId ? "PERBAIKI SEGERA" : "REPAIR NOW", 
-      border: "rgba(255,82,82,0.2)" 
-    },
-
-    routine: {
-      color: "#4ECDC4", 
-      bg: "rgba(78,205,196,0.1)", 
-      label: isId ? "JADWAL RUTIN" : "ROUTINE", 
-      border: "rgba(78,205,196,0.2)" 
-    }
+    safe: { color: "#4ECDC4", bg: "rgba(78,205,196,0.1)", label: isId ? "AMAN" : "SAFE", border: "rgba(78,205,196,0.2)" },
+    approaching: { color: "#F5A623", bg: "rgba(245,166,35,0.1)", label: isId ? "BUTUH PERHATIAN" : "NEEDS ATTENTION", border: "rgba(245,166,35,0.2)" },
+    overdue: { color: "#FF5252", bg: "rgba(255,82,82,0.1)", label: isId ? "PERBAIKI SEGERA" : "REPAIR NOW", border: "rgba(255,82,82,0.2)" },
+    routine: { color: "#4ECDC4", bg: "rgba(78,205,196,0.1)", label: isId ? "JADWAL RUTIN" : "ROUTINE", border: "rgba(78,205,196,0.2)" }
   };
 
-  // 2. Gabungkan Dokumen & Servis ke satu Array
-  const allReminders = [
+  // 🚀 SUNTIKAN 5: Saring Dokumen HANYA JIKA MATA UANG IDR
+  const docReminders = currency === 'IDR' ? [
     ...(vehicle?.taxDueDate ? [{ 
-      id: 'tax', type: 'doc', icon: "🏛️", label: isId ? "Pajak Tahunan" : "Annual Tax", 
+      id: 'tax', type: 'doc', icon: "🚗", label: "Pajak Tahunan", 
       days: taxDays, date: formatDocDate(vehicle.taxDueDate, isId),
       statusColor: getDocStatusColor(taxDays), statusText: docStatusText(taxDays, t)
     }] : []),
     ...(vehicle?.stnkDueDate ? [{ 
-      id: 'stnk', type: 'doc', icon: "📄", label: isId ? "STNK 5 Tahun" : "5-Year STNK", 
+      id: 'stnk', type: 'doc', icon: "📄", label: "STNK 5 Tahun", 
       days: stnkDays, date: formatDocDate(vehicle.stnkDueDate, isId),
       statusColor: getDocStatusColor(stnkDays), statusText: docStatusText(stnkDays, t)
-    }] : []),
+    }] : [])
+  ] : [];
+
+  // Gabungkan dengan reminder servis biasa
+  const allReminders = [
+    ...docReminders,
     ...safeReminders.map(r => ({ ...r, type: 'service' }))
   ];
 
-  // 3. Sortir Berdasarkan Prioritas
+  // Sortir Berdasarkan Prioritas Waktu/KM
   const sortedAll = [...allReminders].sort((a: any, b: any) => {
     const getScore = (item: any) => {
       if (item.type === 'doc') return item.days ?? 9999;
@@ -140,7 +132,7 @@ export default function UpcomingReminders({
           style={{ backgroundColor: '#4ECDC4', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
         >
           <Text style={{ color: '#1A2B3C', fontWeight: '900', fontSize: 12 }}>
-          {isId ? "TAMBAH" : "ADD"}
+            {isId ? "TAMBAH" : "ADD"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -148,21 +140,25 @@ export default function UpcomingReminders({
       {/* Main List */}
       <View style={{ gap: 10, paddingHorizontal: 20 }}>
         {sortedAll.map((item: any) => {
+          // RENDER KARTU DOKUMEN PAJAK
           if (item.type === 'doc') {
+            const isWarning = item.days !== null && item.days <= 90;
             return (
               <DocReminderCard 
                 key={item.id} 
-                icon={item.icon} 
+                icon={isWarning && item.id === 'stnk' ? '⚠️' : item.days !== null && item.days < 0 ? '🚨' : item.icon} 
                 label={item.label} 
                 date={item.date} 
                 days={item.days} 
                 statusText={item.statusText} 
                 statusColor={item.statusColor} 
-                onPress={() => setShowDocModal(true)} 
+                // 🚀 Buka halaman detail Tax Center!
+                onPress={() => onOpenTaxCenter ? onOpenTaxCenter() : setShowDocModal(true)} 
               />
             );
           }
 
+          // RENDER KARTU SERVIS BIASA
           const isExpanded = expandedId === item.id;
           const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.safe;
           const kmRemaining = (item.dueOdometer || 0) - currentOdometer;
@@ -184,10 +180,7 @@ export default function UpcomingReminders({
                 onPress={() => setExpandedId(isExpanded ? null : item.id)}
                 style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
               >
-                <View style={{ 
-                  width: 40, height: 40, borderRadius: 12, backgroundColor: cfg.bg, 
-                  alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: cfg.border 
-                }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: cfg.bg, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: cfg.border }}>
                   <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: cfg.color }} />
                 </View>
 
@@ -199,26 +192,19 @@ export default function UpcomingReminders({
                         <Text style={{ color: cfg.color, fontSize: 9, fontWeight: "900" }}>!</Text>
                       </View>
                     )}
-                    </View>
+                  </View>
                   <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
-  {item.status === "routine" 
-    ? `Rutin: Setiap ${item.repeatNum} ${item.repeatUnit === 'week' ? 'Minggu' : item.repeatUnit === 'month' ? 'Bulan' : 'Tahun'}`
-    : `Target: ${item.dueOdometer?.toLocaleString()} km`
-  }
-</Text>
-            </View> {/* 👈 Biarkan satu penutup ini saja untuk menutup kontainer teks kiri */}
+                    {item.status === "routine" 
+                      ? `Rutin: Setiap ${item.repeatNum} ${item.repeatUnit === 'week' ? 'Minggu' : item.repeatUnit === 'month' ? 'Bulan' : 'Tahun'}`
+                      : `Target: ${item.dueOdometer?.toLocaleString()} km`
+                    }
+                  </Text>
+                </View>
 
-            <View style={{ alignItems: "flex-end" }}> {/* 👈 Langsung lanjut ke kontainer badge kanan */}
-                  <Text 
-  style={{ 
-    color: item.status === "routine" ? "#4ECDC4" : item.status === "overdue" ? "#FF5252" : "#F5A623", 
-    fontSize: 13, 
-    fontWeight: "800",
-    letterSpacing: 0.5
-  }}
->
-  {item.status === "routine" ? "JADWAL RUTIN" : "PERBAIKI SEGERA"}
-</Text>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={{ color: item.status === "routine" ? "#4ECDC4" : item.status === "overdue" ? "#FF5252" : "#F5A623", fontSize: 13, fontWeight: "800", letterSpacing: 0.5 }}>
+                    {item.status === "routine" ? "JADWAL RUTIN" : "PERBAIKI SEGERA"}
+                  </Text>
                   <View style={{ marginTop: 4, opacity: 0.3 }}>
                     <Text style={{ color: 'white', fontSize: 10 }}>{isExpanded ? '▲' : '▼'}</Text>
                   </View>
@@ -226,13 +212,7 @@ export default function UpcomingReminders({
               </TouchableOpacity>
 
               {isExpanded && (
-                <View style={{ 
-                  marginTop: 16, 
-                  paddingTop: 16, 
-                  borderTopWidth: 1, 
-                  borderTopColor: 'rgba(255,255,255,0.05)',
-                  gap: 12
-                }}>
+                <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', gap: 12 }}>
                   <View style={{ alignSelf: 'flex-start', backgroundColor: cfg.bg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
                     <Text style={{ color: cfg.color, fontSize: 10, fontWeight: '800' }}>
                       {cfg.label.toUpperCase()} {kmRemaining < 0 ? (isId ? 'BUTUH PERHATIAN SEGERA' : 'SERVICE REQUIRED IMMEDIATELY') : ''}
@@ -243,31 +223,19 @@ export default function UpcomingReminders({
                     <TouchableOpacity 
                       onPress={() => onEditReminder?.(item)}
                       activeOpacity={0.7}
-                      style={{ 
-                        flex: 1, height: 38, backgroundColor: 'rgba(78,205,196,0.1)', 
-                        borderRadius: 10, alignItems: 'center', justifyContent: 'center', 
-                        flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: 'rgba(78,205,196,0.3)' 
-                      }}
+                      style={{ flex: 1, height: 38, backgroundColor: 'rgba(78,205,196,0.1)', borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: 'rgba(78,205,196,0.3)' }}
                     >
                       <Text style={{ fontSize: 14 }}>✅</Text>
-                      <Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 11 }}>
-                        {isId ? "SUDAH SERVIS" : "MARK DONE"}
-                      </Text>
+                      <Text style={{ color: '#4ECDC4', fontWeight: '800', fontSize: 11 }}>{isId ? "SUDAH SERVIS" : "MARK DONE"}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity 
                       onPress={() => onDeleteReminder?.(item.id)}
                       activeOpacity={0.7}
-                      style={{ 
-                        flex: 1, height: 38, backgroundColor: 'rgba(255,82,82,0.1)', 
-                        borderRadius: 10, alignItems: 'center', justifyContent: 'center', 
-                        flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: 'rgba(255,82,82,0.2)' 
-                      }}
+                      style={{ flex: 1, height: 38, backgroundColor: 'rgba(255,82,82,0.1)', borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: 'rgba(255,82,82,0.2)' }}
                     >
                       <Text style={{ fontSize: 14 }}>🗑️</Text>
-                      <Text style={{ color: '#FF5252', fontWeight: '700', fontSize: 11 }}>
-                        {isId ? "HAPUS" : "DELETE"}
-                      </Text>
+                      <Text style={{ color: '#FF5252', fontWeight: '700', fontSize: 11 }}>{isId ? "HAPUS" : "DELETE"}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -277,64 +245,33 @@ export default function UpcomingReminders({
         })}
       </View>
 
-      {/* --- MODAL CUSTOM UNTUK INFORMASI DOKUMEN --- */}
+      {/* --- MODAL FALLBACK LAMA (Akan dipanggil jika Tax Center belum aktif) --- */}
       <Modal visible={showDocModal} transparent animationType="none" onRequestClose={() => setShowDocModal(false)}>
-        <TouchableOpacity 
-          activeOpacity={1} 
-          onPress={() => setShowDocModal(false)} 
-          style={{ flex: 1, backgroundColor: 'rgba(7, 18, 28, 0.95)', justifyContent: 'center', alignItems: 'center' }}
-        >
+        <TouchableOpacity activeOpacity={1} onPress={() => setShowDocModal(false)} style={{ flex: 1, backgroundColor: 'rgba(7, 18, 28, 0.95)', justifyContent: 'center', alignItems: 'center' }}>
           <TouchableWithoutFeedback>
             <View style={{ width: '85%', backgroundColor: '#162431', borderRadius: 32, padding: 30, alignItems: 'center' }}>
-              {/* Visual Indicator (Garis Atas) */}
               <View style={{ width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, marginBottom: 25 }} />
-
-              <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '800', marginBottom: 10, textAlign: 'center' }}>
-                {isId ? "Pembaruan Dokumen" : "Document Update"}
-              </Text>
-              
+              <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '800', marginBottom: 10, textAlign: 'center' }}>{isId ? "Pembaruan Dokumen" : "Document Update"}</Text>
               <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', fontSize: 14, lineHeight: 22, marginBottom: 35 }}>
-                {isId 
-                  ? "Untuk memperbarui tanggal jatuh tempo Pajak atau STNK, Anda perlu mengakses menu Edit Profil Kendaraan." 
-                  : "To update the Tax or STNK due date, you need to access the Edit Vehicle Profile menu."}
+                {isId ? "Untuk memperbarui tanggal jatuh tempo Pajak atau STNK, Anda perlu mengakses menu Edit Profil Kendaraan." : "To update the Tax or STNK due date, you need to access the Edit Vehicle Profile menu."}
               </Text>
-
               <View style={{ width: '100%', gap: 12 }}>
-                {/* Tombol Utama */}
-                <TouchableOpacity 
-                  onPress={() => {
-                    setShowDocModal(false); 
-                    if (onEditVehicle) onEditVehicle(); 
-                  }}
-                  activeOpacity={0.8}
-                  style={{ width: '100%', paddingVertical: 16, borderRadius: 20, backgroundColor: '#F5A623', alignItems: 'center' }}
-                >
-                  <Text style={{ color: '#0D1B2A', fontWeight: '800', fontSize: 16 }}>
-                    {isId ? "Edit Kendaraan Sekarang" : "Edit Vehicle Now"}
-                  </Text>
+                <TouchableOpacity onPress={() => { setShowDocModal(false); if (onEditVehicle) onEditVehicle(); }} activeOpacity={0.8} style={{ width: '100%', paddingVertical: 16, borderRadius: 20, backgroundColor: '#F5A623', alignItems: 'center' }}>
+                  <Text style={{ color: '#0D1B2A', fontWeight: '800', fontSize: 16 }}>{isId ? "Edit Kendaraan Sekarang" : "Edit Vehicle Now"}</Text>
                 </TouchableOpacity>
-
-                {/* Tombol Batal */}
-                <TouchableOpacity 
-                  onPress={() => setShowDocModal(false)}
-                  activeOpacity={0.6}
-                  style={{ width: '100%', paddingVertical: 16, borderRadius: 20, alignItems: 'center' }}
-                >
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '700', fontSize: 15 }}>
-                    {isId ? "Mungkin Nanti" : "Maybe Later"}
-                  </Text>
+                <TouchableOpacity onPress={() => setShowDocModal(false)} activeOpacity={0.6} style={{ width: '100%', paddingVertical: 16, borderRadius: 20, alignItems: 'center' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '700', fontSize: 15 }}>{isId ? "Mungkin Nanti" : "Maybe Later"}</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </TouchableWithoutFeedback>
         </TouchableOpacity>
       </Modal>
-
     </View>
   );
 }
 
-// Sub-komponen Dokumen
+// Sub-komponen Dokumen (Gaya tetap utuh)
 function DocReminderCard({ icon, label, date, days, statusText, statusColor, onPress }: any) {
   const isUrgent = days !== null && days <= 90;
   return (

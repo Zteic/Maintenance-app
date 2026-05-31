@@ -63,6 +63,7 @@ import FuelSheet from "@/components/maintenance/FuelSheet";
 import PremiumSection, { AccountStatsGrid } from "@/components/Premium/PremiumSection";
 import PremiumPurchaseModal from "@/components/Premium/PremiumPurchaseModal";
 import PremiumGateWrapper from "@/components/Premium/PremiumGateWrapper";
+import TaxCenterModal from "@/components/maintenance/TaxCenterModal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaintenanceCalendar from "../components/maintenance/MaintenanceCalendar";
 import NotifCenter from '@/components/maintenance/NotifCenter';
@@ -174,6 +175,7 @@ function AppContent() {
   const [showOdoHistory, setShowOdoHistory] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [activePrefillFeature, setActivePrefillFeature] = useState<{name: string, desc: string} | null>(null);
+  const [showTaxCenter, setShowTaxCenter] = useState(false);
   const [timeRules, setTimeRules] = useState<Record<string, { repeatNum: number, repeatUnit: string }>>({});
 
   // 🚀 STATE TAMBAHAN UNTUK INTEGRASI PROFILE SYSTEM
@@ -1455,15 +1457,19 @@ const handleBackupExport = async () => {
               <MaintenanceStatusBar
                 reminders={stats.vehicleReminders}
                 currentOdometer={stats.autoLatestOdometer}
-                accentColor={stats.selectedVehicle?.color} />
-              <UpcomingReminders
-                reminders={stats.vehicleReminders}
-                currentOdometer={stats.autoLatestOdometer}
-                vehicle={stats.selectedVehicle}
-                onAddReminder={() => setShowPlanModal(true)}
-                onEditReminder={handleEdit}
-                onDeleteReminder={handleDelete}
-                onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }} />
+                accentColor={stats.selectedVehicle?.color} 
+                />
+
+            <UpcomingReminders
+             reminders={stats.vehicleReminders}
+             currentOdometer={stats.autoLatestOdometer}
+             vehicle={stats.selectedVehicle}
+             onAddReminder={() => setShowPlanModal(true)}
+             onEditReminder={handleEdit}
+             onDeleteReminder={handleDelete}
+             onEditVehicle={() => { setEditingVehicle(stats.selectedVehicle!); setShowVehicleModal(true); }} 
+             onOpenTaxCenter={() => setShowTaxCenter(true)}
+           />
             </View>
           </ScrollView>
         )}
@@ -2830,6 +2836,14 @@ const handleBackupExport = async () => {
           setPremiumModalVisible(false);
           setActivePrefillFeature(null);
         }} />
+        {/* Jika showTaxCenter bernilai FALSE, modal ini tidak akan ada di dalam memori HP pengguna! */}
+      {showTaxCenter && (
+        <TaxCenterModal 
+          visible={showTaxCenter} 
+          onClose={() => setShowTaxCenter(false)} 
+          vehicle={stats.selectedVehicle} 
+        />
+      )}
     </View>
   );
 }
