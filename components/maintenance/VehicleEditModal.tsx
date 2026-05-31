@@ -614,33 +614,19 @@ export default function VehicleEditModal({
           vehicle={vehicle}
           initialType="annual"
           onSuccess={(newTaxDate?: string, newStnkDate?: string) => {
-            console.log("=== [CALLBACK] UpdateTaxStatusModal Sukses Memberi Sinyal Balik ===");
-            console.log("Tanggal mentah diterima Modal Edit:", { newTaxDate, newStnkDate });
-
-            // 1. Sinkronisasi langsung ke TextInput Kuning (Pajak Tahunan)
-            if (newTaxDate && newTaxDate !== "null") {
-              console.log("🎯 Menyinkronkan [Masa Pajak] Baru ke Form Input Kuning:", newTaxDate);
-              setTaxDueDate(newTaxDate);
-            }
+            if (newTaxDate) setTaxDueDate(newTaxDate);
+            if (newStnkDate) setStnkDueDate(newStnkDate);
             
-            // 2. 🚀 FIX UTAMA: Sinkronisasi langsung ke TextInput Toska (STNK 5 Tahunan)
-            // Mengecek apakah string ada, bernilai valid, dan bukan teks tulisan "null"
-            if (newStnkDate && newStnkDate !== "null" && newStnkDate.trim() !== "") {
-              console.log("🎯 Menyinkronkan [Masa STNK] Baru ke Form Input Toska:", newStnkDate);
-              setStnkDueDate(newStnkDate);
-            } else {
-              console.log("ℹ️ Pengisian Pajak Tahunan Biasa: Nilai input STNK lama tetap dipertahankan.");
-            }
-            
-            // 3. Tutup modal pengisian formulir kas
             setShowTaxUpdateModal(false);
 
-            // 4. Kirim paket data lengkap ke index.tsx agar dashboard depan ikut reaktif
-            if (typeof onDelete === "function") {
-              console.log("⚡ Memicu gabungan payload tanggal baru ke beranda index.tsx...");
-              // Menggunakan penanda khusus dengan pemisah pipa (|)
-              const payloadString = `REFRESH_TAX_HISTORY_TRIGGER|${newTaxDate || ''}|${newStnkDate || ''}`;
-              onDelete(payloadString); 
+            // 🚀 OPER KE FUNGSI SAKLAR BARU DASHBOARD
+            if (typeof onSave === "function") {
+              // Memicu rendering di beranda tanpa mengganggu antrean thread Node.js
+              onSave({
+                ...vehicle,
+                taxDueDate: newTaxDate,
+                stnkDueDate: newStnkDate && newStnkDate !== "null" ? newStnkDate : vehicle.stnkDueDate
+              });
             }
           }}
         />

@@ -13,7 +13,7 @@ interface UpcomingRemindersProps {
   onEditReminder?: (item: Reminder) => void;
   onDeleteReminder?: (id: string) => void;
   onEditVehicle?: () => void;
-  onOpenTaxCenter?: () => void; // 🚀 SUNTIKAN 2: Prop baru untuk membuka halaman Tax Center
+  onRefreshVehicle?: (newTax?: string, newStnk?: string) => void; // 🚀 SEHAT: Gunakan callback khusus ini, bukan onDeleteReminder!
 }
 
 // --- FUNGSI HELPER (DI LUAR KOMPONEN) ---
@@ -268,16 +268,27 @@ export default function UpcomingReminders({
         </TouchableOpacity>
       </Modal>
 
-      {/* 🏛️ MODAL UPDATE STATUS PAJAK & STNK CLOUD */}
-      <UpdateTaxStatusModal
-        visible={selectedTaxType !== null}
-        type={selectedTaxType}
-        vehicle={vehicle}
-        onClose={() => setSelectedTaxType(null)}
-        onSuccess={() => {
-          if (onEditVehicle) onEditVehicle(); // Memicu refresh instan data dashboard utama
-        }}
-      />
+      {/* 🏛️ FIX REAKTIF: MODAL UPDATE STATUS PAJAK & STNK CLOUD */}
+      {selectedTaxType !== null && vehicle && (
+        <UpdateTaxStatusModal
+          visible={selectedTaxType !== null}
+          initialType={selectedTaxType} 
+          vehicle={vehicle}
+          onClose={() => setSelectedTaxType(null)}
+          onSuccess={(newTaxDate?: string, newStnkDate?: string) => {
+            console.log("==========================================================");
+            console.log("⚡ [Upcoming Reminders] Sukses update data pajak di cloud!");
+            console.log("📦 Mengirim data tanggal baru ke dashboard engine...");
+            console.log("==========================================================");
+
+            setSelectedTaxType(null); 
+
+            if (typeof onRefreshVehicle === "function") {
+              onRefreshVehicle(newTaxDate, newStnkDate);
+            }
+          }}
+        />
+      )}
     </View>
   );
 }

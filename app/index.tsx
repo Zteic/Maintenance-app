@@ -178,11 +178,6 @@ function AppContent() {
   const [showTaxCenter, setShowTaxCenter] = useState(false);
   const [taxRefreshKey, setTaxRefreshKey] = useState(0);
 
-  const handleTaxSuccess = useCallback(() => {
-    console.log("🔄 Triggering taxRefreshKey untuk memperbarui list riwayat pajak...");
-    setTaxRefreshKey(prev => prev + 1);
-  }, []);
-
   const [timeRules, setTimeRules] = useState<Record<string, { repeatNum: number, repeatUnit: string }>>({});
 
   // 🚀 STATE TAMBAHAN UNTUK INTEGRASI PROFILE SYSTEM
@@ -905,52 +900,48 @@ useEffect(() => {
     setShowVehicleModal(false);
   };
 
-  const handleVehicleDelete = (id: string) => {
-    // 🚀 SUNTIKAN DETEKTOR REFRESH OTOMATIS & SINKRONISASI TANGGAL DASHBOARD UTAMA
-    if (id && id.startsWith("REFRESH_TAX_HISTORY_TRIGGER")) {
-      console.log("==========================================================");
-      console.log("⚙️ [Index Engine] Menangkap sinyal sukses dari Modal Pajak!");
-      
-      try {
-        const parts = id.split("|");
-        const newTaxDate = parts[1];
-        const newStnkDate = parts[2];
-        
-        if (stats.selectedVehicle?.id && newTaxDate) {
-          console.log("🎯 Menyuntikkan tanggal baru langsung ke UI Dashboard Utama...");
-          
-          setVehicles(prevVehicles => 
-            prevVehicles.map(v => {
-              if (v.id === stats.selectedVehicle?.id) {
-                // Modifikasi objek state reaktif depan
-                const updatedVehicle = {
-                  ...v,
-                  taxDueDate: newTaxDate,
-                };
-                
-                // 🚀 FIX: Jika data STNK baru dikirim (bukan null string / kosong), timpa data lama
-                if (newStnkDate && newStnkDate !== "null" && newStnkDate.trim() !== "") {
-                  updatedVehicle.stnkDueDate = newStnkDate;
-                }
-                
-                return updatedVehicle;
-              }
-              return v;
-            })
-          );
+  // 🗑️ KODE HAPUS KENDARAAN DIKEMBALIKAN KE ASLINYA (BERSIH & AMAN DARI LOOP)
+  const handleTaxAndStnkUpdateSuccess = (newTax?: string, newStnk?: string) => {
+    console.log("==========================================================");
+    console.log("⚙️ [Index Engine] Memproses Pembaruan Reaktif Tanggal...");
+    console.log("Payload yang Diterima Dashboard:", { newTax, newStnk });
+    
+    if (!selectedVehicleId || !newTax) return;
+
+    // 1. Update RAM lokal secara instan agar langsung ter-render di dashboard depan & Edit Modal
+    setVehicles((prevVehicles) => 
+      prevVehicles.map((v) => {
+        if (v.id === selectedVehicleId) {
+          console.log(`🎯 Melakukan Overwrite Data Pajak Kendaraan ID: ${v.id}`);
+          return {
+            ...v,
+            taxDueDate: newTax,
+            tax_due_date: newTax,
+            // Jika data STNK ada dan valid, perbarui. Jika tidak, pertahankan yang lama
+            stnkDueDate: newStnk && newStnk !== "null" && newStnk.trim() !== "" ? newStnk : v.stnkDueDate,
+            stnk_due_date: newStnk && newStnk !== "null" && newStnk.trim() !== "" ? newStnk : v.stnk_due_date,
+          };
         }
-      } catch (err) {
-        console.log("⚠️ Gagal parsing manual state reaktif depan:", err);
-      }
+        return v;
+      })
+    );
 
-      console.log("⚡ Menjalankan sinkronisasi background refreshData()...");
-      console.log("==========================================================");
-      
-      refreshData(); 
-      return; 
-    }
+    // 2. Jalankan sinkronisasi database cloud Supabase di latar belakang secara aman
+    setTimeout(() => {
+      console.log("☁️ [Background Sync] Sinkronisasi data cloud berjalan aman...");
+      refreshData();
+    }, 500);
+    console.log("==========================================================");
+  };
 
-    // Kode asli hapus kendaraan Anda ke bawah tetap aman...
+  // 🔄 PERBAIKAN: handleTaxSuccess diubah agar hanya memperbarui key tanpa memicu loop berantai
+  const handleTaxSuccess = useCallback(() => {
+    console.log("🔄 Triggering taxRefreshKey untuk memperbarui list riwayat pajak...");
+    setTaxRefreshKey(prev => prev + 1);
+  }, []);
+
+  // 🗑️ KODE HAPUS KENDARAAN: Dikembalikan murni untuk fungsi hapus saja
+  const handleVehicleDelete = (id: string) => {
     if (vehicles.length <= 1) {
       Alert.alert(
         lang === "id" ? "Gagal" : "Failed",
@@ -1513,15 +1504,16 @@ const handleBackupExport = async () => {
                 />
 
             <UpcomingReminders
-             reminders={stats.vehicleReminders}
-             currentOdometer={stats.autoLatestOdometer}
-             vehicle={stats.selectedVehicle}
-             onAddReminder={() => setShowPlanModal(true)}
-             onEditReminder={handleEdit}
-             onDeleteReminder={handleDelete}
-             onEditVehicle={handleTaxSuccess} 
-             onOpenTaxCenter={() => setShowTaxCenter(true)}
-           />
+                reminders={stats.vehicleReminders}
+                currentOdometer={stats.autoLatestOdometer}
+                vehicle={stats.selectedVehicle}
+                onAddReminder={() => setShowPlanModal(true)}
+                onEditReminder={handleEdit}
+                onDeleteReminder={handleDelete}
+                onEditVehicle={handleTaxSuccess} 
+                onOpenTaxCenter={() => setShowTaxCenter(true)}
+                onRefreshVehicle={handleTaxAndStnkUpdateSuccess} 
+              />
             </View>
           </ScrollView>
         )}

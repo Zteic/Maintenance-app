@@ -10,7 +10,7 @@ interface UpdateTaxStatusModalProps {
   onClose: () => void;
   vehicle: Vehicle | null | undefined;
   initialType?: "annual" | "five_year" | null;
-  onSuccess: () => void;
+  onSuccess: (newTaxDate?: string, newStnkDate?: string) => void; // 🚀 FIX 1: Izinkan menerima parameter tanggal agar bisa dilempar ke parent
 }
 
 interface LocalFile {
@@ -61,7 +61,6 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
   const totalPembayaran = subtotalPajak + subtotalBiayaLainnya;
 
   // Sync awal tipe pajak & fetch riwayat dari database
-  // 1. Jalankan sinkronisasi awal HANYA saat modal pertama kali terbuka (visible bernilai true)
   useEffect(() => {
     if (visible && vehicle) {
       if (initialType) {
@@ -69,9 +68,8 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
       }
       resetForm();
     }
-  }, [visible]); // Removed vehicle & taxType from dependencies to prevent infinite loop/reset
+  }, [visible]);
 
-  // 2. Jalankan pengambilan log histori terpisah tanpa mengganggu isi form masukan
   useEffect(() => {
     if (visible && vehicle?.id) {
       fetchHistoryData();
@@ -135,10 +133,8 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
   };
 
   const handleSave = () => {
-    // 🚀 FIX 1: Posisikan console.log paling atas tanpa penghalang validasi apa pun!
     console.log("=== [KLIK TRIGGERED] Tombol Simpan Riwayat Pajak Ditekan ===");
     
-    // Bersihkan spasi liar yang sering masuk dari keyboard browser
     const cleanNextTaxDate = nextTaxDate.trim();
     const cleanNextStnkDate = nextStnkDate.trim();
 
@@ -162,7 +158,6 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
       return;
     }
 
-    // 🌐 FALLBACK UNTUK LAPTOP (TEMPO WEB BROWSER): Jika Alert.alert native tidak muncul
     if (Platform.OS === 'web') {
       const konfirmasiWeb = window.confirm(
         "Simpan Rekam Keuangan?\n\nPastikan rincian biaya yang dimasukkan sudah sesuai dengan lembar fisik Samsat Anda."
@@ -176,7 +171,6 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
       return;
     }
 
-    // 📱 JALUR MOBILE APP REAL (ANDROID / IOS)
     Alert.alert(
       "Simpan Rekam Keuangan", 
       "Pastikan rincian biaya yang dimasukkan sudah sesuai dengan lembar fisik Samsat Anda.", 
@@ -204,67 +198,60 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
     try {
       const urls: string[] = [];
       
-      // 1. PROSES MULTI-FILE UPLOAD BUKTI (DENGAN PENYELAMATAN JALUR WEB TEMPO)
+      // 1. PROSES MULTI-FILE UPLOAD BUKTI (JIKA ADA) DENGAN ENGINE HYBRID WEB BLOB
       if (uploadedFiles.length > 0) {
-        console.log(`📂 Mendeteksi ${uploadedFiles.length} berkas lampiran siap di-upload.`);
-        
+        console.log(`📂 Memproses unggahan ${uploadedFiles.length} file dokumen bukti...`);
         for (const [index, file] of uploadedFiles.entries()) {
-          console.log(`[Upload] Memproses file ke-${index + 1}: ${file.name}`);
-          
-          const ext = file.name.split('.').pop();
+          const ext = file.name.split('.').pop()?.toLowerCase();
           const path = `${vehicle.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
           
+          const contentType = ext === 'pdf' ? 'application/pdf' : (file.type || 'image/jpeg');
           let fileBody: any;
 
-          // 🌐 PENYELAMATAN JALUR WEB (TEMPO LAPTOP)
           if (Platform.OS === 'web') {
-            console.log("💻 Mendeteksi lingkungan Web Laptop, mengonversi URI ke Blob...");
+            console.log(`💻 Lingkungan Web Browser: Mengonversi berkas ${ext} ke Blob murni...`);
             const response = await fetch(file.uri);
             fileBody = await response.blob();
           } else {
-            // 📱 JALUR NATIVE MOBILE APP (ANDROID / IOS)
-            console.log("📱 Mendeteksi lingkungan perangkat Mobile...");
+            console.log("📱 Lingkungan perangkat Mobile...");
             const formData = new FormData();
             formData.append("file", { 
               uri: file.uri, 
               name: file.name, 
-              type: file.type || "application/octet-stream" 
+              type: contentType 
             } as any);
             fileBody = formData;
           }
 
-          console.log(`[Supabase Storage] Mengirim berkas ke bucket 'tax_proofs' -> Path: ${path}`);
           const { data: upData, error: upErr } = await supabase.storage
             .from("tax_proofs")
             .upload(path, fileBody, {
+              contentType: contentType,
               cacheControl: '3600',
               upsert: true
             });
           
           if (upErr) {
-            console.error(`❌ [Supabase Storage Error] File ke-${index + 1} Gagal:`, upErr.message);
+            console.error(`❌ Gagal Upload Berkas ke-${index + 1}:`, upErr.message);
             throw upErr;
           }
           
           if (upData) {
-            console.log(`✅ [Supabase Storage Sukses] File ke-${index + 1} terunggah.`);
             const { data } = supabase.storage.from("tax_proofs").getPublicUrl(path);
-            if (data?.publicUrl) {
-              console.log(`🔗 Public URL Berhasil Didapat: ${data.publicUrl}`);
-              urls.push(data.publicUrl);
-            }
+            if (data?.publicUrl) urls.push(data.publicUrl);
           }
         }
+        console.log("✅ Seluruh berkas lampiran sukses terunggah.");
       }
 
-      // 2. UPDATE CORE DATA KENDARAAN (TABLE: vehicles)
-      const mainUpdate: any = { tax_due_date: nextTaxDate.trim() }; // Sesuai kolom database SQL Editor Anda
+      // 2. 🚀 FIX UTAMA: UPDATE DATA KENDARAAN SESUAI KOLOM SQL (tax_due_date & stnk_due_date)
+      const mainUpdate: any = { tax_due_date: nextTaxDate.trim() };
       if (taxType === "five_year") mainUpdate.stnk_due_date = nextStnkDate.trim();
 
-      console.log("[DB Update] Memperbarui tabel 'vehicles'...", mainUpdate);
+      console.log("[DB Update] Mengirim data ke tabel 'vehicles'...", mainUpdate);
       const { error: vErr } = await supabase.from("vehicles").update(mainUpdate).eq("id", vehicle.id);
       if (vErr) {
-        console.error("❌ [Supabase DB Error] Gagal update tabel 'vehicles':", vErr.message);
+        console.error("❌ [Supabase Error] Gagal mengupdate tabel vehicles:", vErr.message);
         throw vErr;
       }
 
@@ -292,16 +279,15 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
         proof_files_urls: urls
       };
 
-      console.log("[DB Insert] Mengirim log ke 'vehicle_tax_payment_history'...", payloadHistori);
+      console.log("[DB Insert] Mengirim data log ke 'vehicle_tax_payment_history'...", payloadHistori);
       const { error: hErr } = await supabase.from("vehicle_tax_payment_history").insert(payloadHistori);
       if (hErr) {
-        console.error("❌ [Supabase DB Error] Gagal insert ke 'vehicle_tax_payment_history':", hErr.message);
+        console.error("❌ [Supabase Error] Gagal mencatat history pajak:", hErr.message);
         throw hErr;
       }
 
-      // 4. SINKRONISASI SELESAI
       console.log("==========================================================");
-      console.log("🎉 SINKRONISASI CLOUD BERHASIL! DATA AMAN TERSIMPAN");
+      console.log("🎉 SINKRONISASI CLOUD BERHASIL DATA TERSIMPAN!");
       console.log("==========================================================");
       
       if (Platform.OS === 'web') {
@@ -311,25 +297,20 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
       }
 
       const finalTaxDate = nextTaxDate.trim();
-      // Jika tipe tahunan biasa, pastikan mengirim string kosong "" atau "null" agar terbaca jelas oleh pengecek parent
       const finalStnkDate = taxType === "five_year" ? nextStnkDate.trim() : "null";
 
       resetForm();
       await fetchHistoryData(); 
       
-      // Kirim lembaran tanggal ke luar
+      // 🚀 EKSEKUSI CALLBACK: Kirim data tanggal keluar agar dibaca reaktif oleh form edit & dashboard
       onSuccess(finalTaxDate, finalStnkDate);
       
     } catch (e: any) {
-      console.error("💥 [CATCH BLOCK CRASH]:", e);
-      if (Platform.OS === 'web') {
-        window.alert("Gagal Menyimpan: " + (e.message || "Terjadi kendala integrasi database."));
-      } else {
-        Alert.alert("Gagal Menyimpan", e.message || "Terjadi kendala integrasi database.");
-      }
+      console.error("💥 CRASH DETECTED pada Blok DB Supabase:", e);
+      Alert.alert("Gagal Menyimpan", e.message || "Terjadi kendala integrasi database.");
     } finally {
       setLoading(false);
-      console.log("=== [SELESAI] Sesi Penyimpanan Berakhir ===");
+      console.log("=== [SELESAI] Proses Eksekusi Selesai ===");
       console.log("==========================================================");
     }
   };
@@ -585,15 +566,4 @@ const s = StyleSheet.create({
   fileCountBadge: { color: "#F5A623", fontSize: 9, fontWeight: "bold", marginTop: 2 },
   saveBtn: { backgroundColor: "#4ECDC4", paddingVertical: 12, borderRadius: 10, alignItems: "center", marginTop: 4 },
   saveBtnText: { color: "#0A1118", fontSize: 13, fontWeight: "900" },
-  emptyHistory: { color: "rgba(255,255,255,0.3)", fontSize: 11, textAlign: "center", paddingVertical: 15 },
-  historyRowItem: { backgroundColor: "#0A1118", borderRadius: 10, padding: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.03)" },
-  historyRowHeader: { flexDirection: "row", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)", paddingBottom: 4, marginBottom: 4 },
-  historyBadge: { fontSize: 10, fontWeight: "900" },
-  historyDateText: { color: "rgba(255,255,255,0.4)", fontSize: 10 },
-  historyTargetText: { color: "rgba(255,255,255,0.5)", fontSize: 11 },
-  historyPriceBlock: { flexDirection: "row", justifyContent: "space-between", marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.03)" },
-  historyPriceLabel: { color: "rgba(255,255,255,0.4)", fontSize: 11 },
-  historyPriceVal: { color: "#4ECDC4", fontSize: 11, fontWeight: "800" },
-  historyMemo: { color: "rgba(255,255,255,0.35)", fontSize: 10, fontStyle: "italic", marginTop: 2 },
-  historyFileBadge: { color: "#F5A623", fontSize: 9, fontWeight: "700", marginTop: 4 }
 });
