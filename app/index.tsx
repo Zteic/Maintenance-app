@@ -906,18 +906,51 @@ useEffect(() => {
   };
 
   const handleVehicleDelete = (id: string) => {
-    // 🚀 SUNTIKAN DETEKTOR REFRESH OTOMATIS ARSIP PAJAK (MASUKKAN DI SINI)
-    if (id === "REFRESH_TAX_HISTORY_TRIGGER") {
+    // 🚀 SUNTIKAN DETEKTOR REFRESH OTOMATIS & SINKRONISASI TANGGAL DASHBOARD UTAMA
+    if (id && id.startsWith("REFRESH_TAX_HISTORY_TRIGGER")) {
       console.log("==========================================================");
       console.log("⚙️ [Index Engine] Menangkap sinyal sukses dari Modal Pajak!");
-      console.log("⚡ Menjalankan refreshData() untuk menarik ulang data Cloud...");
+      
+      try {
+        const parts = id.split("|");
+        const newTaxDate = parts[1];
+        const newStnkDate = parts[2];
+        
+        if (stats.selectedVehicle?.id && newTaxDate) {
+          console.log("🎯 Menyuntikkan tanggal baru langsung ke UI Dashboard Utama...");
+          
+          setVehicles(prevVehicles => 
+            prevVehicles.map(v => {
+              if (v.id === stats.selectedVehicle?.id) {
+                // Modifikasi objek state reaktif depan
+                const updatedVehicle = {
+                  ...v,
+                  taxDueDate: newTaxDate,
+                };
+                
+                // 🚀 FIX: Jika data STNK baru dikirim (bukan null string / kosong), timpa data lama
+                if (newStnkDate && newStnkDate !== "null" && newStnkDate.trim() !== "") {
+                  updatedVehicle.stnkDueDate = newStnkDate;
+                }
+                
+                return updatedVehicle;
+              }
+              return v;
+            })
+          );
+        }
+      } catch (err) {
+        console.log("⚠️ Gagal parsing manual state reaktif depan:", err);
+      }
+
+      console.log("⚡ Menjalankan sinkronisasi background refreshData()...");
       console.log("==========================================================");
       
-      refreshData(); // Menyegarkan seluruh status data kendaraan dari Supabase ke Dashboard Home
-      return; // Stop di sini agar fungsi tidak lanjut mengeksekusi kode hapus kendaraan!
+      refreshData(); 
+      return; 
     }
 
-    // ─── KODE ASLI ANDA TETAP AMAN DI BAWAH SINI ───
+    // Kode asli hapus kendaraan Anda ke bawah tetap aman...
     if (vehicles.length <= 1) {
       Alert.alert(
         lang === "id" ? "Gagal" : "Failed",

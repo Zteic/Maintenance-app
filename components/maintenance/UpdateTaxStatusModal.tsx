@@ -311,12 +311,13 @@ export default function UpdateTaxStatusModal({ visible, onClose, vehicle, initia
       }
 
       const finalTaxDate = nextTaxDate.trim();
-      const finalStnkDate = taxType === "five_year" ? nextStnkDate.trim() : null;
+      // Jika tipe tahunan biasa, pastikan mengirim string kosong "" atau "null" agar terbaca jelas oleh pengecek parent
+      const finalStnkDate = taxType === "five_year" ? nextStnkDate.trim() : "null";
 
       resetForm();
       await fetchHistoryData(); 
       
-      // Kirim lembaran tanggal baru agar direspon langsung oleh VehicleEditModal
+      // Kirim lembaran tanggal ke luar
       onSuccess(finalTaxDate, finalStnkDate);
       
     } catch (e: any) {
