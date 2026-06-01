@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { supabase } from "@/utils/supabaseClient";
 import { Vehicle } from "@/types/maintenance";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -44,17 +45,18 @@ export default function TaxHistoryList({ visible, onClose, vehicle }: TaxHistory
     setFetching(true);
     
     try {
-      const { data, error } = await supabase
-        .from("vehicle_tax_payment_history")
-        .select("*")
-        .eq("vehicle_id", vehicle.id)
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        setHistory(data);
+      // 🚀 PERBAIKAN: Membaca murni dari penyimpanan luring internal HP
+      const rawTaxHistory = await AsyncStorage.getItem("garasi_tax_history");
+      if (rawTaxHistory) {
+        const allHistory = JSON.parse(rawTaxHistory);
+        // Saring list transaksi hanya untuk ID kendaraan yang sedang aktif saat ini
+        const filteredHistory = allHistory.filter((item: any) => item.vehicle_id === vehicle.id);
+        setHistory(filteredHistory);
+      } else {
+        setHistory([]);
       }
     } catch (err) {
-      console.error("Gagal menarik riwayat:", err);
+      console.error("Gagal menarik riwayat luring:", err);
     } finally {
       setFetching(false);
     }
@@ -88,26 +90,27 @@ export default function TaxHistoryList({ visible, onClose, vehicle }: TaxHistory
   const executeDelete = async (id: string) => {
     setDeletingId(id);
     try {
-      const { error } = await supabase
-        .from("vehicle_tax_payment_history")
-        .delete()
-        .eq("id", id);
-      
-      if (error) throw error;
-
-      setHistory(prev => prev.filter(item => item.id !== id));
-      
-      if (Platform.OS === 'web') {
-        window.alert("Data riwayat berhasil dihapus.");
-      } else {
-        Alert.alert("Sukses", "Data riwayat berhasil dihapus.");
+      const rawTaxHistory = await AsyncStorage.getItem("garasi_tax_history");
+      if (rawTaxHistory) {
+        const allHistory = JSON.parse(rawTaxHistory);
+        // Buang item target dari array local storage
+        const updatedHistory = allHistory.filter((item: any) => item.id !== id);
+        await AsyncStorage.setItem("garasi_tax_history", JSON.stringify(updatedHistory));
+        
+        // Perbarui tampilan UI
+        setHistory(prev => prev.filter(item => item.id !== id));
+        
+        if (Platform.OS === 'web') {
+          window.alert("Data riwayat offline berhasil dihapus.");
+        } else {
+          Alert.alert("Sukses", "Data riwayat offline berhasil dihapus.");
+        }
       }
-      
     } catch (err: any) {
       if (Platform.OS === 'web') {
-        window.alert(`Gagal menghapus riwayat: ${err.message}`);
+        window.alert(`Gagal menghapus data: ${err.message}`);
       } else {
-        Alert.alert("Gagal", `Tidak dapat menghapus riwayat: ${err.message}`);
+        Alert.alert("Gagal", `Tidak dapat menghapus data: ${err.message}`);
       }
     } finally {
       setDeletingId(null);

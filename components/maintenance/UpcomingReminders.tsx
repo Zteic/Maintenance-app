@@ -86,19 +86,63 @@ export default function UpcomingReminders({
     routine: { color: "#4ECDC4", bg: "rgba(78,205,196,0.1)", label: isId ? "JADWAL RUTIN" : "ROUTINE", border: "rgba(78,205,196,0.2)" }
   };
 
-  // 🚀 FIX 5: Render UI juga menggunakan teks dari variabel Data Cloud
-  const docReminders = currency === 'IDR' ? [
-    ...(cloudTaxDate ? [{ 
-      id: 'tax', type: 'doc', icon: "🚗", label: "Pajak Tahunan", 
-      days: taxDays, date: formatDocDate(cloudTaxDate, isId),
-      statusColor: getDocStatusColor(taxDays), statusText: docStatusText(taxDays, t)
-    }] : []),
-    ...(cloudStnkDate ? [{ 
-      id: 'stnk', type: 'doc', icon: "📄", label: "STNK 5 Tahun", 
-      days: stnkDays, date: formatDocDate(cloudStnkDate, isId),
-      statusColor: getDocStatusColor(stnkDays), statusText: docStatusText(stnkDays, t)
-    }] : [])
-  ] : [];
+  // ====================================================================
+  // 🚀 ENGINE REAKTIF MULTI-VEHICLE: Hitung Otomatis Jatuh Tempo Pajak
+  // ====================================================================
+  const docReminders = React.useMemo(() => {
+    // 1. Kunci Syarat Utama: Hanya tampil jika mata uang yang dipilih murni IDR
+    if (currency !== 'IDR') return [];
+
+    // 2. Ambil data tanggal pajak langsung dari objek kendaraan yang sedang aktif saat ini
+    const activeTaxDate = vehicle?.taxDueDate || (vehicle as any)?.tax_due_date;
+    const activeStnkDate = vehicle?.stnkDueDate || (vehicle as any)?.stnk_due_date;
+
+    const hitungSelisihHari = (targetDateStr: string) => {
+      if (!targetDateStr) return null;
+      const target = new Date(targetDateStr);
+      const hariIni = new Date();
+      // Set waktu jam ke 00:00:00 agar hitungan selisih tanggal mutlak presisi murni hari
+      target.setHours(0, 0, 0, 0);
+      hariIni.setHours(0, 0, 0, 0);
+      
+      const selisihWaktu = target.getTime() - hariIni.getTime();
+      return Math.ceil(selisihWaktu / (1000 * 60 * 60 * 24));
+    };
+
+    const remindersList = [];
+
+    // 🚗 Evaluasi Baris Pengingat Pajak Tahunan
+    if (activeTaxDate && activeTaxDate !== "null" && activeTaxDate.trim() !== "") {
+      const taxDaysComputed = hitungSelisihHari(activeTaxDate);
+      remindersList.push({
+        id: `tax_${vehicle?.id || 'default'}`, // Suntikkan ID Kendaraan agar unik di Multi-Vehicle
+        type: 'doc',
+        icon: "🚗",
+        label: isId ? "Pajak Tahunan" : "Annual Tax",
+        days: taxDaysComputed,
+        date: formatDocDate(activeTaxDate, isId),
+        statusColor: getDocStatusColor(taxDaysComputed),
+        statusText: docStatusText(taxDaysComputed, t)
+      });
+    }
+
+    // 📄 Evaluasi Baris Pengingat STNK 5 Tahunan
+    if (activeStnkDate && activeStnkDate !== "null" && activeStnkDate.trim() !== "") {
+      const stnkDaysComputed = hitungSelisihHari(activeStnkDate);
+      remindersList.push({
+        id: `stnk_${vehicle?.id || 'default'}`, // Suntikkan ID Kendaraan agar unik di Multi-Vehicle
+        type: 'doc',
+        icon: "📄",
+        label: isId ? "STNK 5 Tahun" : "5-Year STNK/Plate",
+        days: stnkDaysComputed,
+        date: formatDocDate(activeStnkDate, isId),
+        statusColor: getDocStatusColor(stnkDaysComputed),
+        statusText: docStatusText(stnkDaysComputed, t)
+      });
+    }
+
+    return remindersList;
+  }, [vehicle, currency, lang, t]); // 🚀 Ikut mendengarkan perubahan 'vehicle' saat user ganti kendaraan!
 
   // Gabungkan dengan reminder servis biasa
   const allReminders = [

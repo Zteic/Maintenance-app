@@ -703,6 +703,88 @@ function AppContent() {
     return () => clearTimeout(delayDebounce);
   }, [notifications, isFetchingFromServer]);
 
+  // 🚀 ENGINE PICU OTOMATIS: Auto Backup Cloud Berdasarkan Jadwal Rule
+  useEffect(() => {
+    const triggerAutoBackupIfNeeded = async () => {
+      try {
+        // 1. Cek apakah pengguna sedang dalam mode 'online' (sudah login)
+        const currentMode = await AsyncStorage.getItem('garasiku_app_mode');
+        if (currentMode !== 'online') return; // Lewati jika mode tamu/offline
+
+        // 2. Ambil aturan jadwal backup yang dipilih user
+        const rule = await AsyncStorage.getItem('garasi_auto_backup_rule') || 'off';
+        if (rule === 'off') return; // Lewati jika user memilih 'Manual Only'
+
+        // 3. Ambil catatan kapan terakhir kali sistem sukses melakukan auto backup
+        const lastBackupTimeStr = await AsyncStorage.getItem('garasi_last_autobackup_timestamp');
+        const kini = Date.now();
+
+        if (lastBackupTimeStr) {
+          const lastBackupTime = parseInt(lastBackupTimeStr, 10);
+          const selisihMilidetik = kini - lastBackupTime;
+
+          // Konversi aturan rentang waktu ke milidetik
+          let rentangMinimal = 24 * 60 * 60 * 1000; // Default Harian (Daily)
+          if (rule === 'weekly') {
+            rentangMinimal = 7 * 24 * 60 * 60 * 1000; // Mingguan
+          } else if (rule === 'monthly') {
+            rentangMinimal = 30 * 24 * 60 * 60 * 1000; // Bulanan
+          }
+
+          // Jika waktu selisih belum melampaui batas jadwal, lewati proses backup
+          if (selisihMilidetik < rentangMinimal) {
+            console.log(`☁️ Auto Backup dilewati. Jadwal berikutnya belum jatuh tempo.`);
+            return;
+          }
+        }
+
+        // 4. JALANKAN PROSES BACKUP OTOMATIS KE CLOUD SUPABASE
+        console.log(`☁️ Menjalankan Auto Backup berkala (${rule}) ke cloud storage...`);
+        
+        // Menarik seluruh data master lokal luring dari memori perangkat
+        const keys = await AsyncStorage.getAllKeys();
+        const garasiKeys = keys.filter(k => k.startsWith('garasi_') || k.startsWith('app_'));
+        const allData = await AsyncStorage.multiGet(garasiKeys);
+        const backupObj = Object.fromEntries(allData);
+
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user) {
+          const userId = authData.user.id;
+          
+          // Format nama file backup cloud otomatis
+          const cloudFileName = `${userId}/autobackup_${rule}.vhdb`;
+          const payloadString = JSON.stringify({
+            appName: "GarasiKu",
+            schemaVersion: "2.1.0",
+            backedUpAt: new Date().toISOString(),
+            isAutoBackup: true,
+            database: backupObj
+          });
+
+          // Unggah bundel database terkompresi langsung ke Supabase Storage Bucket
+          const { error: uploadErr } = await supabase.storage
+            .from('user_backups') // Sesuaikan dengan nama bucket storage Anda
+            .upload(cloudFileName, payloadString, {
+              upsert: true,
+              contentType: 'application/json'
+            });
+
+          if (uploadErr) throw uploadErr;
+
+          // 5. Catat waktu keberhasilan agar tidak terjadi backup berulang-ulang setiap kali app dibuka
+          await AsyncStorage.setItem('garasi_last_autobackup_timestamp', kini.toString());
+          console.log(`✅ Auto Backup Cloud berkala (${rule}) sukses dieksekusi.`);
+        }
+
+      } catch (err: any) {
+        console.error("⚠️ Gagal mengeksekusi auto backup background:", err.message);
+      }
+    };
+
+    // Jalankan pengecekan setiap kali aplikasi selesai dimuat di layar utama
+    triggerAutoBackupIfNeeded();
+  }, []);
+
   const handleOdometerUpdate = (newValue: number) => {
     setVehicles((prev) =>
       prev.map((v) =>
@@ -2205,9 +2287,51 @@ const handleBackupExport = async () => {
 
             {/* Action Buttons */}
             <View style={{ marginTop: 16, gap: 12 }}>
-              {/* 🏛️ TOMBOL RE-MASTER TAX CENTER (100% PRESTINE & PRESISI) */}
+              
+              {/* 🚀 SELEKTIF RENDER: Menu Estimasi Pajak ini hanya akan muncul jika regional mata uang murni IDR */}
+              {currency === 'IDR' && (
+                <TouchableOpacity 
+                  onPress={() => setShowTaxCenter(true)} 
+                  activeOpacity={0.85} 
+                  style={{ 
+                    backgroundColor: "#1A2B3C", 
+                    borderRadius: 16, 
+                    padding: 20, 
+                    flexDirection: "row", 
+                    alignItems: "center", 
+                    gap: 16, 
+                    borderWidth: 1, 
+                    borderColor: "rgba(245,166,35,0.25)" 
+                  }}
+                >
+                  <View 
+                    style={{ 
+                      width: 48, 
+                      height: 48, 
+                      borderRadius: 14, 
+                      backgroundColor: "rgba(245,166,35,0.08)", 
+                      borderWidth: 1, 
+                      borderColor: "rgba(245,166,35,0.25)", 
+                      alignItems: "center", 
+                      justifyContent: "center" 
+                    }}
+                  >
+                    <Text style={{ fontSize: 22 }}>🏛️</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>
+                      Estimasi Pajak Kendaraan
+                    </Text>
+                    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>
+                      Cek simulasi denda & rincian NJKB daerah
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* ⛽ TOMBOL UPDATE HARGA BENSIN (Sudah dibersihkan dari duplikasi ganda) */}
               <TouchableOpacity 
-                onPress={() => setShowTaxCenter(true)} 
+                onPress={() => setShowPriceUpdate(true)} 
                 activeOpacity={0.85} 
                 style={{ 
                   backgroundColor: "#1A2B3C", 
@@ -2217,7 +2341,7 @@ const handleBackupExport = async () => {
                   alignItems: "center", 
                   gap: 16, 
                   borderWidth: 1, 
-                  borderColor: "rgba(245,166,35,0.25)" 
+                  borderColor: "rgba(245,166,35,0.2)" 
                 }}
               >
                 <View 
@@ -2225,35 +2349,62 @@ const handleBackupExport = async () => {
                     width: 48, 
                     height: 48, 
                     borderRadius: 14, 
-                    backgroundColor: "rgba(245,166,35,0.08)", 
+                    backgroundColor: "rgba(78,205,196,0.1)", 
                     borderWidth: 1, 
-                    borderColor: "rgba(245,166,35,0.25)", 
+                    borderColor: "rgba(245,166,35,0.3)", 
                     alignItems: "center", 
                     justifyContent: "center" 
                   }}
                 >
-                  <Text style={{ fontSize: 22 }}>🏛️</Text>
+                  <Text style={{ fontSize: 22 }}>⛽</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>
-                    Estimasi Pajak Kendaraan
+                    Update Harga Bensin
                   </Text>
                   <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>
-                    Cek simulasi denda & rincian NJKB daerah
+                    Atur harga BBM per liter saat ini
                   </Text>
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => setShowPriceUpdate(true)} activeOpacity={0.85} style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: "rgba(245,166,35,0.2)" }}>
-                <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", borderWidth: 1, borderColor: "rgba(245,166,35,0.3)", alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 22 }}>⛽</Text></View>
-                <View style={{ flex: 1 }}><Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>Update Harga Bensin</Text><Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 2 }}>Atur harga BBM per liter saat ini</Text></View>
+              {/* 📊 TOMBOL BACKUP AND RESTORE */}
+              <TouchableOpacity 
+                onPress={() => smoothNavigate('/export')} 
+                activeOpacity={0.8} 
+                style={{ 
+                  backgroundColor: "#1A2B3C", 
+                  borderRadius: 16, 
+                  padding: 20, 
+                  flexDirection: "row", 
+                  alignItems: "center", 
+                  gap: 16, 
+                  borderWidth: 1, 
+                  borderColor: "rgba(78,205,196,0.3)" 
+                }}
+              >
+                <View 
+                  style={{ 
+                    width: 48, 
+                    height: 48, 
+                    borderRadius: 14, 
+                    backgroundColor: "rgba(78,205,196,0.1)", 
+                    alignItems: "center", 
+                    justifyContent: "center" 
+                  }}
+                >
+                  <Text style={{ fontSize: 22 }}>📊</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>
+                    Backup and Restore
+                  </Text>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>
+                    💽 Penggunaan Memori: {storageSize}
+                  </Text>
+                </View>
               </TouchableOpacity>
 
-              {/* 🚀 Menggunakan smoothNavigate */}
-              <TouchableOpacity onPress={() => smoothNavigate('/export')} activeOpacity={0.8} style={{ backgroundColor: "#1A2B3C", borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", gap: 16, borderWidth: 1, borderColor: "rgba(78,205,196,0.3)" }}>
-                <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "rgba(78,205,196,0.1)", alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 22 }}>📊</Text></View>
-                <View style={{ flex: 1 }}><Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>Backup and Restore</Text><Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 8, fontWeight: 'bold' }}>💽 Penggunaan Memori: {storageSize}</Text></View>
-              </TouchableOpacity>
             </View>
 
             <View style={{ marginTop: 25 }}>
@@ -3097,6 +3248,7 @@ const handleBackupExport = async () => {
           onMarkAsRead={(id) => setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))}
           onMarkAllAsRead={() => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
           onDelete={(id) => setNotifications((prev) => prev.filter((n) => n.id !== id))} 
+          onClearAll={() => setNotifications([])} 
         />
       )}
       

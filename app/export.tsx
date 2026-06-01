@@ -872,6 +872,12 @@ export default function ExportScreen() {
              const allNotif = JSON.parse(backupObj.garasi_notifications);
              backupObj.garasi_notifications = JSON.stringify(allNotif.filter((n: any) => !n.vehicleId || selectedVehicles.includes(n.vehicleId)));
           }
+          
+          // 🚀 SUNTIKAN INTEGRASI: Pastikan tabel histori pajak ikut tersaring berdasarkan ID kendaraan saat di-export
+          if (backupObj.garasi_tax_history) {
+            const allTaxHist = JSON.parse(backupObj.garasi_tax_history);
+            backupObj.garasi_tax_history = JSON.stringify(allTaxHist.filter((th: any) => selectedVehicles.includes(th.vehicle_id)));
+          }
         } catch (err) {
           console.log("Error filtering backup data:", err);
         }

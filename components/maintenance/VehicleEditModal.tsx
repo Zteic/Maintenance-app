@@ -16,6 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Vehicle } from "@/types/maintenance";
 import { useLanguage } from "@/context/LanguageContext";
 import UpdateTaxStatusModal from "./UpdateTaxStatusModal";
+import { useRegional } from "@/context/RegionalContext";
 import TaxHistoryList from "./TaxHistoryList";
 
 const ACCENT_COLORS = [
@@ -48,6 +49,7 @@ export default function VehicleEditModal({
   onDelete,
 }: VehicleEditModalProps) {
   const { t, lang } = useLanguage();
+  const { currency } = useRegional();
   const isEdit = !!vehicle;
 
   const [name, setName] = useState("");
@@ -397,26 +399,64 @@ export default function VehicleEditModal({
 
                   {/* Document Dates */}
                   <View style={{ gap: 8 }}>                    
-                    {/* 🚀 TOMBOL AKSES LANGSUNG KE FILE TAXHISTORYLIST */}
-                   {isEdit && vehicle && (
-                   <TouchableOpacity
-                     activeOpacity={0.8}
-                     onPress={() => setShowTaxHistoryList(true)} // 👈 Memicu state baru
-                     style={{
-                       backgroundColor: "rgba(78, 205, 196, 0.12)",
-                       borderWidth: 1.5,
-                       borderColor: "rgba(78, 205, 196, 0.35)",
-                       borderRadius: 12,
-                       padding: 14,
-                       alignItems: "center",
-                       marginTop: 8,
-                     }}
-                   >
-                     <Text style={{ color: "#4ECDC4", fontSize: 12, fontWeight: "900", letterSpacing: 0.5 }}>
-                       RIWAYAT PEMBAYARAN PAJAK KENDARAAN
-                     </Text>
-                   </TouchableOpacity>
-                 )}
+                    {/* 🚀 TOMBOL AKSES SELEKTIF & REVISI UI PREMIUM */}
+                    {isEdit && vehicle && currency === 'IDR' && (
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => setShowTaxHistoryList(true)} // Memicu state pemanggilan modal daftar riwayat
+                        style={{
+                          backgroundColor: "#1A2B3C", // Menyamakan warna dasar card utama aplikasi
+                          borderWidth: 1,
+                          borderColor: "rgba(78, 205, 196, 0.25)", // Border tipis elegan khas GarasiKu
+                          borderRadius: 16, // Menggunakan radius lengkung 16 agar sinkron dengan modul bensin/servis
+                          paddingHorizontal: 16,
+                          paddingVertical: 18,
+                          flexDirection: "row", // Membuat susunan layout menyamping (Horizontal Grid)
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginTop: 12,
+                          shadowColor: "#4ECDC4",
+                          shadowOffset: { width: 0, height: 4 },
+                          shadowOpacity: 0.05,
+                          shadowRadius: 8,
+                        }}
+                      >
+                        {/* Sisi Kiri: Ikon Dan Label Deskripsi Teks */}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1 }}>
+                          <View 
+                            style={{ 
+                              width: 42, 
+                              height: 42, 
+                              borderRadius: 12, 
+                              backgroundColor: "rgba(78, 205, 196, 0.08)", 
+                              borderWidth: 1, 
+                              borderColor: "rgba(78, 205, 196, 0.2)", 
+                              alignItems: "center", 
+                              justifyContent: "center" 
+                            }}
+                          >
+                            <Text style={{ fontSize: 20 }}>🗄️</Text>
+                          </View>
+                          
+                          <View style={{ flex: 1, gap: 2 }}>
+                            <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "800", letterSpacing: 0.3 }}>
+                              {lang === "id" ? "Riwayat Pajak Samsat" : "Samsat Tax History"}
+                            </Text>
+                            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>
+                              {lang === "id" ? "Lihat arsip pengeluaran & berkas nota" : "View expense archive & receipts"}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Sisi Kanan: Tanda Panah Indikator Klik */}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Text style={{ color: "#4ECDC4", fontSize: 11, fontWeight: "800" }}>
+                            {lang === "id" ? "LIHAT" : "VIEW"}
+                          </Text>
+                          <Text style={{ color: "rgba(78, 205, 196, 0.4)", fontSize: 11 }}>➔</Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   {/* Tank Capacity */}
