@@ -69,41 +69,8 @@ export default function UpcomingReminders({
   const [showDocModal, setShowDocModal] = useState(false);
   const [selectedTaxType, setSelectedTaxType] = useState<"annual" | "five_year" | null>(null); 
   
-  // 🚀 SUNTIKAN 2: State khusus untuk menyimpan tanggal paling absolut dari Cloud
-  const [cloudTaxDate, setCloudTaxDate] = useState<string | undefined>(vehicle?.taxDueDate);
-  const [cloudStnkDate, setCloudStnkDate] = useState<string | undefined>(vehicle?.stnkDueDate);
-
-  // 🚀 SUNTIKAN 3: Tarik Otomatis Riwayat Paling Terbaru dari Tabel History
-  useEffect(() => {
-    const fetchLatestHistoryDate = async () => {
-      if (!vehicle?.id) return;
-      try {
-        const { data } = await supabase
-          .from("vehicle_tax_payment_history")
-          .select("new_tax_due_date, new_stnk_due_date")
-          .eq("vehicle_id", vehicle.id)
-          .order("created_at", { ascending: false }) // Ambil yang paling terbaru (posisi atas)
-          .limit(1)
-          .single();
-
-        if (data) {
-          // Jika ada di log history, timpa tanggal bawaan dengan tanggal dari history
-          setCloudTaxDate(data.new_tax_due_date || vehicle?.taxDueDate);
-          setCloudStnkDate(data.new_stnk_due_date || vehicle?.stnkDueDate);
-        } else {
-          // Jika belum ada history sama sekali, gunakan data bawaan kendaraan
-          setCloudTaxDate(vehicle?.taxDueDate);
-          setCloudStnkDate(vehicle?.stnkDueDate);
-        }
-      } catch (err) {
-        // Jika gagal koneksi, fallback ke data bawaan lokal
-        setCloudTaxDate(vehicle?.taxDueDate);
-        setCloudStnkDate(vehicle?.stnkDueDate);
-      }
-    };
-
-    fetchLatestHistoryDate();
-  }, [vehicle]); // Berjalan otomatis tiap ada penyegaran kendaraan
+  const cloudTaxDate = vehicle?.taxDueDate;
+  const cloudStnkDate = vehicle?.stnkDueDate;
 
   // 1. Inisialisasi Data Dasar
   const safeReminders = Array.isArray(reminders) ? reminders : [];

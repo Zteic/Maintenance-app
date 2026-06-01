@@ -588,30 +588,59 @@ function AppContent() {
     try {
       // 1. Tarik data dasar konfigurasi & kendaraan dari lokal storage dulu
       const [sv, srm, ssv, sn] = await Promise.all([
-        loadVehicles(),
-        loadReminders(),
-        loadSelectedVehicleId(),
-        loadNotifications(),
+        loadVehicles().catch(() => []),
+        loadReminders().catch(() => []),
+        loadSelectedVehicleId().catch(() => null),
+        loadNotifications().catch(() => []),
       ]);
 
-      // 2. Set vehicle ID yang aktif saat ini secara presisi
       let currentVehicleId = ssv || (sv && sv[0]?.id) || MOCK_VEHICLES[0].id;
 
-      // 3. 🚀 AMBIL DATA DINAMIS LEWAT SAKLAR apiService
-      const sr = await apiService.getRepairs(currentVehicleId);
-      const sfe = await apiService.getFuels(currentVehicleId);
+      // 2. AMBIL DATA DINAMIS REPAIRS & FUELS
+      let sr = [];
+      try { sr = await apiService.getRepairs(currentVehicleId); } catch (e) { sr = await loadRepairs(currentVehicleId).catch(() => []); }
 
-      // 4. Masukkan semua hasil ke State React secara berurutan
+      let sfe = [];
+      try { sfe = await apiService.getFuels(currentVehicleId); } catch (e) { sfe = await loadFuelEntries(currentVehicleId).catch(() => []); }
+
+      // 3. 🚀 SAKLAR PINTAR SINKRONISASI PAJAK TERBARU LINTAS TABEL CLOUD
+      let finalVehiclesList = sv && sv.length > 0 ? sv : MOCK_VEHICLES;
+      
+      try {
+        console.log("🏛️ Cloud Sync: Memeriksa log pembayaran pajak terbaru untuk keseragaman database...");
+        const { data: latestTaxLog } = await supabase
+          .from("vehicle_tax_payment_history")
+          .select("vehicle_id, new_tax_due_date, new_stnk_due_date")
+          .eq("vehicle_id", currentVehicleId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (latestTaxLog) {
+          console.log("✅ Ditemukan log pajak terbaru di cloud, menyelaraskan state dashboard...");
+          finalVehiclesList = finalVehiclesList.map((v) => {
+            if (v.id === currentVehicleId) {
+              return {
+                ...v,
+                taxDueDate: latestTaxLog.new_tax_due_date || v.taxDueDate,
+                stnkDueDate: latestTaxLog.new_stnk_due_date || v.stnkDueDate
+              };
+            }
+            return v;
+          });
+        }
+      } catch (cloudTaxErr) {
+        console.log("ℹ️ Belum ada history pajak di cloud atau offline, menggunakan data standar.");
+      }
+
+      // 4. Masukkan semua hasil yang sudah sinkron ke State React
       setNotifications(sn && sn.length > 0 ? sn : []);
-      setVehicles(sv && sv.length > 0 ? sv : MOCK_VEHICLES);
+      setVehicles(finalVehiclesList); // 🔥 SEKARANG DATA KENDARAAN UTAMA SUDAH MEMBAWA UPDATE 2030!
       setReminders(srm && srm.length > 0 ? srm : MOCK_REMINDERS);
       setSelectedVehicleId(currentVehicleId);
-      
-      setRepairs(sr); // Menampung hasil pintar dari apiService (Online/Offline)
-      setFuelEntries(sfe); // Menampung hasil pintar dari apiService (Online/Offline)
+      setRepairs(sr);
+      setFuelEntries(sfe);
 
-      // 🚀 ATURAN KALENDER: Jika kamu ada sistem aturan waktu kalender lokal, taruh di sini
-      // Gantilah 'garasi_time_rules' dengan key AsyncStorage kalender kamu jika ada
       const sRules = await AsyncStorage.getItem('garasi_time_rules');
       if (sRules && typeof setTimeRules === 'function') {
         setTimeRules(JSON.parse(sRules));
@@ -620,7 +649,6 @@ function AppContent() {
     } catch (e) {
       console.error("Gagal load data secara online/lokal:", e);
     } finally {
-      // Menutup indikator loading, apa pun yang terjadi (sukses maupun gagal)
       setIsFetchingFromServer(false);
     }
   }, []);
@@ -3052,11 +3080,12 @@ const handleBackupExport = async () => {
           setActivePrefillFeature(null);
         }} />
         {/* Jika showTaxCenter bernilai FALSE, modal ini tidak akan ada di dalam memori HP pengguna! */}
-      {showTaxCenter && (
+        {showTaxCenter && (
         <TaxCenterModal 
           visible={showTaxCenter} 
           onClose={() => setShowTaxCenter(false)} 
-          vehicle={stats.selectedVehicle} 
+          // Mengambil data real-time langsung dari array state, bypass pembekuan memo
+          vehicle={vehicles.find((v) => v.id === selectedVehicleId)} 
         />
       )}
 

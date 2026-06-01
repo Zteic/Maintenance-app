@@ -20,22 +20,6 @@ const PROVINCE_TAX_RULES: Record<string, any> = {
 };
 const PROVINCES = Object.keys(PROVINCE_TAX_RULES);
 
-// --- HELPER DATE ---
-function getDelayInfo(dateStr?: string) {
-  if (!dateStr) return { days: null, monthsLate: 0, daysLate: 0 };
-  const due = new Date(dateStr);
-  const now = new Date();
-  due.setHours(0, 0, 0, 0);
-  now.setHours(0, 0, 0, 0);
-  
-  const diffTime = due.getTime() - now.getTime();
-  const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  const daysLate = days < 0 ? Math.abs(days) : 0;
-  const monthsLate = daysLate > 0 ? Math.ceil(daysLate / 30) : 0;
-  
-  return { days, daysLate, monthsLate };
-}
-
 export default function TaxCenterModal({ visible, onClose, vehicle }: TaxCenterModalProps) {
   const { isPremium } = usePremium();
 
@@ -53,28 +37,84 @@ export default function TaxCenterModal({ visible, onClose, vehicle }: TaxCenterM
   const [customDurVal, setCustomDurVal] = useState('8');
   const [customDurUnit, setCustomDurUnit] = useState<'Bulan' | 'Tahun'>('Bulan');
 
-  // --- KALKULATOR NJKB ENGINE ---
-  const taxInfo = getDelayInfo(vehicle?.taxDueDate);
-  const days = taxInfo.days;
+  // ====================================================================
+  // 🚀 ENGINE KALKULATOR TANGGAL & DENDA PAJAK REAKTIF (DINAMIS DAN REAL-TIME)
+  // ====================================================================
   const rule = PROVINCE_TAX_RULES[selectedProvince];
   const njkbNum = Number(njkbValue.replace(/[^0-9]/g, '')) || 0;
-  
-  // 1. Pokok Pajak (Pembulatan Resmi)
+
+  // Fungsi internal untuk menghitung hari, denda, dan status visual secara bersamaan
+  const calculateTaxState = (addMonths: number) => {
+    if (!vehicle?.taxDueDate) {
+      return {
+        days: null, daysLate: 0, monthsLate: 0, totalLateMonths: addMonths,
+        statusColor: "#4ECDC4", progressWidth: "0%", isLate: false
+      };
+    }
+
+    const targetDate = new Date(vehicle.taxDueDate);
+    const currentDate = new Date();
+    
+    targetDate.setHours(0, 0, 0, 0);
+    currentDate.setHours(0, 0, 0, 0);
+
+    const timeDiff = targetDate.getTime() - currentDate.getTime();
+    const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    const daysLate = daysLeft < 0 ? Math.abs(daysLeft) : 0;
+    const monthsLate = daysLate > 0 ? Math.ceil(daysLate / 30) : 0;
+    const totalLateMonths = monthsLate + addMonths;
+    const isLate = daysLate > 0 || addMonths > 0;
+
+    // Hitung Parameter Visual Berdasarkan Sisa Hari untuk Pajak Saat Ini (addMonths === 0)
+    let statusColor = "#4ECDC4";
+    let progressPercent = 100;
+
+    if (daysLeft < 0) {
+      statusColor = "#FF5252"; // Terlambat (Merah)
+      progressPercent = 0;
+    } else if (daysLeft <= 30) {
+      statusColor = "#FF8C00"; // Sangat Dekat (Oranye Gelap)
+      progressPercent = (daysLeft / 30) * 100;
+    } else if (daysLeft <= 90) {
+      statusColor = "#F5A623"; // Mendekati (Oranye Terang)
+      progressPercent = (daysLeft / 90) * 100;
+    } else {
+      progressPercent = Math.min((daysLeft / 365) * 100, 100);
+    }
+
+    return {
+      days: daysLeft,
+      daysLate,
+      monthsLate,
+      totalLateMonths,
+      statusColor,
+      progressWidth: `${progressPercent}%`,
+      isLate
+    };
+  };
+
+  // Ekstrak info waktu saat ini (0 bulan tambahan)
+  const currentTaxInfo = calculateTaxState(0);
+  const days = currentTaxInfo.days;
+  const statusColor = currentTaxInfo.statusColor;
+  const progressWidth = currentTaxInfo.progressWidth;
+
+  // 1. Hitung Komponen Pokok Murni
   const pkbPokok = Math.round(njkbNum * rule.pkbRate);
   const opsenPkbPokok = rule.hasOpsen ? Math.round(pkbPokok * rule.opsenRate) : 0;
   const swdklljPokok = vehicleCategory === 'Motor' ? rule.swdklljMotor : rule.swdklljMobil;
   const pnbpStnk = isLimaTahunan ? (vehicleCategory === 'Motor' ? rule.stnkMotor : rule.stnkMobil) : 0;
   const pnbpTnkb = isLimaTahunan ? (vehicleCategory === 'Motor' ? rule.tnkbMotor : rule.tnkbMobil) : 0;
 
-  // 2. Fungsi Komponen Pajak & Denda Komprehensif
+  // 2. Fungsi Pencari Struktur Denda Akumulasi Komprehensif
   const getDetailedTax = (addMonths: number) => {
-    const totalLateMonths = taxInfo.monthsLate + addMonths;
-    const boundedLateMonths = Math.min(totalLateMonths, rule.maxLateMonth);
-    const isLate = taxInfo.daysLate > 0 || addMonths > 0;
+    const timeState = calculateTaxState(addMonths);
+    const boundedLateMonths = Math.min(timeState.totalLateMonths, rule.maxLateMonth);
 
     const dPkb = Math.round(pkbPokok * boundedLateMonths * rule.lateFeePercent);
     const dOpsen = rule.hasOpsen ? Math.round(opsenPkbPokok * boundedLateMonths * rule.lateFeePercent) : 0;
-    const dSwdkllj = isLate ? (vehicleCategory === 'Motor' ? rule.swdklljPenMotor : rule.swdklljPenMobil) : 0;
+    const dSwdkllj = timeState.isLate ? (vehicleCategory === 'Motor' ? rule.swdklljPenMotor : rule.swdklljPenMobil) : 0;
 
     const totalPokok = pkbPokok + opsenPkbPokok + swdklljPokok + pnbpStnk + pnbpTnkb;
     const totalDenda = dPkb + dOpsen + dSwdkllj;
@@ -83,7 +123,8 @@ export default function TaxCenterModal({ visible, onClose, vehicle }: TaxCenterM
       pkbPokok, opsenPkbPokok, swdklljPokok, pnbpStnk, pnbpTnkb,
       dPkb, dOpsen, dSwdkllj, totalPokok, totalDenda,
       grandTotal: totalPokok + totalDenda,
-      isMaxPenalty: totalLateMonths >= rule.maxLateMonth
+      isMaxPenalty: timeState.totalLateMonths >= rule.maxLateMonth,
+      calculatedMonthsLate: timeState.totalLateMonths
     };
   };
 
@@ -101,10 +142,7 @@ export default function TaxCenterModal({ visible, onClose, vehicle }: TaxCenterM
   const validCustomMonths = Math.min(Math.max(customMonthsAdd, 1), 120);
   const customTax = getDetailedTax(validCustomMonths);
   const diffTax = customTax.grandTotal - currentTax.grandTotal;
-
-  // UI Status Dasar
-  const statusColor = days === null ? "#4ECDC4" : days < 0 ? "#FF5252" : days <= 30 ? "#FF8C00" : days <= 90 ? "#F5A623" : "#4ECDC4";
-  const progressWidth = days === null || days < 0 ? '0%' : days > 365 ? '100%' : `${(days / 365) * 100}%`;
+  // ====================================================================
 
   // Fungsi Placeholder Pencarian NJKB Masa Depan
   const handleSearchNJKBPlaceholder = () => {
@@ -189,16 +227,24 @@ export default function TaxCenterModal({ visible, onClose, vehicle }: TaxCenterM
               <View style={styles.resultRow}><Text style={styles.infoLabel}>Tahun Kendaraan</Text><Text style={styles.infoVal}>{vehicle?.year || 'Tahun -'}</Text></View>
               <View style={[styles.resultRow, { marginTop: 4, paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' }]}><Text style={styles.infoLabel}>Estimasi NJKB</Text><Text style={{ color: '#F5A623', fontSize: 13, fontWeight: '800' }}>Rp {njkbNum.toLocaleString('id-ID')}</Text></View>
               <Text style={styles.helperTextNote}>*NJKB digunakan sebagai dasar simulasi perhitungan PKB. Nilai resmi dapat berbeda sesuai data Samsat daerah.</Text>
-            </View>
+             </View>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 12 }}>
-              <View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 12 }}>
+              <View style={{ flex: 1, paddingRight: 4 }}>
                 <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: 'bold' }}>JATUH TEMPO PAJAK</Text>
-                <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700', marginTop: 2 }}>{vehicle?.taxDueDate ? new Date(vehicle.taxDueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</Text>
+                <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700', marginTop: 2 }}>
+                  {vehicle?.taxDueDate 
+                    ? new Date(vehicle.taxDueDate.replace(/-/g, '/')).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) 
+                    : '-'}
+                </Text>
               </View>
-              <View style={{ alignItems: 'flex-end' }}>
+              <View style={{ flex: 1, alignItems: 'flex-end', paddingLeft: 4 }}>
                 <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: 'bold' }}>MASA BERLAKU STNK</Text>
-                <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700', marginTop: 2 }}>{vehicle?.stnkDueDate ? new Date(vehicle.stnkDueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</Text>
+                <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700', marginTop: 2 }}>
+                  {vehicle?.stnkDueDate 
+                    ? new Date(vehicle.stnkDueDate.replace(/-/g, '/')).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) 
+                    : '-'}
+                </Text>
               </View>
             </View>
           </View>
@@ -280,9 +326,9 @@ export default function TaxCenterModal({ visible, onClose, vehicle }: TaxCenterM
                 </View>
               )}
               
-              {taxInfo.daysLate > 0 && (
+                {currentTaxInfo.daysLate > 0 && (
                 <View style={{ backgroundColor: 'rgba(255,82,82,0.08)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,82,82,0.25)', marginVertical: 4 }}>
-                  <Text style={{ color: '#FF5252', fontSize: 11, fontWeight: '800', marginBottom: 6 }}>🚨 ESTIMASI DENDA KETERLAMBATAN ({taxInfo.monthsLate} Bulan)</Text>
+                  <Text style={{ color: '#FF5252', fontSize: 11, fontWeight: '800', marginBottom: 6 }}>🚨 ESTIMASI DENDA KETERLAMBATAN ({currentTaxInfo.monthsLate} Bulan)</Text>
                   <View style={styles.resultRow}><Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Denda PKB</Text><Text style={{ color: '#FF5252', fontWeight: 'bold' }}>Rp {currentTax.dPkb.toLocaleString('id-ID')}</Text></View>
                   {rule.hasOpsen && (
                     <View style={styles.resultRow}>
