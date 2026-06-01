@@ -367,9 +367,13 @@ function AppContent() {
   useEffect(() => {
     // Mendengarkan perubahan status login/logout dari SDK Supabase secara global
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Hanya mengurus mode LOKAL atau ONLINE saja. Jangan sentuh status Premium di sini!
       if (event === 'SIGNED_OUT' || !session) {
         await AsyncStorage.setItem('garasiku_app_mode', 'local');
         setAppModeState('local');
+      } else if (session?.user) {
+        await AsyncStorage.setItem('garasiku_app_mode', 'online');
+        setAppModeState('online');
       }
     });
 
@@ -1887,42 +1891,6 @@ const handleBackupExport = async () => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 120, paddingTop: 10, paddingHorizontal: 20 }}>
             
-            {/* Header internal Tab Profile */}
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingTop: 10, width: "100%" }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
-                {__DEV__ && (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={async () => {
-                      const targetStatus = !isPremium;
-                      await setIsPremium(targetStatus);
-                      Alert.alert("🔧 Dev Mode Switcher", `Status berhasil diubah ke: ${targetStatus ? "PREMIUM 👑" : "FREE 🚗"}`);
-                    }}
-                    style={{ backgroundColor: isPremium ? '#F5A623' : '#4ECDC4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                    <Text style={{ color: '#0D1B2A', fontSize: 10, fontWeight: '900' }}>{isPremium ? "SET FREE" : "SET PREMIUM"}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* ☁️ STATUS CLOUD MINIMALIS DI POJOK KANAN ATAS */}
-              {appModeState === 'online' && (
-                <View style={{ 
-                  flexDirection: 'row', 
-                  alignItems: 'center', 
-                  gap: 6, 
-                  backgroundColor: 'rgba(78, 205, 196, 0.05)', 
-                  paddingHorizontal: 12, 
-                  paddingVertical: 8, 
-                  borderRadius: 12, 
-                  borderWidth: 1, 
-                  borderColor: 'rgba(78, 205, 196, 0.2)' 
-                }}>
-                  <Text style={{ fontSize: 12 }}>☁️</Text>
-                  <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '700' }}>Cloud: Terhubung</Text>
-                </View>
-              )}
-            </View>
-
             {/* 🚗 PERCABANGAN UX 1: JIKA USER TEKAN KELUAR CLOUD / MEMILIH MODE OFFLINE TAMU */}
             {appModeState === 'local' ? (
               <TouchableOpacity
@@ -1961,15 +1929,26 @@ const handleBackupExport = async () => {
               <>
   {/* 🚀 TAMBAHKAN TOMBOL KONTROL EDIT REGIONAL KHUSUS USER OFFLINE/TAMU */}
   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingHorizontal: 5 }}>
-    <Text style={{ color: '#4ECDC4', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 }}>⚙️ CONFIG REGIONAL LOKAL</Text>
-    <TouchableOpacity 
-      onPress={() => setEditRegionalLocal(!editRegionalLocal)}
-      style={{ backgroundColor: editRegionalLocal ? '#4ECDC4' : 'rgba(255,255,255,0.05)', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 8 }}
-    >
-      <Text style={{ color: editRegionalLocal ? '#0D1B2A' : '#FFF', fontSize: 10, fontWeight: '800' }}>
-        {editRegionalLocal ? '🔐 KUNCI' : '🛠️ UBAH UNIT'}
-      </Text>
-    </TouchableOpacity>
+    <Text style={{ color: '#4ECDC4', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 }}>Informasi Profile</Text>
+
+    {/* ☁️ STATUS CLOUD MINIMALIS DI POJOK KANAN ATAS */}
+              {appModeState === 'online' && (
+                <View style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  gap: 6, 
+                  backgroundColor: 'rgba(78, 205, 196, 0.05)', 
+                  paddingHorizontal: 12, 
+                  paddingVertical: 8, 
+                  borderRadius: 12, 
+                  borderWidth: 1, 
+                  borderColor: 'rgba(78, 205, 196, 0.2)' 
+                }}>
+                  <Text style={{ fontSize: 12 }}>☁️</Text>
+                  <Text style={{ color: '#4ECDC4', fontSize: 12, fontWeight: '700' }}>Cloud: Terhubung</Text>
+                </View>
+              )}
+              
   </View>
 
   {/* 📦 KOTAK PROFIL UTAMA (DI-REMASTER MENJADI 2 KOLOM) */}
@@ -2191,8 +2170,10 @@ const handleBackupExport = async () => {
 </>
             )}
 
-            {/* SISA COMPONENT MEMUAT GRAFIK, BANNER, DAN MENU BAWAHAN ASLI */}
-            <PremiumSection onOpenPremiumPage={() => { setActivePrefillFeature(null); setPremiumModalVisible(true); }} />
+            <PremiumSection 
+              onOpenPremiumPage={() => { setActivePrefillFeature(null); setPremiumModalVisible(true); }} 
+              appModeState={appModeState} 
+            />
 
             {/* Action Buttons */}
             <View style={{ marginTop: 16, gap: 12 }}>

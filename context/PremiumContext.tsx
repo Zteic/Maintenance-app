@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { AppState } from 'react-native'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/utils/supabaseClient';
 
@@ -138,15 +139,30 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
+      // 3. 🚀 TAMBAHAN: Listener saat Aplikasi kembali dari Background (Foreground Sync)
+      const appStateSubscription = AppState.addEventListener('change', async (nextAppState) => {
+        if (nextAppState === 'active' && isMounted) {
+          console.log('📱 Aplikasi aktif kembali dari background, cek ulang status membership...');
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            // Refresh data premium secara diam-diam di background
+            await fetchMembershipFromServer(session.user.id);
+          }
+        }
+      });
+
+      // Cleanup function yang direturn oleh initializeAndListenAuth
       return () => {
         subscription.unsubscribe();
+        appStateSubscription.remove(); // 👈 Jangan lupa hapus listener AppState saat komponen unmount
       };
     };
 
-    initializeAndListenAuth();
+    const cleanup = initializeAndListenAuth();
 
     return () => {
       isMounted = false;
+      cleanup.then(clean => clean && clean());
     };
   }, []);
 
@@ -156,6 +172,17 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
+        // 🔧 FIX: Izinkan pergantian UI lokal khusus untuk DEV Mode saat offline
+        if (__DEV__) {
+          setIsPremiumState(status);
+          setMembershipDetails(prev => ({
+            ...prev,
+            status: status ? 'Premium' : 'Basic',
+            type: status ? premiumType : null,
+          }));
+          return true;
+        }
+
         console.error("Gagal update membership: User tidak sedang login cloud.");
         return false;
       }

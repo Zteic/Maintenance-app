@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions,Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePremium } from '@/context/PremiumContext';
 
@@ -7,10 +7,14 @@ const { width } = Dimensions.get('window');
 
 interface PremiumSectionProps {
   onOpenPremiumPage: () => void;
+  appModeState: 'local' | 'online'; 
 }
 
-export default function PremiumSection({ onOpenPremiumPage }: PremiumSectionProps) {
-  const { isPremium } = usePremium();
+// 3. 👈 Panggil appModeState di sini
+export default function PremiumSection({ onOpenPremiumPage, appModeState }: PremiumSectionProps) {
+  
+  // 4. 👈 Ambil setIsPremium dari context
+  const { isPremium, setIsPremium } = usePremium();
 
   if (isPremium) {
     return (
@@ -48,7 +52,24 @@ export default function PremiumSection({ onOpenPremiumPage }: PremiumSectionProp
       >
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.brandTextFree}>GarasiKu Member</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Text style={styles.brandTextFree}>GarasiKu Member</Text>
+
+              {/* 🔧 TOMBOL DEV */}
+              {__DEV__ && appModeState === 'local' && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={async () => {
+                    const targetStatus = !isPremium;
+                    await setIsPremium(targetStatus);
+                    Alert.alert("🔧 Dev Mode Switcher", `Status berhasil diubah ke: ${targetStatus ? "PREMIUM 👑" : "FREE 🚗"}`);
+                  }}
+                  style={{ backgroundColor: isPremium ? '#F5A623' : '#4ECDC4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                  <Text style={{ color: '#0D1B2A', fontSize: 10, fontWeight: '900' }}>{isPremium ? "SET FREE" : "SET PREMIUM"}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            
             <Text style={styles.subTitleFree}>Akun Standar</Text>
           </View>
           <View style={styles.badgeFree}>
