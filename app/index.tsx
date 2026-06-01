@@ -2284,9 +2284,6 @@ const handleBackupExport = async () => {
         )}
 
       </View>
-      {/* ==================================================================== */}
-      {/* 🚀 OPTIMASI HP KENTANG (TAHAP 3): Dinamis Render untuk Menghemat RAM */}
-      {/* ==================================================================== */}
       {showAddSheet && (
         <AddRepairSheet
           visible={showAddSheet}
@@ -2302,16 +2299,26 @@ const handleBackupExport = async () => {
             setEditingRepair(null);
             setPrefillServiceType(undefined);
           }}
-          onSave={async (formData) => {
+           onSave={async (formData) => {
             const vId = selectedVehicleId;
             const isEdit = editingRepair && editingRepair.id && !editingRepair.id.includes("temp");
             const targetRepairId = isEdit ? editingRepair.id : `rep${Date.now()}`;
+
+            // 🚀 REVISI UTAMA: Mengunci nilai agar tetap 0 jika kosong, tanpa jatuh kembali ke angka default (5000)
+            let parsedNextInterval = 0;
+            if (formData.nextIntervalKm !== undefined && formData.nextIntervalKm !== null) {
+              const rawVal = formData.nextIntervalKm.toString().trim();
+              if (rawVal !== "" && rawVal !== "0") {
+                parsedNextInterval = Number(rawVal) || 0; // 🎯 Mengikuti inputan murni pengguna tanpa fallback ke 5000
+              }
+            }
 
             const newRepair: RepairEntry = {
               ...formData,
               id: targetRepairId,
               vehicleId: vId,
               date: formData.date || new Date().toISOString().split("T")[0],
+              nextIntervalKm: parsedNextInterval, // Nilai 0 tersimpan murni
             };
 
             // 1. Eksekusi Mutasi State RAM Utama
@@ -2321,18 +2328,18 @@ const handleBackupExport = async () => {
               setRepairs((prev) => [newRepair, ...prev]);
             }
 
-            if (!saveToHistoryOnly) {
+            // Target pengingat tracker odo hanya berjalan jika interval yang diinput di atas 0
+            if (!saveToHistoryOnly && parsedNextInterval > 0) {
               setReminders((prev) =>
                 prev.map((rem) => {
                   const isMatch = rem.serviceType.toLowerCase() === formData.serviceType.toLowerCase();
                   if (isMatch && rem.vehicleId === vId) {
                     const odo = Number(formData.odometer);
-                    const interval = Number(formData.nextIntervalKm) || 10000;
                     return {
                       ...rem,
                       lastServiceOdometer: odo,
-                      dueOdometer: odo + interval,
-                      intervalKm: interval,
+                      dueOdometer: odo + parsedNextInterval,
+                      intervalKm: parsedNextInterval,
                       status: "safe",
                       lastServiceDate: new Date().toISOString(),
                     };
@@ -2342,7 +2349,7 @@ const handleBackupExport = async () => {
               );
             }
 
-            // 2. JALUR HYBRID CLOUD SYNC & FALLBACK OFFLINE STORAGE
+            // 2. JALUR CLOUD SYNC ONLY
             try {
               const currentMode = await AsyncStorage.getItem('garasiku_app_mode');
               if (currentMode === 'online') {
@@ -2359,7 +2366,7 @@ const handleBackupExport = async () => {
                     cost: Number(formData.cost),
                     workshop: formData.workshop || "",
                     notes: formData.notes || "",
-                    next_interval_km: Number(formData.nextIntervalKm) || 10000
+                    next_interval_km: parsedNextInterval // Angka 0 terkirim murni ke Supabase cloud
                   };
 
                   const { error: cloudErr } = isEdit
@@ -2370,23 +2377,10 @@ const handleBackupExport = async () => {
                 }
               }
             } catch (err: any) {
-              console.error("⚠️ Gagal sinkronisasi cloud servis, mencadangkan ke lokal:", err.message);
+              console.error("⚠️ Gagal sinkronisasi cloud servis:", err.message);
             }
 
-            // 🗄️ FALLBACK ASYNCSTORAGE
-            try {
-              const currentLocalRepairs = await AsyncStorage.getItem('garasi_repairs');
-              let localRepairsList = currentLocalRepairs ? JSON.parse(currentLocalRepairs) : [];
-              if (isEdit) {
-                localRepairsList = localRepairsList.map((r: any) => r.id === editingRepair.id ? newRepair : r);
-              } else {
-                localRepairsList.unshift(newRepair);
-              }
-              await AsyncStorage.setItem('garasi_repairs', JSON.stringify(localRepairsList));
-            } catch (localErr) {
-              console.error("Gagal menulis ke AsyncStorage:", localErr);
-            }
-
+            // 3. Notifikasi Audit Internal
             addNotification(
               isEdit ? 'UPDATE' : 'ADD',
               lang === "id" ? (isEdit ? "Servis Diperbarui" : "Servis Ditambahkan") : (isEdit ? "Service Updated" : "Service Added"),
@@ -2395,6 +2389,7 @@ const handleBackupExport = async () => {
               vId
             );
 
+            // 4. Feedback Visual Lintas Platform
             if (Platform.OS === 'web') {
               window.alert(lang === "id" ? "✅ Data servis berhasil disimpan!" : "✅ Service data successfully saved!");
             } else {
@@ -2455,7 +2450,7 @@ const handleBackupExport = async () => {
               setFuelEntries((prev) => [...prev, fullFuelEntry]);
             }
 
-            // 2. JALUR HYBRID CLOUD SYNC & FALLBACK OFFLINE STORAGE
+            // 2. JALUR HYBRID CLOUD SYNC
             try {
               const currentMode = await AsyncStorage.getItem('garasiku_app_mode');
               
@@ -2493,28 +2488,14 @@ const handleBackupExport = async () => {
                     : await supabase.from('fuels').insert(fuelPayload);
 
                   if (fuelCloudErr) throw fuelCloudErr;
-                  console.log("✅ Berhasil mengamankan log pengisian BBM beserta foto ke cloud.");
+                  console.log("✅ Berhasil mengamankan log pengisian BBM ke cloud.");
                 }
               }
             } catch (fuelErr: any) {
-              console.error("⚠️ Gagal sinkronisasi cloud bensin, beralih cadangan:", fuelErr.message);
+              console.error("⚠️ Gagal sinkronisasi cloud bensin:", fuelErr.message);
             }
 
-            // 🗄️ FALLBACK ASYNCSTORAGE
-            try {
-              const currentLocalFuels = await AsyncStorage.getItem('garasi_fuel_entries');
-              let localFuelsList = currentLocalFuels ? JSON.parse(currentLocalFuels) : [];
-              
-              if (isEdit) {
-                localFuelsList = localFuelsList.map((f: any) => f.id === editingFuel.id ? fullFuelEntry : f);
-              } else {
-                localFuelsList.unshift(fullFuelEntry);
-              }
-              await AsyncStorage.setItem('garasi_fuel_entries', JSON.stringify(localFuelsList));
-            } catch (localFuelErr) {
-              console.error("Gagal menulis log bensin ke AsyncStorage:", localFuelErr);
-            }
-
+            // 3. Tambah notifikasi audit sistem internal menggunakan variabel bensin yang valid
             addNotification(
               isEdit ? 'UPDATE' : 'ADD',
               lang === "id" ? (isEdit ? "Catatan Bensin Diperbarui" : "Bensin Ditambahkan") : (isEdit ? "Fuel Record Updated" : "Fuel Added"),
@@ -2523,6 +2504,7 @@ const handleBackupExport = async () => {
               selectedVehicleId
             );
 
+            // 4. Notifikasi visual lintas perangkat (Mobile & Web Browser)
             if (Platform.OS === 'web') {
               window.alert(lang === "id" ? "✅ Catatan bensin berhasil disimpan!" : "✅ Fuel log saved successfully!");
             } else {
@@ -2535,6 +2517,7 @@ const handleBackupExport = async () => {
           }}
         />
       )}
+
       <VehicleEditModal
         visible={showVehicleModal}
         vehicle={editingVehicle}

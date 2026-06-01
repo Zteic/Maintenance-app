@@ -223,15 +223,33 @@ function RepairHistoryComponent({
                   </View>
                 ) : (
                   <View style={{ padding: 18, paddingTop: 0, gap: 15 }}>
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
+                    {/* 🚀 KUNCI REVISI VISUAL: Gunakan baris 100% penuh untuk menampung kedua grid secara sejajar */}
+                    <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+                      
+                      {/* 🛠️ BOX BENGKEL: Memiliki flex standar 1 agar fleksibel melebar penuh jika interval kosong */}
+                      <View style={{ 
+                        flex: 1, 
+                        backgroundColor: 'rgba(0,0,0,0.2)', 
+                        borderRadius: 12, 
+                        padding: 12 
+                      }}>
                         <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>BENGKEL</Text>
-                        <Text style={{ color: '#FFFFFF', fontSize: 13 }}>{repair.workshop || '-'}</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 13 }} numberOfLines={1}>{repair.workshop || '-'}</Text>
                       </View>
-                      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 12 }}>
-                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>NEXT INTERVAL</Text>
-                        <Text style={{ color: '#4ECDC4', fontSize: 13, fontWeight: '700' }}>+{repair.nextIntervalKm?.toLocaleString() || '0'} {distanceUnit}</Text>
-                      </View>
+                      
+                      {/* 🚀 SELEKTIF RENDER: Box kanan ini hanya akan mewujud di layar jika angka di atas 0 */}
+                      {repair.nextIntervalKm && repair.nextIntervalKm > 0 ? (
+                        <View style={{ 
+                          flex: 1, 
+                          backgroundColor: 'rgba(0,0,0,0.2)', 
+                          borderRadius: 12, 
+                          padding: 12 
+                        }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700', marginBottom: 4 }}>NEXT INTERVAL</Text>
+                          <Text style={{ color: '#4ECDC4', fontSize: 13, fontWeight: '700' }}>+{repair.nextIntervalKm.toLocaleString()} {distanceUnit}</Text>
+                        </View>
+                      ) : null}
+
                     </View>
 
                     {(repair.tirePosition || repair.tireBrand || repair.tireSize || repair.productionCode) && (

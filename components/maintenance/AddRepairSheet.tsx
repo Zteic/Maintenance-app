@@ -81,7 +81,11 @@ export default function AddRepairSheet({
   const [cost, setCost] = useState("");
   const [workshop, setWorkshop] = useState("");
   const [notes, setNotes] = useState("");
-  const [nextInterval, setNextInterval] = useState("5000");
+  const [nextInterval, setNextInterval] = useState(
+  editEntry && editEntry.nextIntervalKm && editEntry.nextIntervalKm > 0 
+    ? editEntry.nextIntervalKm.toString() 
+    : ""
+  );
   const [receiptImages, setReceiptImages] = useState<string[]>([]);
 
   const [tirePosition, setTirePosition] = useState<"front" | "rear">("front");
@@ -100,46 +104,60 @@ export default function AddRepairSheet({
     });
   }, []);
 
+  // ====================================================================
+  // 🚀 PERBAIKAN TOTAL: Penggabungan Efek Prefill & Pencegah Defisit Default 5000
+  // ====================================================================
   useEffect(() => {
-  if (visible) {
-    if (editEntry) {
-      setOdometer(editEntry.odometer.toString());
-      setServiceType(editEntry.serviceType);
-      setServiceTypeInput(editEntry.serviceType);
-      setDate(new Date(editEntry.date).toISOString().split("T")[0]);
-      setCost(editEntry.cost.toString());
-      setWorkshop(editEntry.workshop);
-      
-      const { cleanNotes, receipts } = extractReceipts(editEntry.notes || "");
-      setNotes(cleanNotes);
-      setReceiptImages(receipts);
-      setNextInterval(editEntry.nextIntervalKm.toString());
+    if (visible) {
+      if (editEntry) {
+        console.log("✏️ Mode Edit: Mengisi lembar data form pengerjaan lama...");
+        setOdometer(editEntry.odometer.toString());
+        setServiceType(editEntry.serviceType);
+        setServiceTypeInput(editEntry.serviceType);
+        setDate(new Date(editEntry.date).toISOString().split("T")[0]);
+        setCost(editEntry.cost.toString());
+        setWorkshop(editEntry.workshop || "");
+        
+        const { cleanNotes, receipts } = extractReceipts(editEntry.notes || "");
+        setNotes(cleanNotes);
+        setReceiptImages(receipts);
 
-      // --- PERBAIKAN: Ambil data ban secara langsung (Flat) ---
-      setTirePosition(editEntry.tirePosition || "front");
-      setTireBrand(editEntry.tireBrand || "");
-      setTireSize(editEntry.tireSize || "");
-      setTireDotCode(editEntry.productionCode || ""); // Mengambil dari productionCode
-      
-    } else {
-      const pre = prefillServiceType || "";
-      setServiceType(pre);
-      setServiceTypeInput(pre);
-      setDate(new Date().toISOString().split("T")[0]);
-      setOdometer(currentOdometer > 0 ? currentOdometer.toString() : "");
-      setCost("");
-      setWorkshop("");
-      setNotes("");
-      setNextInterval("5000");
-      setReceiptImages([]);
-      setTirePosition("front");
-      setTireBrand("");
-      setTireSize("");
-      setTireDotCode("");
+        // 🎯 AMAN SINKRON: Jika bernilai 0 atau tidak ada, biarkan string kosong (""), jangan dipaksa ke "5000"
+        setNextInterval(
+          editEntry.nextIntervalKm && editEntry.nextIntervalKm > 0 
+            ? editEntry.nextIntervalKm.toString() 
+            : ""
+        );
+
+        // Ambil data ban secara langsung dan aman (Flat)
+        setTirePosition((editEntry as any).tirePosition || "front");
+        setTireBrand((editEntry as any).tireBrand || "");
+        setTireSize((editEntry as any).tireSize || "");
+        setTireDotCode((editEntry as any).productionCode || "");
+        
+      } else {
+        console.log("📝 Mode Catat Baru: Menginisialisasi form kosong murni...");
+        const pre = prefillServiceType || "";
+        setServiceType(pre);
+        setServiceTypeInput(pre);
+        setDate(new Date().toISOString().split("T")[0]);
+        setOdometer(currentOdometer > 0 ? currentOdometer.toString() : "");
+        setCost("");
+        setWorkshop("");
+        setNotes("");
+        
+        // REVISI UTAMA: Saat catat baru, default-kan ke kosong agar opsional diisi, bukan 5000
+        setNextInterval(""); 
+        
+        setReceiptImages([]);
+        setTirePosition("front");
+        setTireBrand("");
+        setTireSize("");
+        setTireDotCode("");
+      }
+      setShowServicePicker(false);
     }
-    setShowServicePicker(false);
-  }
-}, [visible, editEntry]); // PrefillServiceType opsional di sini agar tidak reset saat mengetik
+  }, [visible, editEntry, prefillServiceType, currentOdometer]); // 👈 Dependensi dikunci aman
 
   function extractReceipts(notes: string): {
     cleanNotes: string;
@@ -212,6 +230,12 @@ export default function AddRepairSheet({
     const finalType = serviceTypeInput.trim() || (isId ? "Servis Umum" : "General Service");
     saveNewCustomType(finalType);
 
+    // 🚀 SAKLAR TERAMAN JALUR AMANKAN TANGKI INTERVAL:
+    const cleanIntervalStr = nextInterval ? nextInterval.toString().trim() : "";
+    const finalNextIntervalKm = (cleanIntervalStr !== "" && cleanIntervalStr !== "0")
+      ? parseInt(cleanIntervalStr.replace(/[^0-9]/g, ""), 10) || 0
+      : 0;
+
     const entry: any = {
       vehicleId,
       serviceType: finalType,
@@ -222,7 +246,7 @@ export default function AddRepairSheet({
       notes: receiptImages.length > 0
         ? `${notes}\n[receipts:${receiptImages.join(",")}]`
         : notes,
-      nextIntervalKm: parseInt(nextInterval.replace(/[^0-9]/g, ""), 10) || 5000,
+      nextIntervalKm: finalNextIntervalKm, // 🎯 Menyimpan angka 0 murni ke server jika dikosongkan
       
       tirePosition: showTireFields ? tirePosition : undefined,
       tireBrand: showTireFields ? tireBrand.trim() : undefined,
