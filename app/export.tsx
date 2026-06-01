@@ -10,9 +10,12 @@ import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Print from 'expo-print';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PremiumPurchaseModal from "@/components/Premium/PremiumPurchaseModal";
+import { usePremium } from '@/context/PremiumContext';
 import { useLanguage } from "@/context/LanguageContext";
 import { apiService } from '@/utils/apiService';
 import { supabase } from '@/utils/supabaseClient';
+
 
 const { width } = Dimensions.get('window');
 
@@ -34,6 +37,8 @@ export default function ExportScreen() {
   const router = useRouter();
   const { lang } = useLanguage ? useLanguage() : { lang: 'id' };
   const isId = lang === 'id';
+  const { isPremium } = usePremium(); // 🚀 Mengambil status langganan sejati pengguna
+  const [premiumModalVisible, setPremiumModalVisible] = useState(false); // State pemicu modal billing jika belum premium
   
   // Data Master State
   const [vehicles, setVehicles] = useState<any[]>([]);
@@ -1545,11 +1550,36 @@ export default function ExportScreen() {
                       <Text style={styles.selectorDesc}>Hanya Dashboard & Analisa Insight. Sangat ringan.</Text>
                     </TouchableOpacity>
 
+                    {/* 🔒 PREMIUM GATEWAY: Proteksi Selektor Hybrid Report */}
                     <TouchableOpacity 
                       activeOpacity={0.9}
-                      onPress={() => setPdfReportType('hybrid')} 
-                      style={[styles.selectorCard, pdfReportType === 'hybrid' && styles.selectorActive]}
+                      onPress={() => {
+                        if (!isPremium) {
+                          // 💳 Jika pengguna masih BASIC, kunci akses dan paksa buka modal pembelian premium
+                          if (Platform.OS === 'web') {
+                            window.alert("🔒 Fitur Premium: Hybrid Report (Statistik + Tabel Audit) memerlukan akun Premium GarasiKu.");
+                          }
+                          setPremiumModalVisible(true);
+                          return;
+                        }
+                        
+                        // ✅ Jika sudah PREMIUM, izinkan memilih jenis laporan hybrid
+                        setPdfReportType('hybrid');
+                      }} 
+                      style={[
+                        styles.selectorCard, 
+                        pdfReportType === 'hybrid' && styles.selectorActive,
+                        // UX Tweaks: Beri sedikit indikator visual redup/transparansi tipis jika akun masih basic sebagai pembeda
+                        !isPremium && { opacity: 0.65, borderColor: 'rgba(245,166,35,0.15)' }
+                      ]}
                     >
+                      {/* Tampilkan Ikon Mahkota/Gembok kecil di pojok kanan atas sebagai tanda fitur premium */}
+                      <View style={{ position: 'absolute', top: 12, right: 14 }}>
+                        <Text style={{ fontSize: 11, color: isPremium ? '#4ECDC4' : '#F5A623', fontWeight: '900' }}>
+                          {isPremium ? '💎' : '🔒 PREMIUM'}
+                        </Text>
+                      </View>
+
                       <Text style={styles.selectorEmoji}>⚡</Text>
                       <Text style={styles.selectorTitle}>Hybrid Report</Text>
                       <Text style={styles.selectorDesc}>Dashboard Statistik + Lampiran Audit tabel di akhir file.</Text>
@@ -1637,6 +1667,17 @@ export default function ExportScreen() {
           </View>
         </View>
       )}
+
+    {/* 💳 MODAL BILLING PEMBELIAN PREMIUM GARASIKU */}
+      <PremiumPurchaseModal
+        visible={premiumModalVisible}
+        prefillFeature={{
+          name: "Hybrid Report PDF",
+          desc: "Membuka opsi ekspor kombinasi grafik infografis visual beserta tabel audit transaksi penuh."
+        }}
+        onClose={() => setPremiumModalVisible(false)} 
+      />
+
     </View>
   );
 }
