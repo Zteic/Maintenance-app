@@ -222,7 +222,7 @@ export default function LoginScreen() {
 
       {/* 🚗 Tombol Opsi Masuk Tanpa Akun */}
       <TouchableOpacity style={styles.offlineButton} onPress={handleOfflineMode}>
-        <Text style={styles.offlineButtonText}>🚗 Gunakan Mode Offline (Tanpa Akun)</Text>
+        <Text style={styles.offlineButtonText}>Mode Offline (Tanpa Akun)</Text>
       </TouchableOpacity>
     </View>
   );
