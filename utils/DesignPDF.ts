@@ -3,6 +3,8 @@
 interface PdfTemplateProps {
   filteredRepairs: any[];
   filteredFuels: any[];
+  filteredTaxes: any[]; // <--- TAMBAHKAN INI
+  includeTaxInPdf: boolean;
   vehicles: any[];
   selectedVehicles: string[];
   pdfReportType: 'summary' | 'hybrid';
@@ -16,6 +18,8 @@ interface PdfTemplateProps {
 export const generatePdfTemplate = ({
   filteredRepairs,
   filteredFuels,
+  filteredTaxes, // <--- TAMBAHKAN INI
+  includeTaxInPdf,
   vehicles,
   selectedVehicles,
   pdfReportType,
@@ -25,6 +29,8 @@ export const generatePdfTemplate = ({
   CURRENT_APP_NAME,
   CURRENT_SCHEMA_VERSION
 }: PdfTemplateProps): string => {
+
+  const taxesToInclude = includeTaxInPdf ? filteredTaxes : []; // <--- TAMBAHKAN Variabel Ini
   
   const currentYear = new Date().getFullYear();
   const exportedVehicles = selectedVehicles.includes('all') 
@@ -35,9 +41,11 @@ export const generatePdfTemplate = ({
   const vehicleStats = exportedVehicles.map(v => {
     const vRepairs = filteredRepairs.filter(r => r.vehicleId === v.id);
     const vFuels = filteredFuels.filter(f => f.vehicleId === v.id);
+    const vTaxes = taxesToInclude.filter(t => t.vehicle_id === v.id); // <--- TAMBAHKAN INI
 
     const vTotalService = vRepairs.reduce((sum, r) => sum + (r.cost || 0), 0);
     const vTotalFuel = vFuels.reduce((sum, f) => sum + (f.totalCost || 0), 0);
+    const vTotalTax = vTaxes.reduce((sum, t) => sum + (t.total_pembayaran || 0), 0);
     
     const vOdos = [...vRepairs.map(r => r.odometer), ...vFuels.map(f => f.odometer)].filter(o => o > 0);
     let vMaxService = { serviceType: "-", cost: 0 };
@@ -48,7 +56,7 @@ export const generatePdfTemplate = ({
 
     return {
       name: v.name, brand: v.brand, model: v.model, plate: v.plateNumber,
-      vTotalExpense: vTotalService + vTotalFuel,
+      vTotalExpense: vTotalService + vTotalFuel + vTotalTax,
       vFuelCount: vFuels.length,
       vFuelLiters: vFuels.reduce((sum, f) => sum + (f.liters || 0), 0),
       vServiceCount: vRepairs.length,
@@ -61,12 +69,24 @@ export const generatePdfTemplate = ({
 
   const totalFuelCost = filteredFuels.reduce((sum, item) => sum + (item.totalCost || 0), 0);
   const totalServiceCost = filteredRepairs.reduce((sum, item) => sum + (item.cost || 0), 0);
-  const totalExpense = totalFuelCost + totalServiceCost;
+  const totalTaxCost = taxesToInclude.reduce((sum, item) => sum + (item.total_pembayaran || 0), 0); // <--- TAMBAHKAN INI
+  const totalExpense = totalFuelCost + totalServiceCost + totalTaxCost;
 
   // 2. KUMPULKAN TIMELINE AKTIVITAS BULANAN
   const allActivities = [
     ...filteredRepairs.map(r => ({ ...r, type: 'SERVICE', icon: '🛠️', title: r.serviceType, displayCost: r.cost, vehicleName: vehicles.find(v => v.id === r.vehicleId)?.name || '-' })),
-    ...filteredFuels.map(f => ({ ...f, type: 'FUEL', icon: '⛽', title: `${isId ? 'Isi Bensin' : 'Fuel Fill'} ${f.liters.toFixed(1)}L`, displayCost: f.totalCost, vehicleName: vehicles.find(v => v.id === f.vehicleId)?.name || '-' }))
+    ...filteredFuels.map(f => ({ ...f, type: 'FUEL', icon: '⛽', title: `${isId ? 'Isi Bensin' : 'Fuel Fill'} ${f.liters.toFixed(1)}L`, displayCost: f.totalCost, vehicleName: vehicles.find(v => v.id === f.vehicleId)?.name || '-' })), // <--- TAMBAHKAN KOMA DI UJUNG BARIS INI
+    // TAMBAHKAN BLOK PAJAK INI:
+    ...taxesToInclude.map(t => ({ 
+      ...t, 
+      date: t.payment_date, 
+      odometer: 0, 
+      type: 'TAX', 
+      icon: '🏛️', 
+      title: t.payment_type === 'five_year_stnk' ? 'Pajak & STNK 5 Tahunan' : 'Pajak Tahunan', 
+      displayCost: t.total_pembayaran, 
+      vehicleName: vehicles.find(v => v.id === t.vehicle_id)?.name || '-' 
+    }))
   ].sort((a, b) => b.date.localeCompare(a.date));
 
   const groupedByMonth: Record<string, { items: any[], total: number }> = {};
@@ -80,6 +100,7 @@ export const generatePdfTemplate = ({
 
   const fuelPct = totalExpense > 0 ? Math.round((totalFuelCost / totalExpense) * 100) : 0;
   const servPct = totalExpense > 0 ? Math.round((totalServiceCost / totalExpense) * 100) : 0;
+  const taxPct = totalExpense > 0 ? Math.round((totalTaxCost / totalExpense) * 100) : 0; // <--- TAMBAHKAN INI
   const formatRp = (num: number) => `Rp ${num.toLocaleString('id-ID')}`;
   const showVehicleBadge = selectedVehicles.includes('all') || selectedVehicles.length > 1;
   
@@ -259,6 +280,7 @@ export const generatePdfTemplate = ({
       .bar-track { flex: 1; background: #e1e8ed; height: 10px; border-radius: 5px; overflow: hidden; margin: 0 15px; }
       .bar-fill.fuel { background: #4ECDC4; height: 100%; width: ${fuelPct}%; }
       .bar-fill.serv { background: #F5A623; height: 100%; width: ${servPct}%; }
+      .bar-fill.tax { background: #9B59B6; height: 100%; width: ${taxPct}%; }
       .bar-val { min-width: 90px; white-space: nowrap; padding-left: 10px; font-size: 12px; text-align: right; font-weight: 800; color: #0D1B2A; }
       .insight-card { background: rgba(245, 166, 35, 0.05); border: 1px dashed #F5A623; border-radius: 12px; padding: 15px; margin-bottom: 25px; display: flex; gap: 15px; }
       .insight-item { flex: 1; }

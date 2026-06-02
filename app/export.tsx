@@ -48,7 +48,8 @@ export default function ExportScreen() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [repairs, setRepairs] = useState<any[]>([]);
   const [fuels, setFuels] = useState<any[]>([]);
-  
+  const [taxes, setTaxes] = useState<any[]>([]);
+
   // UI & Filter State
   const [mode, setMode] = useState<'backup' | 'pdf' | 'import'>('backup');
   const [selectedVehicles, setSelectedVehicles] = useState<string[]>(['all']);
@@ -144,18 +145,20 @@ export default function ExportScreen() {
     }
   };
 
-  // Load Data dari Local Storage saat masuk halaman
+ // Load Data dari Local Storage saat masuk halaman
   useEffect(() => {
     const loadAllData = async () => {
       try {
-        const [vRaw, rRaw, fRaw] = await Promise.all([
+        const [vRaw, rRaw, fRaw, tRaw] = await Promise.all([
           AsyncStorage.getItem('garasi_vehicles'),
           AsyncStorage.getItem('garasi_repairs'),
-          AsyncStorage.getItem('garasi_fuel_entries')
+          AsyncStorage.getItem('garasi_fuel_entries'),
+          AsyncStorage.getItem('garasi_tax_history') // <-- PASTIKAN INI ADA
         ]);
         if (vRaw) setVehicles(JSON.parse(vRaw));
         if (rRaw) setRepairs(JSON.parse(rRaw));
         if (fRaw) setFuels(JSON.parse(fRaw));
+        if (tRaw) setTaxes(JSON.parse(tRaw)); // <-- PASTIKAN INI ADA
       } catch (e) {
         console.log("Error loading data for export", e);
       }
@@ -209,7 +212,8 @@ export default function ExportScreen() {
   const currentYear = new Date().getFullYear();
   const availableYears = Array.from(new Set([
     ...repairs.map(r => new Date(r.date).getFullYear()),
-    ...fuels.map(f => new Date(f.date).getFullYear())
+    ...fuels.map(f => new Date(f.date).getFullYear()),
+    ...taxes.map(t => new Date(t.payment_date).getFullYear())
   ])).filter(y => !isNaN(y) && y < currentYear).sort((a,b) => b - a);
 
   const periodOptions = ['all', 'this_month', 'last_3_months', 'this_year', ...availableYears.map(String), 'custom'];
@@ -246,10 +250,12 @@ export default function ExportScreen() {
   const getFilteredData = () => {
     let filteredRepairs = [...repairs];
     let filteredFuels = [...fuels];
+    let filteredTaxes = [...taxes];
 
     if (!selectedVehicles.includes('all')) {
       filteredRepairs = filteredRepairs.filter(r => selectedVehicles.includes(r.vehicleId));
       filteredFuels = filteredFuels.filter(f => selectedVehicles.includes(f.vehicleId));
+      filteredTaxes = filteredTaxes.filter(t => selectedVehicles.includes(t.vehicle_id));
     }
 
     const now = new Date();
@@ -285,19 +291,26 @@ export default function ExportScreen() {
 
     filteredRepairs = filteredRepairs.filter(r => filterByDateRange(r.date));
     filteredFuels = filteredFuels.filter(f => filterByDateRange(f.date));
+    filteredTaxes = filteredTaxes.filter(t => filterByDateRange(t.payment_date));
 
-    if (exportCategory === 'fuel') filteredRepairs = [];
-    if (exportCategory === 'service') filteredFuels = [];
+    if (exportCategory === 'fuel') { filteredRepairs = []; filteredTaxes = []; } // <--- UBAH JADI GINI
+    if (exportCategory === 'service') { filteredFuels = []; filteredTaxes = []; } // <--- UBAH JADI GINI
+    if (exportCategory === 'tax_only') { filteredRepairs = []; filteredFuels = []; } // <--- TAMBAHKAN INI
 
-    return { filteredRepairs, filteredFuels };
+    return { filteredRepairs, filteredFuels, filteredTaxes }; // <--- UBAH JADI GINI
   };
 
-  const { filteredRepairs, filteredFuels } = getFilteredData();
-  const estimatedSize = ((JSON.stringify(filteredRepairs).length + JSON.stringify(filteredFuels).length) / 1024).toFixed(1);
+  const { filteredRepairs, filteredFuels, filteredTaxes } = getFilteredData();
+  
+  // Tambahkan JSON.stringify(filteredTaxes) di bawah ini:
+  const estimatedSize = ((JSON.stringify(filteredRepairs).length + JSON.stringify(filteredFuels).length + JSON.stringify(filteredTaxes).length) / 1024).toFixed(1);
+  
   const vehicleName = selectedVehicles.includes('all') 
   ? (isId ? "Semua Kendaraan" : "All Vehicles") 
   : vehicles.filter(v => selectedVehicles.includes(v.id)).map(v => v.name).join(', ');
-  const isDataEmpty = filteredRepairs.length === 0 && filteredFuels.length === 0;
+  
+  // Pastikan filteredTaxes.length === 0 masuk ke dalam pengecekan ini:
+  const isDataEmpty = filteredRepairs.length === 0 && filteredFuels.length === 0 && filteredTaxes.length === 0;
 
   // ==========================================
   // HYBRID PDF GENERATOR ENGINE (MENGGUNAKAN DESIGNPDF)
@@ -318,6 +331,8 @@ export default function ExportScreen() {
       const htmlContent = generatePdfTemplate({
         filteredRepairs,
         filteredFuels,
+        filteredTaxes, // <--- TAMBAHKAN INI
+        includeTaxInPdf, // <--- TAMBAHKAN INI
         vehicles,
         selectedVehicles,
         pdfReportType,
@@ -1188,6 +1203,10 @@ export default function ExportScreen() {
                       <Text style={styles.previewVal}>{filteredFuels.length} Data</Text>
                     </View>
                     <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>Riwayat Pajak Tersaring</Text>
+                      <Text style={styles.previewVal}>{filteredTaxes.length} Data</Text>
+                    </View>
+                    <View style={styles.previewRow}>
                       <Text style={styles.previewLabel}>Estimasi Ukuran Log</Text>
                       <Text style={styles.previewVal}>{estimatedSize} KB</Text>
                     </View>
@@ -1211,12 +1230,7 @@ export default function ExportScreen() {
                     if (mode === 'backup') {
                       handleExportBackup();
                     } else {
-                      // 🏛️ PEMICU SELEKTIF: Jika memilih 'Hanya Pajak', alihkan ke mesin cetak dokumen resmi SAMSAT
-                      if (exportCategory === 'tax_only') {
-                        handleExportTaxPDF(); 
-                      } else {
-                        handleExportPDF(); 
-                      }
+                      handleExportPDF(); 
                     }
                   }} 
                   style={[styles.btnPrimary, isDataEmpty && mode === 'pdf' && { backgroundColor: 'rgba(78,205,196,0.3)' }]}
