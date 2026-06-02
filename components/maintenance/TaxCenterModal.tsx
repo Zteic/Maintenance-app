@@ -293,7 +293,7 @@ export default function TaxCenterModal({ visible, onClose, vehicle }: TaxCenterM
 
           {/* CARD 2: PENGATURAN INPUT (REVISI LABEL & ATURAN 5 TAHUNAN) */}
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>⚙️ Pengaturan Estimasi</Text>
+            <Text style={styles.sectionTitle}>⚙️ Mari Berhitung </Text>
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
   <TouchableOpacity 
     onPress={() => setIsManualMode(false)} 
