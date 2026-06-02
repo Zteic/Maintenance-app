@@ -194,6 +194,92 @@ export const generatePdfTemplate = ({
     </tfoot>
   `;
 
+  // 3.5. HALAMAN KHUSUS: RINCIAN DETAIL KOMPONEN PAJAK (DIPISAH)
+  let taxSectionHTML = '';
+  if (taxesToInclude.length > 0) {
+    taxSectionHTML = `
+      <div style="page-break-before: always; break-before: page;"></div>
+      <table class="report-wrapper">
+        <thead class="report-header">
+          <tr>
+            <td>
+              <div class="compact-header">
+                <div class="ch-left">
+                  <span class="ch-brand">GARASIKU</span>
+                  <span class="ch-sub">Executive Vehicle Analytics</span>
+                </div>
+                <div class="ch-center">LAPORAN RINCIAN KOMPONEN PAJAK (SAMSAT)</div>
+                <div class="ch-right"></div>
+              </div>
+            </td>
+          </tr>
+        </thead>
+        <tbody class="report-body">
+          <tr>
+            <td>
+              <p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">Berikut adalah nota rincian pengeluaran pajak SAMSAT secara menyeluruh yang terverifikasi di dalam database.</p>
+              
+              ${taxesToInclude.map(item => {
+                const isFiveYear = item.payment_type === "five_year_stnk";
+                const renderRow = (label, val) => {
+                  const num = parseFloat(val) || 0;
+                  if (num <= 0) return '';
+                  return `
+                    <tr>
+                      <td style="padding: 5px 8px; border-bottom: 1px dashed #eee; color: #7f8c8d; font-size: 11px;">${label}</td>
+                      <td style="padding: 5px 8px; border-bottom: 1px dashed #eee; text-align: right; font-weight: 600; color: #2c3e50; font-size: 11px;">${formatRp(num)}</td>
+                    </tr>
+                  `;
+                };
+
+                return `
+                  <div style="background: #fff; border: 1px solid #e1e8ed; border-radius: 12px; padding: 16px; margin-bottom: 20px; page-break-inside: avoid; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid ${isFiveYear ? '#F5A623' : '#4ECDC4'}; padding-bottom: 6px; margin-bottom: 10px;">
+                      <div>
+                        <h4 style="margin: 0; color: #0D1B2A; font-size: 12px; font-weight: 800;">🏛️ ${isFiveYear ? 'PAJAK & STNK 5 TAHUNAN' : 'PAJAK TAHUNAN'}</h4>
+                        <span style="font-size: 10px; color: #7f8c8d;">Kendaraan: <b>${vehicles.find(v => v.id === item.vehicle_id)?.name || '-'}</b></span>
+                      </div>
+                      <div style="text-align: right; font-size: 10px; color: #7f8c8d;">
+                        <span>Tanggal Bayar: <b>${item.payment_date}</b></span>
+                      </div>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+                      <tbody>
+                        ${renderRow('PKB Pokok', item.pkb_pokok)}
+                        ${renderRow('PKB Denda', item.pkb_denda)}
+                        ${renderRow('Opsen PKB', item.opsen_pkb_pokok)}
+                        ${renderRow('Opsen PKB Denda', item.opsen_pkb_denda)}
+                        ${renderRow('SWDKLLJ Pokok', item.swdkllj_pokok)}
+                        ${renderRow('SWDKLLJ Denda', item.swdkllj_denda)}
+                        ${renderRow('PNBP STNK', item.pnbp_stnk)}
+                        ${renderRow('PNBP TNKB (Plat Nomor)', item.pnbp_tnkb)}
+                        ${renderRow('Biaya Pengiriman Agen', item.biaya_pengiriman)}
+                        ${renderRow('Biaya Pemrosesan Sistem', item.biaya_pemrosesan)}
+                        
+                        <tr style="background: rgba(78,205,196,0.04); font-weight: bold;">
+                          <td style="padding: 8px; color: #0D1B2A; font-size: 11px;">TOTAL ESTIMASI BAYAR</td>
+                          <td style="padding: 8px; text-align: right; color: ${isFiveYear ? '#F5A623' : '#4ECDC4'}; font-size: 12px; font-weight: 900;">${formatRp(item.total_pembayaran)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <div style="font-size: 10px; color: #555; background: #f9fbfb; padding: 8px; border-radius: 6px; border: 1px solid #eee; line-height: 1.5;">
+                      <div>• <b>Masa Berlaku Pajak Baru:</b> ${item.new_tax_due_date}</div>
+                      ${item.new_stnk_due_date ? `<div>• <b>Masa Berlaku STNK Baru:</b> ${item.new_stnk_due_date}</div>` : ''}
+                      ${item.deskripsi ? `<div style="margin-top: 4px; font-style: italic; color: #F5A623;">Catatan: "${item.deskripsi}"</div>` : ''}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </td>
+          </tr>
+        </tbody>
+        ${runningFooterHTML}
+      </table>
+    `;
+  }
+
   let appendixHTML = '';
   if (pdfReportType === 'hybrid') {
     appendixHTML = `
@@ -233,10 +319,13 @@ export const generatePdfTemplate = ({
                     <tr>
                       <td>${new Date(item.date).toLocaleDateString('id-ID')}</td>
                       ${showVehicleBadge ? `<td>${item.vehicleName}</td>` : ''}
-                      <td><b>${item.type}</b></td>
-                      <td>${item.icon} ${item.title}</td>
-                      <td>${item.odometer.toLocaleString('id-ID')} km</td>
-                      <td>${formatRp(item.displayCost)}</td>
+                      <td><b style="color: ${item.type === 'TAX' ? '#9B59B6' : '#2c3e50'}">${item.type}</b></td>
+                      <td>
+                        <div style="font-weight: bold;">${item.icon} ${item.title}</div>
+                        ${item.deskripsi ? `<div style="font-size: 9px; color: #F5A623; font-style: italic; margin-top: 2px;">Catatan: "${item.deskripsi}"</div>` : ''}
+                      </td>
+                      <td>${item.odometer > 0 ? item.odometer.toLocaleString('id-ID') + ' km' : '-'}</td>
+                      <td><b>${formatRp(item.displayCost)}</b></td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -487,6 +576,8 @@ export const generatePdfTemplate = ({
         </tbody>
         ${runningFooterHTML}
       </table>
+
+      ${taxSectionHTML}
 
       ${appendixHTML}
 
