@@ -33,6 +33,17 @@ export default function TaxCenterModal({ visible, onClose, vehicle }: TaxCenterM
   const [njkbValue, setNjkbValue] = useState(''); 
   const [isLimaTahunan, setIsLimaTahunan] = useState(false);
 
+  // --- STATE MODE KALKULATOR ---
+  const [isManualMode, setIsManualMode] = useState(false);
+
+  // --- STATE INPUT MANUAL ---
+  const [manualPkbPokok, setManualPkbPokok] = useState('');
+  const [manualPkbDenda, setManualPkbDenda] = useState('');
+  const [manualOpsenPokok, setManualOpsenPokok] = useState('');
+  const [manualOpsenDenda, setManualOpsenDenda] = useState('');
+  const [manualSwdklljPokok, setManualSwdklljPokok] = useState('');
+  const [manualSwdklljDenda, setManualSwdklljDenda] = useState('');
+
   // --- STATE CUSTOM SIMULASI (FITUR PREMIUM) ---
   const [customDurVal, setCustomDurVal] = useState('8');
   const [customDurUnit, setCustomDurUnit] = useState<'Bulan' | 'Tahun'>('Bulan');
@@ -128,7 +139,38 @@ export default function TaxCenterModal({ visible, onClose, vehicle }: TaxCenterM
     };
   };
 
-  const currentTax = getDetailedTax(0);
+  let currentTax;
+
+  if (!isManualMode) {
+    currentTax = getDetailedTax(0);
+  } else {
+    // Parsing input manual (menghapus format Rupiah)
+    const pPokok = Number(manualPkbPokok.replace(/[^0-9]/g, '')) || 0;
+    const pDenda = Number(manualPkbDenda.replace(/[^0-9]/g, '')) || 0;
+    const oPokok = Number(manualOpsenPokok.replace(/[^0-9]/g, '')) || 0;
+    const oDenda = Number(manualOpsenDenda.replace(/[^0-9]/g, '')) || 0;
+    const sPokok = Number(manualSwdklljPokok.replace(/[^0-9]/g, '')) || 0;
+    const sDenda = Number(manualSwdklljDenda.replace(/[^0-9]/g, '')) || 0;
+
+    const totalPokokManual = pPokok + oPokok + sPokok + pnbpStnk + pnbpTnkb; // PNBP STNK/Plat tetap otomatis berdasarkan toggle 5 tahunan
+    const totalDendaManual = pDenda + oDenda + sDenda;
+
+    currentTax = {
+      pkbPokok: pPokok,
+      opsenPkbPokok: oPokok,
+      swdklljPokok: sPokok,
+      pnbpStnk, // Ambil dari variabel yg sudah ada
+      pnbpTnkb, // Ambil dari variabel yg sudah ada
+      dPkb: pDenda,
+      dOpsen: oDenda,
+      dSwdkllj: sDenda,
+      totalPokok: totalPokokManual,
+      totalDenda: totalDendaManual,
+      grandTotal: totalPokokManual + totalDendaManual,
+      isMaxPenalty: false, // Override
+      calculatedMonthsLate: currentTaxInfo.totalLateMonths
+    };
+  }
 
   // --- LOGIKA CUSTOM SIMULASI MASA DEPAN ---
   const rawDurNum = parseInt(customDurVal) || 0;
@@ -252,6 +294,19 @@ export default function TaxCenterModal({ visible, onClose, vehicle }: TaxCenterM
           {/* CARD 2: PENGATURAN INPUT (REVISI LABEL & ATURAN 5 TAHUNAN) */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>⚙️ Pengaturan Estimasi</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
+  <TouchableOpacity 
+    onPress={() => setIsManualMode(false)} 
+    style={[styles.typeBtn, !isManualMode && styles.typeBtnActive]}>
+    <Text style={[styles.typeBtnText, !isManualMode && styles.typeBtnTextActive]}>🤖 Otomatis</Text>
+  </TouchableOpacity>
+  
+  <TouchableOpacity 
+    onPress={() => setIsManualMode(true)} 
+    style={[styles.typeBtn, isManualMode && styles.typeBtnActive]}>
+    <Text style={[styles.typeBtnText, isManualMode && styles.typeBtnTextActive]}>✍️ Manual</Text>
+  </TouchableOpacity>
+</View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, marginBottom: 15 }}>
               {PROVINCES.map(prov => (
                 <TouchableOpacity key={prov} onPress={() => setSelectedProvince(prov)} style={[styles.chip, selectedProvince === prov && styles.chipActive]}>
@@ -264,11 +319,23 @@ export default function TaxCenterModal({ visible, onClose, vehicle }: TaxCenterM
               <TouchableOpacity onPress={() => setVehicleCategory('Mobil')} style={[styles.typeBtn, vehicleCategory === 'Mobil' && styles.typeBtnActive]}><Text style={[styles.typeBtnText, vehicleCategory === 'Mobil' && styles.typeBtnTextActive]}>🚙 Mobil</Text></TouchableOpacity>
             </View>
             
-            <View style={{ marginBottom: 15 }}>
-              <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>NJKB (Nilai Jual Kendaraan Bermotor)</Text>
-              <InputRupiah label="Rp" value={njkbValue} onChangeText={setNjkbValue} placeholder="Cth: 11.800.000" />
-              <Text style={styles.inputHelperText}>NJKB digunakan sebagai dasar simulasi perhitungan PKB. Nilai resmi dapat berbeda sesuai data Samsat daerah.</Text>
-            </View>
+            {!isManualMode ? (
+              <View style={{ marginBottom: 15 }}>
+                <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>NJKB (Nilai Jual Kendaraan Bermotor)</Text>
+                <InputRupiah label="Rp" value={njkbValue} onChangeText={setNjkbValue} placeholder="Cth: 11.800.000" />
+                <Text style={styles.inputHelperText}>NJKB digunakan sebagai dasar simulasi perhitungan PKB. Nilai resmi dapat berbeda sesuai data Samsat daerah.</Text>
+              </View>
+            ) : (
+              <View style={{ gap: 10, marginBottom: 15 }}>
+                <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>Input Rincian Pajak Manual</Text>
+                <InputRupiah label="PKB Pokok" value={manualPkbPokok} onChangeText={setManualPkbPokok} />
+                <InputRupiah label="Denda PKB" value={manualPkbDenda} onChangeText={setManualPkbDenda} />
+                <InputRupiah label="Opsen Pokok" value={manualOpsenPokok} onChangeText={setManualOpsenPokok} />
+                <InputRupiah label="Denda Opsen" value={manualOpsenDenda} onChangeText={setManualOpsenDenda} />
+                <InputRupiah label="SWDKLLJ Pokok" value={manualSwdklljPokok} onChangeText={setManualSwdklljPokok} />
+                <InputRupiah label="Denda SWDKLLJ" value={manualSwdklljDenda} onChangeText={setManualSwdklljDenda} />
+              </View>
+            )}
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', padding: 15, borderRadius: 12 }}>
               <View style={{ flex: 1, paddingRight: 10 }}>
