@@ -2685,42 +2685,57 @@ const handleBackupExport = async () => {
         onSave={handleVehicleSave}
         onDelete={handleVehicleDelete} />
       <Modal
-        visible={showOdoHistory}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowOdoHistory(false)}>
-        <View
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" }}>
-          <View
-            style={{ height: "70%", backgroundColor: "#0D1B2A", borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20 }}>
-            <View
-              style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <Text style={{ color: "#FFF", fontSize: 20, fontWeight: "800" }}>Riwayat Odometer</Text>
-              <TouchableOpacity
-                onPress={() => setShowOdoHistory(false)}
-                style={{ backgroundColor: "rgba(255,255,255,0.1)", padding: 10, borderRadius: 15 }}>
-                <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "bold" }}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {[...stats.vehicleRepairs.map(r => ({...r, source: 'Perbaikan', icon: '🛠️'})), ...stats.vehicleFuelEntries.map(f => ({...f, source: 'Bensin', icon: '⛽'}))]
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((item, idx) => (
-                  <View
-                    key={idx}
-                    style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 15, marginBottom: 10, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 20, marginRight: 15 }}>{item.icon}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{item.source === 'Perbaikan' ? item.serviceType : `Isi ${item.liters} Liter`}</Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>{new Date(item.date).toLocaleDateString('id-ID')}</Text>
-                    </View>
-                    <Text style={{ color: '#4ECDC4', fontWeight: '900', fontSize: 16 }}>{item.odometer.toLocaleString('id-ID')} km</Text>
-                  </View>
-                ))}
-            </ScrollView>
-          </View>
+  visible={showOdoHistory}
+  transparent
+  animationType="slide"
+  onRequestClose={() => setShowOdoHistory(false)}
+>
+  {showOdoHistory && (
+    <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" }}>
+      <View style={{ height: "70%", backgroundColor: "#0D1B2A", borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20 }}>
+        
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <Text style={{ color: "#FFF", fontSize: 20, fontWeight: "800" }}>Riwayat Odometer</Text>
+          <TouchableOpacity
+            onPress={() => setShowOdoHistory(false)}
+            style={{ backgroundColor: "rgba(255,255,255,0.1)", padding: 10, borderRadius: 15 }}
+          >
+            <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "bold" }}>✕</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {[
+            ...stats.vehicleRepairs.map(r => ({ ...r, source: 'Perbaikan', icon: '🛠️' })),
+            ...stats.vehicleFuelEntries.map(f => ({ ...f, source: 'Bensin', icon: '⛽' }))
+          ]
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .map((item, idx) => (
+              <View
+                key={idx}
+                style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 15, marginBottom: 10, alignItems: 'center' }}
+              >
+                <Text style={{ fontSize: 20, marginRight: 15 }}>{item.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#FFF', fontWeight: 'bold' }}>
+                    {item.source === 'Perbaikan' ? item.serviceType : `Isi ${item.liters} Liter`}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>
+                    {new Date(item.date).toLocaleDateString('id-ID')}
+                  </Text>
+                </View>
+                <Text style={{ color: '#4ECDC4', fontWeight: '900', fontSize: 16 }}>
+                  {item.odometer.toLocaleString('id-ID')} km
+                </Text>
+              </View>
+            ))}
+        </ScrollView>
+
+      </View>
+    </View>
+  )}
+</Modal>
+
       <Modal
         visible={showPlanModal}
         transparent

@@ -41,8 +41,7 @@ export default function ExportScreen() {
   const isId = lang === 'id';
   const { isPremium } = usePremium(); // 🚀 Mengambil status langganan sejati pengguna
   const [premiumModalVisible, setPremiumModalVisible] = useState(false); // State pemicu modal billing jika belum premium
-  const [exportCategory, setExportCategory] = useState<'all' | 'fuel' | 'service' | 'tax_only'>('all');
-  const [includeTaxInPdf, setIncludeTaxInPdf] = useState(true);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(['fuel', 'service', 'tax']);
   
   // Data Master State
   const [vehicles, setVehicles] = useState<any[]>([]);
@@ -244,6 +243,32 @@ export default function ExportScreen() {
     }
   };
 
+  // 🚀 LOGIKA MULTI-SELECTION KATEGORI DATA
+  const toggleCategory = (cat: string) => {
+    if (cat === 'all') {
+      setSelectedCategories(['fuel', 'service', 'tax']);
+    } else {
+      setSelectedCategories(prev => {
+        // Jika sebelumnya "Semua Data" aktif (ada 3 array), lalu klik opsi spesifik,
+        // maka jadikan HANYA opsi spesifik tersebut yang aktif.
+        if (prev.length === 3) {
+          return [cat];
+        }
+
+        // Toggle centang biasa
+        const isSelected = prev.includes(cat);
+        let next = isSelected ? prev.filter(c => c !== cat) : [...prev, cat];
+        
+        // Jika user uncheck semuanya sampai kosong, paksa kembali ke "Semua Data"
+        if (next.length === 0) {
+          return ['fuel', 'service', 'tax'];
+        }
+
+        return next;
+      });
+    }
+  };
+
   // =========================================================
   // CORE FILTER ENGINE (Periode & Multi-Vehicle)
   // =========================================================
@@ -289,15 +314,11 @@ export default function ExportScreen() {
       return true;
     };
 
-    filteredRepairs = filteredRepairs.filter(r => filterByDateRange(r.date));
-    filteredFuels = filteredFuels.filter(f => filterByDateRange(f.date));
-    filteredTaxes = filteredTaxes.filter(t => filterByDateRange(t.payment_date));
+    if (!selectedCategories.includes('fuel')) filteredFuels = [];
+    if (!selectedCategories.includes('service')) filteredRepairs = [];
+    if (!selectedCategories.includes('tax')) filteredTaxes = [];
 
-    if (exportCategory === 'fuel') { filteredRepairs = []; filteredTaxes = []; } // <--- UBAH JADI GINI
-    if (exportCategory === 'service') { filteredFuels = []; filteredTaxes = []; } // <--- UBAH JADI GINI
-    if (exportCategory === 'tax_only') { filteredRepairs = []; filteredFuels = []; } // <--- TAMBAHKAN INI
-
-    return { filteredRepairs, filteredFuels, filteredTaxes }; // <--- UBAH JADI GINI
+    return { filteredRepairs, filteredFuels, filteredTaxes };
   };
 
   const { filteredRepairs, filteredFuels, filteredTaxes } = getFilteredData();
@@ -332,7 +353,7 @@ export default function ExportScreen() {
         filteredRepairs,
         filteredFuels,
         filteredTaxes, // <--- TAMBAHKAN INI
-        includeTaxInPdf, // <--- TAMBAHKAN INI
+        includeTaxInPdf: selectedCategories.includes('tax'), // <--- TAMBAHKAN INI
         vehicles,
         selectedVehicles,
         pdfReportType,
@@ -1081,58 +1102,35 @@ export default function ExportScreen() {
                 <View>
                   <Text style={styles.sectionLabel}>📁 KATEGORI DATA</Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 15 }}>
-                    <TouchableOpacity activeOpacity={0.9} onPress={() => setExportCategory('all')} style={[styles.smallPill, exportCategory === 'all' && styles.smallPillActive]}>
-                      <Text style={[styles.smallPillTxt, exportCategory === 'all' && styles.smallPillTxtActive]}>Semua Data</Text>
+                    <TouchableOpacity 
+                      activeOpacity={0.9} 
+                      onPress={() => toggleCategory('all')} 
+                      style={[styles.smallPill, selectedCategories.length === 3 && styles.smallPillActive]}
+                    >
+                      <Text style={[styles.smallPillTxt, selectedCategories.length === 3 && styles.smallPillTxtActive]}>Semua Data</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity activeOpacity={0.9} onPress={() => setExportCategory('fuel')} style={[styles.smallPill, exportCategory === 'fuel' && styles.smallPillActive]}>
-                      <Text style={[styles.smallPillTxt, exportCategory === 'fuel' && styles.smallPillTxtActive]}>Hanya Bensin</Text>
+                    <TouchableOpacity 
+                      activeOpacity={0.9} 
+                      onPress={() => toggleCategory('fuel')} 
+                      style={[styles.smallPill, selectedCategories.includes('fuel') && selectedCategories.length < 3 && styles.smallPillActive]}
+                    >
+                      <Text style={[styles.smallPillTxt, selectedCategories.includes('fuel') && selectedCategories.length < 3 && styles.smallPillTxtActive]}>Bensin</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity activeOpacity={0.9} onPress={() => setExportCategory('service')} style={[styles.smallPill, exportCategory === 'service' && styles.smallPillActive]}>
-                      <Text style={[styles.smallPillTxt, exportCategory === 'service' && styles.smallPillTxtActive]}>Hanya Servis</Text>
+                    <TouchableOpacity 
+                      activeOpacity={0.9} 
+                      onPress={() => toggleCategory('service')} 
+                      style={[styles.smallPill, selectedCategories.includes('service') && selectedCategories.length < 3 && styles.smallPillActive]}
+                    >
+                      <Text style={[styles.smallPillTxt, selectedCategories.includes('service') && selectedCategories.length < 3 && styles.smallPillTxtActive]}>Servis</Text>
                     </TouchableOpacity>
-                    
-                    {/* 🚀 BARIS BARU: Tambahan tombol kategori khusus SAMSAT Pajak */}
-                    <TouchableOpacity activeOpacity={0.9} onPress={() => setExportCategory('tax_only')} style={[styles.smallPill, exportCategory === 'tax_only' && styles.smallPillActive]}>
-                      <Text style={[styles.smallPillTxt, exportCategory === 'tax_only' && styles.smallPillTxtActive]}>Hanya Pajak</Text>
+                    <TouchableOpacity 
+                      activeOpacity={0.9} 
+                      onPress={() => toggleCategory('tax')} 
+                      style={[styles.smallPill, selectedCategories.includes('tax') && selectedCategories.length < 3 && styles.smallPillActive]}
+                    >
+                      <Text style={[styles.smallPillTxt, selectedCategories.includes('tax') && selectedCategories.length < 3 && styles.smallPillTxtActive]}>Pajak</Text>
                     </TouchableOpacity>
                   </View>
-
-                  {/* 🚀 SUNTIKKAN BLOK SWITCH INI DI SINI (Hanya muncul jika memilih Semua Data) */}
-                  {exportCategory === 'all' && (
-                    <View style={{ marginTop: 2, marginBottom: 14 }}>
-                      <TouchableOpacity 
-                        activeOpacity={0.8}
-                        onPress={() => setIncludeTaxInPdf(!includeTaxInPdf)}
-                        style={{ 
-                          flexDirection: 'row', 
-                          alignItems: 'center', 
-                          backgroundColor: includeTaxInPdf ? 'rgba(78, 205, 196, 0.05)' : 'rgba(255,255,255,0.02)',
-                          padding: 12, 
-                          borderRadius: 12, 
-                          borderWidth: 1, 
-                          borderColor: includeTaxInPdf ? 'rgba(78, 205, 196, 0.25)' : 'rgba(255,255,255,0.06)' 
-                        }}
-                      >
-                        <Text style={{ fontSize: 16 }}>🏛️</Text>
-                        <Text style={{ color: '#FFF', flex: 1, fontSize: 12, fontWeight: '700', marginLeft: 10 }}>
-                          {includeTaxInPdf ? "Sertakan Laporan Pajak SAMSAT" : "Abaikan Laporan Pajak SAMSAT"}
-                        </Text>
-                        <View 
-                          style={{ 
-                            width: 36, 
-                            height: 20, 
-                            borderRadius: 10, 
-                            backgroundColor: includeTaxInPdf ? '#4ECDC4' : 'rgba(255,255,255,0.12)', 
-                            padding: 2, 
-                            justifyContent: 'center',
-                            alignItems: includeTaxInPdf ? 'flex-end' : 'flex-start' 
-                          }}
-                        >
-                          <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#0D1B2A' }} />
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-                  )}
                 </View>
 
                 <View>
@@ -1240,7 +1238,7 @@ export default function ExportScreen() {
                   <Text style={[styles.btnPrimaryTxt, isDataEmpty && mode === 'pdf' && { color: 'rgba(255,255,255,0.3)' }]}>
                     {mode === 'backup' 
                       ? (isCloudUser ? 'MULAI EKSPOR' : 'UNDUH FILE BACKUP (.VHDB)')
-                      : (exportCategory === 'tax_only' ? 'GENERATE PDF PAJAK SAMSAT' : 'GENERATE PDF LAPORAN')
+                      : (selectedCategories.length === 1 && selectedCategories.includes('tax') ? 'GENERATE PDF PAJAK SAMSAT' : 'GENERATE PDF LAPORAN')
                     }
                   </Text>
                 </TouchableOpacity>
